@@ -1,4 +1,4 @@
-import RavencoinWallet, { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import NeuraiWallet, { Wallet } from "@neuraiproject/neurai-jswallet";
 import React from "react";
 import { createRoot } from "react-dom/client";
 
@@ -19,7 +19,7 @@ import { Footer } from "./Footer";
 let _mnemonic =
   "sight rate burger maid melody slogan attitude gas account sick awful hammer";
 
-type ChainType = "rvn" | "rvn-test";
+type ChainType = "xna" | "xna-test";
 function App() {
   const [currentRoute, setCurrentRoute] = React.useState(Routes.HOME);
   const [mempool, setMempool] = React.useState<any>([]);
@@ -35,16 +35,16 @@ function App() {
 
   //At startup init wallet
   React.useEffect(() => {
-    //Override network to rvn-test if present in query string (search)
+    //Override network to xna-test if present in query string (search)
     const searchParams = new URLSearchParams(window.location.search);
-    let network: ChainType = "rvn";
-    if (searchParams.get("network") === "rvn-test") {
-      network = "rvn-test";
+    let network: ChainType = "xna";
+    if (searchParams.get("network") === "xna-test") {
+      network = "xna-test";
     }
     if (!mnemonic) {
       return;
     }
-    RavencoinWallet.createInstance({
+    NeuraiWallet.createInstance({
       mnemonic,
       network,
     }).then(setWallet);

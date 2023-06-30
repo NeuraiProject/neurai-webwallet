@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 
 export function Balance({
   wallet,
@@ -13,7 +13,7 @@ export function Balance({
   return (
     <article> 
       <h5>{wallet.baseCurrency} balance</h5>
-      <p>{balance.toLocaleString()} RVN</p>
+      <p>{balance.toLocaleString()} XNA</p>
     </article>
   );
 }

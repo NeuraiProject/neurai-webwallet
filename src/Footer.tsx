@@ -9,7 +9,7 @@ export function Footer({ signOut }) {
           Raven Rebels
         </a>
       </p>
-      <a href="https://github.com/ravenrebels/ravencoin-webwallet">
+      <a href="https://github.com/NeuraiProject/neurai-webwallet">
         Open source on GitHub
       </a>
       <br />

@@ -1,5 +1,5 @@
 import React from "react";
-import { getHistory } from "@ravenrebels/ravencoin-history-list";
+import { getHistory } from "@neuraiproject/neurai-history-list";
 
 //Keep a map/list of block by block height
 const heightToBlock = new Map();
@@ -43,7 +43,7 @@ export function History({ wallet }) {
       return null;
     }
 
-    const URL = "https://rvn.cryptoscope.io/tx/?txid=" + item.transactionId;
+    const URL = "https://xna.cryptoscope.io/tx/?txid=" + item.transactionId;
     return (
       <tr key={item.transactionId}>
         <td>

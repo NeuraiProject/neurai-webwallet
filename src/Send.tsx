@@ -1,5 +1,5 @@
 import React from "react";
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { Asset } from "./Types";
 import { QrReader } from "react-qr-reader";
 export function Send({
@@ -94,7 +94,7 @@ export function Send({
             value={asset}
           >
             <option>-</option>
-            <option value="RVN">RVN ({balance})</option>
+            <option value="XNA">XNA ({balance})</option>
             {options}
           </select>
         </label>

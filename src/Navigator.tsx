@@ -1,7 +1,7 @@
 import React from "react";
 import { Routes } from "./Routes";
 import { LightModeToggle } from "./LightModeToggle";
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 export function Navigator({
   wallet,
   currentRoute,
@@ -12,8 +12,8 @@ export function Navigator({
   setRoute: any;
 }) {
   const mappy = {
-    rvn: "Ravencoin mainnet",
-    "rvn-test": "Ravencoin testnet",
+    xna: "Neurai mainnet",
+    "xna-test": "Neurai testnet",
   };
   const networkDisplayName = mappy[wallet.network];
 

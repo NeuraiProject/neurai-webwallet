@@ -1,5 +1,5 @@
 import React from "react";
-import { getHistory, IDelta } from "@ravenrebels/ravencoin-history-list";
+import { getHistory, IDelta } from "@neuraiproject/neurai-history-list";
 export interface IMempoolProps {
   mempool: IDelta[];
 }

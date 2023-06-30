@@ -1,7 +1,7 @@
 {
-  "name": "ravencoin-webwallet",
+  "name": "neurai-webwallet",
   "version": "0.1.1",
-  "description": "Web wallet for Ravencoin",
+  "description": "Web wallet for Neurai",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "parcel build index.html",
@@ -13,9 +13,9 @@
   "author": "Raven Rebels / Dick Henrik Larsson",
   "license": "MIT",
   "dependencies": {
-    "@ravenrebels/ravencoin-history-list": "^1.2.1",
-    "@ravenrebels/ravencoin-jswallet": "^0.7.25",
-    "@ravenrebels/ravencoin-key": "^2.5.0",
+    "@neuraiproject/neurai-history-list": "^1.2.1",
+    "@neuraiproject/neurai-jswallet": "^0.7.25",
+    "@neuraiproject/neurai-key": "^2.5.0",
     "@types/react": "^18.2.6",
     "@types/react-dom": "^18.2.4",
     "parcel": "^2.9.2",

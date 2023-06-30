@@ -1,5 +1,5 @@
 import React from "react";
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 
 const imageStyle = {
   maxWidth: "80px",
@@ -60,7 +60,7 @@ function LinkToIPFS({ wallet, assetName }: LinkToIPFSProps) {
   if (assetData && assetData.ipfs_hash) {
     const url = "https://cloudflare-ipfs.com/ipfs/" + assetData.ipfs_hash;
     const imageURL =
-      "https://rvn-explorer-mainnet.ting.finance/thumbnail?assetName=" +
+      "https://xna-explorer-mainnet.ting.finance/thumbnail?assetName=" +
       encodeURIComponent(assetName);
     return (
       <div>

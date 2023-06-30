@@ -1,5 +1,5 @@
 import React from "react";
-import RavencoinKey from "@ravenrebels/ravencoin-key";
+import NeuraiKey from "@neuraiproject/neurai-key";
 import { LightModeToggle } from "./LightModeToggle";
 
 export function Login() {
@@ -19,7 +19,7 @@ export function Login() {
       return false;
     }
     if (element) {
-      element.value = RavencoinKey.generateMnemonic();
+      element.value = NeuraiKey.generateMnemonic();
     }
     showDialog(
       "WARNING",
@@ -37,10 +37,10 @@ export function Login() {
     }
     const value = field.value;
 
-    const isValid = RavencoinKey.isMnemonicValid(value);
+    const isValid = NeuraiKey.isMnemonicValid(value);
 
     if (isValid === false) {
-      alert("The does not seem to be 12 valid words for a Ravencoin wallet");
+      alert("The does not seem to be 12 valid words for a Neurai wallet");
       return;
     } else {
       localStorage.setItem("mnemonic", value);
