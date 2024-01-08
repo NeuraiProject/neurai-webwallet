@@ -31,6 +31,6 @@ Now the ./dist folder contains the web "site", you can FTP the files to your web
 
 ### Experimental features
 
-To use TESTNET instead of MAINNET for Ravencoin, append `?network=rvn-test` to the URL.
+To use TESTNET instead of MAINNET for Ravencoin, append `?network=xna-test` to the URL.
 
 Note: asset thumbnails only work on mainnet.

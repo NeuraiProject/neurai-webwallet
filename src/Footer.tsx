@@ -4,6 +4,12 @@ export function Footer({ signOut, mnemonic }) {
   return (
     <article>
       <p>
+        Official webwallet for Neurai{" "}
+        <a href="https://neurai.org" target="_blank">
+          Website
+        </a>
+      </p>
+      <p>
         Brought to you by{" "}
         <a href="https://twitter.com/RavenRebels" target="_blank">
           Raven Rebels

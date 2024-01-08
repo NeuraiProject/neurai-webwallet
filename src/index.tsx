@@ -26,7 +26,7 @@ import { useReceiveAddress } from "./hooks/useReceiveAddress";
 let _mnemonic =
   "sight rate burger maid melody slogan attitude gas account sick awful hammer";
 
-type ChainType = "rvn" | "rvn-test" | "evr";
+type ChainType = "xna" | "xna-test" | "evr";
 
 const initMnemonic = getMnemonic();
 function App() {
@@ -43,17 +43,18 @@ function App() {
   const mempool = useMempool(wallet, blockCount);
   const assets = useAssets(wallet, blockCount);
 
+  
   //At startup init wallet
   React.useEffect(() => {
     if (!mnemonic) {
       return;
     }
     let minAmountOfAddresses = 50;
-    //Override network to rvn-test if present in query string (search)
+    //Override network to xna-test if present in query string (search)
     const searchParams = new URLSearchParams(window.location.search);
-    let network: ChainType = "rvn";
-    if (searchParams.get("network") === "rvn-test") {
-      network = "rvn-test";
+    let network: ChainType = "xna";
+    if (searchParams.get("network") === "xna-test") {
+      network = "xna-test";
     }
 
     if (searchParams.get("network") === "evr") {

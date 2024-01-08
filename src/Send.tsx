@@ -190,7 +190,7 @@ interface IAssetOptionsProps {
 function AssetOptions({ wallet, allAssets }: IAssetOptionsProps) {
   const options = Object.keys(allAssets).map((assetName: string) => {
     const balance = allAssets[assetName];
-    //Ignore base currency, such as RVN
+    //Ignore base currency, such as XNA
     if (wallet.baseCurrency === assetName) {
       return null;
     }

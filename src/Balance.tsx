@@ -22,8 +22,8 @@ export function Balance({
     currency: "USD",
   });
   const balanceText = _balance.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
   });
   return (
     <div>
@@ -36,7 +36,7 @@ export function Balance({
       )}
       <h1 className="rebel-balance">
         {balanceText} {wallet.baseCurrency}
-        {wallet.baseCurrency === "RVN" && (
+        {wallet.baseCurrency === "XNA" && (
           <div className="rebel-balance__dollar-value">{dollarValue}</div>
         )}
       </h1>
@@ -48,16 +48,16 @@ function useUSDPrice(wallet: Wallet) {
   const [price, setPrice] = React.useState(0);
 
   React.useEffect(() => {
-    const isRavencoin = wallet && wallet.baseCurrency === "RVN";
+    const isRavencoin = wallet && wallet.baseCurrency === "XNA";
 
     const work = () => {
       if (isRavencoin === true) {
-        const URL =
-          "https://api1.binance.com/api/v3/ticker/price?symbol=RVNUSDT";
+        const URL = "https://api.xeggex.com/api/v2/ticker/XNA_USDT";
+        
         fetch(URL)
           .then((response) => response.json())
           .then((obj) => {
-            setPrice(parseFloat(obj.price));
+            setPrice(parseFloat(obj.last_price));
           });
       }
     };

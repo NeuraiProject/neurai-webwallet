@@ -23,7 +23,7 @@ body {
   */
   /* background: linear-gradient(112.1deg, #2e3e80.4%, #f15b22 70.2%); */
   background-color: #000;
-  background-image: linear-gradient(147deg, #923cb5 0%, #000000 74%);
+  background-image: linear-gradient(147deg, #923cb5 0%, #2d0138 74%);
 }
 /*
 :root {
@@ -34,7 +34,7 @@ body {
   animation: taadaa 5s infinite;
 }
 .rebel-headline {
-  background: linear-gradient(hotpink, white);
+  background: linear-gradient(rgb(149, 2, 179), white);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -53,7 +53,7 @@ body {
   If light mode, change h1 color
   */
 [data-theme="light"] .rebel-headline {
-  background: linear-gradient(black, hotpink);
+  background: linear-gradient(rgb(60, 0, 78), rgb(86, 60, 92));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -112,7 +112,7 @@ body {
   Navigator links in LIGHT and DARK mode
 */
 [data-theme="light"] .rebel-navigator__list-item-link {
-  color: black;
+  color: rgb(0, 0, 0);
 }
 [data-theme="dark"] .rebel-navigator__list-item-link {
   color: white;

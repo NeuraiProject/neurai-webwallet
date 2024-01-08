@@ -4,10 +4,10 @@
   "start_url": ".",
   "display": "standalone",
   "background_color": "#fff",
-  "description": "A Ravencoin wallet.",
+  "description": "A Neurai wallet.",
   "icons": [
     {
-      "src": "./ravencoin-rvn-logo.png",
+      "src": "./neurai-logo.png",
       "sizes": "48x48",
       "type": "image/png"
     }

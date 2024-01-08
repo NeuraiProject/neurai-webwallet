@@ -4,17 +4,17 @@ export interface INetworkInfo {
   getThumbnailURL: (arg: string) => string;
 }
 
-const ravencoinMainnet: INetworkInfo = {
-  displayName: "Ravencoin Mainnet",
+const neuraiMainnet: INetworkInfo = {
+  displayName: "Neurai Mainnet",
   getTransactionURL: (id: string) => {
     return (
-      "https://rvn-explorer-mainnet.ting.finance/index.html?route=TRANSACTION&id=" +
+      "https://xna.cryptoscope.io/tx/?txid=" +
       id
     );
   },
   getThumbnailURL(assetName: string) {
     const baseURL =
-      "https://rvn-explorer-mainnet.ting.finance/thumbnail?assetName=";
+      "https://xna-explorer-mainnet.ting.finance/thumbnail?assetName=";
     return baseURL + encodeURIComponent(assetName);
   },
 };
@@ -26,7 +26,7 @@ const ravencoinTestnet: INetworkInfo = {
     return baseURL + encodeURIComponent(assetName);
   },
   getTransactionURL: (id: string) => {
-    return "https://rvnt.cryptoscope.io/tx/?txid=" + id;
+    return "https://xna.cryptoscope.io/tx/?txid=" + id;
   },
 };
 
@@ -46,14 +46,14 @@ const evrmoreMainnet: INetworkInfo = {
 };
 
 interface INetworks {
-  rvn: INetworkInfo;
-  "rvn-test": INetworkInfo;
+  xna: INetworkInfo;
+  "xna-test": INetworkInfo;
   evr: INetworkInfo;
 }
 
 const asdf: INetworks = {
-  rvn: ravencoinMainnet,
-  "rvn-test": ravencoinTestnet,
+  xna: neuraiMainnet,
+  "xna-test": ravencoinTestnet,
   evr: evrmoreMainnet,
 };
 

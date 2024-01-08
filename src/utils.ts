@@ -57,7 +57,7 @@ export function getAssetBalanceIncludingMempool(
   //Add assets from mempool
   if (mempool && mempool.length > 0) {
     mempool.map((m: IAsset) => {
-      //Ignore base currency such as RVN or EVR
+      //Ignore base currency such as XNA or EVR
       if (m.assetName === wallet.baseCurrency) {
         return;
       }

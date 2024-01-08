@@ -1,6 +1,6 @@
 import React from "react";
 //@ts-ignore
-import logo from "../ravencoin-rvn-logo.png";
+import logo from "../neurai-logo.png";
 export function Loader() {
   return (
     <main className="container">

@@ -36,9 +36,11 @@ export function Navigator({
           return false;
         }}
       >
-        <h5 className="rebel-headline">Rebel wallet</h5>
-      </a>
 
+        <h1 className="rebel-headline">Neurai</h1>
+      </a>
+      <h5 className="rebel-headline">Rebel wallet</h5>
+      
       {balance}
 
       <nav className="rebel-navigator">

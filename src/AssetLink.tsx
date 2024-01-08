@@ -1,7 +1,7 @@
 import React from "react";
 import { Wallet } from "@ravenrebels/ravencoin-jswallet";
 //@ts-ignore
-import logo from "../ravencoin-rvn-logo.png";
+import logo from "../neurai-logo.png";
 
 import networkInfo from "./networkInfo";
 
@@ -64,7 +64,7 @@ export function AssetLink({ wallet, assetName }: LinkToIPFSProps) {
     <div>
       <img
         style={imageStyle}
-        src="https://socialistmodernism.com/wp-content/uploads/2017/07/placeholder-image.png"
+        src="placeholder-image.png"
       ></img>
     </div>
   );
