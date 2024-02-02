@@ -1,13 +1,14 @@
 # ravencoin-webwallet
 
-Web wallet for Ravencoin!
+Web wallet for Neurai!
+
 Permissionless, open source, non-custodial (your keys never leave your browser).
 
 ## How to build
 
 ### Clone the repo
 
-`git clone https://github.com/ravenrebels/ravencoin-webwallet.git`
+`git clone https://github.com/NeuraiProject/neurai-webwallet.git`
 
 ### Install dependencies
 

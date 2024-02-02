@@ -4,6 +4,7 @@ import { getAssetBalanceIncludingMempool } from "./utils";
 import { AssetName } from "./AssetName";
 
 import networkInfo from "./networkInfo";
+import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
 
 const imageStyle = {
   maxWidth: "80px",
@@ -33,7 +34,7 @@ export function Assets({ wallet, assets, mempool }) {
         <tbody>
           {Object.keys(allAssets).map((assetName: string) => {
             if (assetName === wallet.baseCurrency) {
-              return null; //Exlude base currency, for example XNA or EVR
+              return null; //Exlude base currency, for example XNA
             }
             const balance = allAssets[assetName];
             if (balance === 0) {
@@ -48,7 +49,7 @@ export function Assets({ wallet, assets, mempool }) {
                 <td style={tdStyle}>
                   <LinkToIPFS wallet={wallet} assetName={assetName} />
                 </td>
-                <td style={tdStyle}>{balance.toLocaleString()}</td>
+                <td style={tdStyle}>{formatNumberWith8Decimals(balance)}</td>
               </tr>
             );
           })}
@@ -102,7 +103,7 @@ function LinkToIPFS({ wallet, assetName }: LinkToIPFSProps) {
     <span>
       <img
         style={imageStyle}
-        src="https://socialistmodernism.com/wp-content/uploads/2017/07/placeholder-image.png"
+        src="placeholder-image.png"
       ></img>
       <AssetName name={assetName} />
     </span>

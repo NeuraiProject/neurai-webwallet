@@ -2,7 +2,7 @@ import React from "react";
 import { Wallet } from "@ravenrebels/ravencoin-jswallet";
 //@ts-ignore
 import logo from "../neurai-logo.png";
-
+//@ts-ignore
 import networkInfo from "./networkInfo";
 
 const imageStyle = {
@@ -32,7 +32,7 @@ export function AssetLink({ wallet, assetName }: LinkToIPFSProps) {
     }
   }, [assetName]);
 
-  if (assetName === wallet.baseCurrency) {
+  if (assetName === wallet.baseCurrency && wallet.baseCurrency === "RVN") {
     return (
       <div>
         <img style={imageStyle} src={logo}></img>

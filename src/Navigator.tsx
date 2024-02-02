@@ -39,7 +39,7 @@ export function Navigator({
 
         <h1 className="rebel-headline">Neurai</h1>
       </a>
-      <h5 className="rebel-headline">Rebel wallet</h5>
+      <h5 className="rebel-headline">Rebel wallet 1.0.5</h5>
       
       {balance}
 
