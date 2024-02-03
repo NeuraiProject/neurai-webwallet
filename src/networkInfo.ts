@@ -14,7 +14,7 @@ const neuraiMainnet: INetworkInfo = {
   },
   getThumbnailURL(assetName: string) {
     const baseURL =
-      "https://xna-explorer-mainnet.ting.finance/thumbnail?assetName=";
+      "https://rebel-explorer.neurai.org/thumbnail?assetName=";
     return baseURL + encodeURIComponent(assetName);
   },
 };
