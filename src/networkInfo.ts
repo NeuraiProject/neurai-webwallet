@@ -19,14 +19,14 @@ const neuraiMainnet: INetworkInfo = {
   },
 };
 
-const ravencoinTestnet: INetworkInfo = {
-  displayName: "Ravencoin Testnet",
+const neuraiTestnet: INetworkInfo = {
+  displayName: "Neurai Testnet",
   getThumbnailURL: (assetName) => {
-    const baseURL = "https://testnet.ting.finance/thumbnail?assetName=";
+    const baseURL = "https://rebel-explorer-testnet.neurai.org/thumbnail?assetName=";
     return baseURL + encodeURIComponent(assetName);
   },
   getTransactionURL: (id: string) => {
-    return "https://xna.cryptoscope.io/tx/?txid=" + id;
+    return "https://rebel-explorer-testnet.neurai.org/index.html?route=TRANSACTION&id=" + id;
   },
 };
 
@@ -53,7 +53,7 @@ interface INetworks {
 
 const asdf: INetworks = {
   xna: neuraiMainnet,
-  "xna-test": ravencoinTestnet,
+  "xna-test": neuraiTestnet,
   evr: evrmoreMainnet,
 };
 

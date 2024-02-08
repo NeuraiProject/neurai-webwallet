@@ -4,7 +4,7 @@
   "start_url": ".",
   "display": "standalone",
   "background_color": "#fff",
-  "description": "A Neurai wallet.",
+  "description": "Neurai wallet.",
   "icons": [
     {
       "src": "./neurai-logo.png",
