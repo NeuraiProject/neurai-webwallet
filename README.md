@@ -1,4 +1,4 @@
-# ravencoin-webwallet
+# Neurai Webwallet
 
 Web wallet for Neurai!
 
@@ -9,6 +9,10 @@ Permissionless, open source, non-custodial (your keys never leave your browser).
 ### Clone the repo
 
 `git clone https://github.com/NeuraiProject/neurai-webwallet.git`
+
+### Node & NPM
+- Node: > 18
+- NPM: > 8
 
 ### Install dependencies
 
@@ -32,6 +36,6 @@ Now the ./dist folder contains the web "site", you can FTP the files to your web
 
 ### Experimental features
 
-To use TESTNET instead of MAINNET for Ravencoin, append `?network=xna-test` to the URL.
+To use TESTNET instead of MAINNET for Neurai, append `?network=xna-test` to the URL.
 
 Note: asset thumbnails only work on mainnet.
