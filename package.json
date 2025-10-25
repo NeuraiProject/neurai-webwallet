@@ -18,10 +18,10 @@
   "author": "Neurai Community",
   "license": "MIT",
   "dependencies": {
-    "@neuraiproject/neurai-history-list": "^1.2.4",
+    "@neuraiproject/neurai-history-list": "^1.2.5",
     "@neuraiproject/neurai-jswallet": "0.12.0",
-    "@neuraiproject/neurai-key": "^2.5.2",
-    "@neuraiproject/neurai-message": "^0.7.0",
+    "@neuraiproject/neurai-key": "^2.8.3",
+    "@neuraiproject/neurai-message": "^0.7.1",
     "@types/react": "^18.2.6",
     "@types/react-dom": "^18.2.4",
     "crypto-js": "^4.2.0",
