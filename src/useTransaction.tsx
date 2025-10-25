@@ -1,5 +1,5 @@
 import React from "react";
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { ITransaction } from "./history/History";
 
 const _cache = {};

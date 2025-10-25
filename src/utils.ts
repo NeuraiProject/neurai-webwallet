@@ -1,4 +1,4 @@
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "./Types";
 
 const CryptoJS = require("crypto-js");
@@ -57,7 +57,7 @@ export function getAssetBalanceIncludingMempool(
   //Add assets from mempool
   if (mempool && mempool.length > 0) {
     mempool.map((m: IAsset) => {
-      //Ignore base currency such as XNA or EVR
+      //Ignore base currency such as XNA
       if (m.assetName === wallet.baseCurrency) {
         return;
       }

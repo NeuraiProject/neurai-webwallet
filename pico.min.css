@@ -300,7 +300,7 @@ nav details.dropdown summary:focus-visible {
 }
 :root:not([data-theme="dark"]),
 [data-theme="light"] {
-  --pico-background-color: #fff;
+  --pico-background-color: #e4e4e4;
   --pico-color: #373c44;
   --pico-text-selection-color: rgba(2, 154, 232, 0.25);
   --pico-muted-color: #646b79;
@@ -786,14 +786,14 @@ body > main {
 }
 @media (min-width: 576px) {
   .container {
-    max-width: 510px;
+    max-width: 95%;
     padding-right: 0;
     padding-left: 0;
   }
 }
 @media (min-width: 768px) {
   .container {
-    max-width: 700px;
+    max-width: 95%;;
   }
 }
 @media (min-width: 1024px) {
@@ -2126,9 +2126,7 @@ article > header {
   border-top-left-radius: var(--pico-border-radius);
 }
 article > footer {
-  margin-top: var(--pico-block-spacing-vertical);
   margin-bottom: calc(var(--pico-block-spacing-vertical) * -1);
-  border-top: var(--pico-border-width) solid var(--pico-card-border-color);
   border-bottom-right-radius: var(--pico-border-radius);
   border-bottom-left-radius: var(--pico-border-radius);
 }

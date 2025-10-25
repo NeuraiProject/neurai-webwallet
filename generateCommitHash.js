@@ -10,7 +10,7 @@ try {
     fs.mkdirSync(distDir, { recursive: true });
 
     // Get the commit hash
-    const commitHash = "124";
+    const commitHash = execSync('git rev-parse HEAD').toString().trim();
     const content = `const COMMIT_HASH = '${commitHash}';\n`;
 
     // Write the commit hash to the file

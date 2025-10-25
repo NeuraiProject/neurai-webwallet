@@ -1,4 +1,4 @@
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 import React from "react";
 import { Events, addEventListener, triggerEvent } from "../Events";
 

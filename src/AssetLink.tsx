@@ -1,8 +1,8 @@
 import React from "react";
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
-//@ts-ignore
-import logo from "../neurai-logo.png";
-//@ts-ignore
+import { Wallet } from "@neuraiproject/neurai-jswallet";
+
+const xnaLogo = new URL("../neurai-xna-logo.png", import.meta.url);
+
 import networkInfo from "./networkInfo";
 
 const imageStyle = {
@@ -32,16 +32,16 @@ export function AssetLink({ wallet, assetName }: LinkToIPFSProps) {
     }
   }, [assetName]);
 
-  if (assetName === wallet.baseCurrency && wallet.baseCurrency === "RVN") {
+  if (assetName === wallet.baseCurrency && wallet.baseCurrency === "XNA") {
     return (
       <div>
-        <img style={imageStyle} src={logo}></img>
+        <img style={imageStyle} src={xnaLogo.href}></img>
       </div>
     );
   }
 
   if (assetData && assetData.ipfs_hash) {
-    const url = "https://cloudflare-ipfs.com/ipfs/" + assetData.ipfs_hash;
+    const url = "https://gateway.pinata.cloud/ipfs/" + assetData.ipfs_hash;
 
     const imageURL = networkInfo[wallet.network].getThumbnailURL(assetName);
 

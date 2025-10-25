@@ -1,5 +1,5 @@
 import React from "react";
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { getAssetBalanceIncludingMempool } from "./utils";
 import { AssetName } from "./AssetName";
 
@@ -34,7 +34,7 @@ export function Assets({ wallet, assets, mempool }) {
         <tbody>
           {Object.keys(allAssets).map((assetName: string) => {
             if (assetName === wallet.baseCurrency) {
-              return null; //Exlude base currency, for example XNA
+              return null; //Exclude base currency XNA
             }
             const balance = allAssets[assetName];
             if (balance === 0) {
@@ -43,6 +43,7 @@ export function Assets({ wallet, assets, mempool }) {
             const tdStyle = {
               paddingBottom: 20,
               paddingTop: 20,
+              paddingLeft:0
             };
             return (
               <tr key={assetName || Math.random()}>
@@ -76,7 +77,7 @@ function LinkToIPFS({ wallet, assetName }: LinkToIPFSProps) {
   }, []);
 
   if (assetData && assetData.ipfs_hash) {
-    const url = "https://cloudflare-ipfs.com/ipfs/" + assetData.ipfs_hash;
+    const url = "https://gateway.pinata.cloud/ipfs/" + assetData.ipfs_hash;
     const imageURL = networkInfo[wallet.network].getThumbnailURL(assetName);
 
     return (
@@ -103,7 +104,7 @@ function LinkToIPFS({ wallet, assetName }: LinkToIPFSProps) {
     <span>
       <img
         style={imageStyle}
-        src="placeholder-image.png"
+        src="https://socialistmodernism.com/wp-content/uploads/2017/07/placeholder-image.png"
       ></img>
       <AssetName name={assetName} />
     </span>

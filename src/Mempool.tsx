@@ -1,6 +1,6 @@
 import React from "react";
-import { getHistory, IDelta } from "@ravenrebels/ravencoin-history-list";
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { getHistory, IDelta } from "@neuraiproject/neurai-history-list";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { AssetLink } from "./AssetLink";
 import { AssetName } from "./AssetName";
 import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";

@@ -1,9 +1,9 @@
 import React from "react";
-import { getHistory } from "@ravenrebels/ravencoin-history-list";
+import { getHistory } from "@neuraiproject/neurai-history-list";
 import { AssetName } from "../AssetName";
 import { LabeledContent } from "./LabeledContent";
 import { ToAddress } from "./ToAddress";
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { CopyButton } from "../components/CopyButton";
 import { useTransaction } from "../useTransaction";
 
@@ -58,7 +58,7 @@ export function History({ blockCount, wallet }: IProps) {
         </LabeledContent>
 
         <details style={{ marginTop: "calc(2 * var(--pico-spacing))" }}>
-          <summary>More info</summary>
+          <summary style={{ fontWeight: "bold" }}>More info</summary>
 
           <div style={{ marginTop: "calc(2 * var(--pico-spacing))" }}>
             <Spacer y={2} />

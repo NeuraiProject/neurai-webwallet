@@ -1,7 +1,7 @@
 import React, { ReactNode } from "react";
 import { Routes } from "./Routes";
 import { LightModeToggle } from "./components/LightModeToggle";
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 import {
   IconHistory,
   IconHome,
@@ -10,7 +10,10 @@ import {
   IconSign,
   IconSweep,
 } from "./icons";
-import networkInfo from "./networkInfo";
+import networkInfo, { INetworks } from "./networkInfo";
+
+const neuraiLogo = new URL("../neurai-xna-logo.png", import.meta.url);
+
 export function Navigator({
   balance,
   wallet,
@@ -36,11 +39,17 @@ export function Navigator({
           return false;
         }}
       >
-
-        <h1 className="rebel-headline">Neurai</h1>
+        <h2 className="rebel-headline" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <img 
+            src={neuraiLogo.href} 
+            alt="Neurai logo" 
+            style={{ width: "32px", height: "32px" }}
+          />
+          Neurai
+        </h2>
       </a>
-      <h5 className="rebel-headline">Rebel wallet 1.0.5</h5>
-      
+        <h5>Rebel Wallet 1.0.6</h5>
+
       {balance}
 
       <nav className="rebel-navigator">
@@ -84,10 +93,9 @@ export function Navigator({
           />
         </ul>
       </nav>
-
-      <small>
-        <i>{networkDisplayName}</i>
-      </small>
+      {/* <small>
+        <NetworkSelect wallet={wallet} networks={networkInfo}></NetworkSelect>
+      </small> */}
     </article>
   );
 }
@@ -98,6 +106,37 @@ interface ILinkProps {
   setRoute: any;
   title: string;
 }
+
+type NetworkInfoProps = {
+  wallet: Wallet;
+  networks: INetworks;
+};
+
+function NetworkSelect({ wallet, networks }: NetworkInfoProps) {
+  const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const newNetwork = event.target.value;
+
+    // Update the URL and reload the page with the new network query parameter
+    const newUrl = `${window.location.pathname}?network=${newNetwork}`;
+    window.location.href = newUrl;
+  };
+
+  const options = Object.keys(networks).map((network: string) => {
+    const info = networks[network];
+    return (
+      <option key={network} value={network}>
+        {info.displayName}
+      </option>
+    );
+  });
+
+  return (
+    <select value={wallet.network} onChange={handleChange}>
+      {options}
+    </select>
+  );
+}
+
 function Link({ currentRoute, newRoute, setRoute, title }: ILinkProps) {
   const isCurrent = currentRoute === newRoute;
   const classes =

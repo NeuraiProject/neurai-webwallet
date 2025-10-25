@@ -1,18 +1,13 @@
-# Neurai Webwallet
+# neurai-webwallet
 
-Web wallet for Neurai!
-
+Web wallet for Neurai (XNA)!
 Permissionless, open source, non-custodial (your keys never leave your browser).
 
 ## How to build
 
 ### Clone the repo
 
-`git clone https://github.com/NeuraiProject/neurai-webwallet.git`
-
-### Node & NPM
-- Node: > 18
-- NPM: > 8
+`git clone https://github.com/neuraiproject/neurai-webwallet.git`
 
 ### Install dependencies
 
@@ -39,3 +34,6 @@ Now the ./dist folder contains the web "site", you can FTP the files to your web
 To use TESTNET instead of MAINNET for Neurai, append `?network=xna-test` to the URL.
 
 Note: asset thumbnails only work on mainnet.
+
+TEST
+salmon couple beauty chicken involve mushroom daughter follow better diesel later tell

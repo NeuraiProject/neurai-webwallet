@@ -1,5 +1,5 @@
 import React from "react";
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "../Types";
 import { CopyButton } from "../components/CopyButton";
 import { useUniqueAssets } from "./useUniqueAssets";

@@ -1,5 +1,5 @@
-import RavencoinWallet, { Wallet } from "@ravenrebels/ravencoin-jswallet";
-console.log("RavencoinWallet", !!RavencoinWallet);
+import NeuraiWallet, { Wallet } from "@neuraiproject/neurai-jswallet";
+console.log("NeuraiWallet", !!NeuraiWallet);
 import React from "react";
 import { getMnemonic } from "./utils";
 import { createRoot } from "react-dom/client";
@@ -26,9 +26,17 @@ import { useReceiveAddress } from "./hooks/useReceiveAddress";
 let _mnemonic =
   "sight rate burger maid melody slogan attitude gas account sick awful hammer";
 
-type ChainType = "xna" | "xna-test" | "evr";
+type ChainType = "xna" | "xna-test";
 
 const initMnemonic = getMnemonic();
+
+//Set Dark or Light mode if store.
+const theme = localStorage.getItem("data-theme");
+if (theme) {
+  const element = document.querySelector("html");
+  element?.setAttribute("data-theme", theme);
+}
+
 function App() {
   const [currentRoute, setCurrentRoute] = React.useState(Routes.HOME);
 
@@ -43,7 +51,6 @@ function App() {
   const mempool = useMempool(wallet, blockCount);
   const assets = useAssets(wallet, blockCount);
 
-  
   //At startup init wallet
   React.useEffect(() => {
     if (!mnemonic) {
@@ -57,10 +64,6 @@ function App() {
       network = "xna-test";
     }
 
-    if (searchParams.get("network") === "evr") {
-      network = "evr";
-    }
-
     if (searchParams.get("min")) {
       const v = searchParams.get("min");
       if (v && isFinite(parseInt(v)) === true) {
@@ -68,7 +71,7 @@ function App() {
       }
     }
 
-    RavencoinWallet.createInstance({
+    NeuraiWallet.createInstance({
       minAmountOfAddresses,
       mnemonic,
       network,

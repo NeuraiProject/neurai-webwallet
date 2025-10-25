@@ -14,16 +14,37 @@ body {
   }
 }
 body {
-  /*
-  background: linear-gradient(
-    112.1deg,
-    rgb(32, 38, 57) 11.4%,
-    rgb(63, 76, 119) 70.2%
-  );
-  */
-  /* background: linear-gradient(112.1deg, #2e3e80.4%, #f15b22 70.2%); */
-  background-color: #000;
-  background-image: linear-gradient(147deg, #923cb5 0%, #2d0138 74%);
+  background-color: #050505;
+}
+
+/* Modern dark mode colors for Neurai */
+[data-theme="dark"] {
+  --pico-background-color: #050505;
+  --pico-card-background-color: #1a1a1a;
+  --neurai-primary: #6c5ce7;
+  --neurai-primary-hover: #5849c7;
+  --neurai-accent: #00b894;
+  --neurai-text: #e0e0e0;
+  --neurai-text-secondary: #a0a0a0;
+}
+
+/* Light mode colors */
+[data-theme="light"] {
+  --pico-background-color: #d5d5d5;
+  --pico-card-background-color: #ffffff;
+  --neurai-primary: #5133be;
+  --neurai-primary-hover: #5849c7;
+  --neurai-accent: #00b894;
+  --neurai-text: #2d3436;
+  --neurai-text-secondary: #636e72;
+}
+
+[data-theme="dark"] body {
+  background-color: #050505;
+}
+
+[data-theme="light"] body {
+  background-color: #d5d5d5;
 }
 /*
 :root {
@@ -34,29 +55,34 @@ body {
   animation: taadaa 5s infinite;
 }
 .rebel-headline {
-  background: linear-gradient(rgb(149, 2, 179), white);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-
   white-space: nowrap;
+  font-weight: 600;
 }
 
 /*
-  If dark mode, change article background color
+  If dark mode, use modern flat colors
 */
 [data-theme="dark"] article {
-  background-color: black;
+  background-color: #1e1e1e;
+  border: 1px solid #333333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .rebel-headline {
+  color: var(--neurai-primary);
 }
 
 /*
-  If light mode, change h1 color
-  */
+  If light mode, use modern flat colors
+*/
+[data-theme="light"] article {
+  background-color: #ffffff;
+  border: 1px solid #d0d0d0;
+  box-shadow: 4px 6px 8px rgba(0, 0, 0, 0.4);
+}
+
 [data-theme="light"] .rebel-headline {
-  background: linear-gradient(rgb(60, 0, 78), rgb(86, 60, 92));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--neurai-primary);
 }
 
 @font-face {
@@ -79,8 +105,9 @@ body {
 
 .rebel-navigator {
   zoom: 0.8;
+  display: block;
 }
-/* On screens that are 600px or less, set the background color to olive */
+
 @media screen and (min-width: 576px) {
   .rebel-navigator {
     zoom: 1.1;
@@ -90,14 +117,28 @@ body {
   padding-bottom: 30px;
 }
 .rebel-navigator__list {
-  display: flex;
-  justify-content: space-between;
-  list-style: none;
-  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(
+    3,
+    1fr
+  ); /* Creates a 3-column layout for mobile */
+  text-align: center;
+  padding: 0;
+  margin: 0;
+  list-style-type: none; /* Remove list bullets */
 }
 .rebel-navigator__list-item {
-  list-style: none;
-  text-align: center;
+  padding: 20px;
+  box-sizing: border-box; /* Include padding and border in the element's width */
+}
+/* Media query for desktop devices */
+@media (min-width: 769px) {
+  .rebel-navigator__list {
+    grid-template-columns: repeat(
+      6,
+      1fr
+    ); /* Adjust to a single row of 6 columns on desktop */
+  }
 }
 
 .rebel-navigator__list-item--active a {
@@ -112,20 +153,44 @@ body {
   Navigator links in LIGHT and DARK mode
 */
 [data-theme="light"] .rebel-navigator__list-item-link {
-  color: rgb(0, 0, 0);
+  color: var(--neurai-text);
 }
 [data-theme="dark"] .rebel-navigator__list-item-link {
-  color: white;
+  color: var(--neurai-text);
+}
+
+[data-theme="dark"] .rebel-navigator__list-item--active a {
+  background-color: #2a2a2a !important;
+  color: var(--neurai-primary) !important;
+  border: 1px solid #404040;
+}
+
+[data-theme="light"] .rebel-navigator__list-item--active a {
+  background-color: #d8dbdd !important;
+  color: var(--neurai-primary) !important;
+  border: 1px solid #c0c0c0;
 }
 .rebel-balance {
   font-weight: 200;
   text-align: center;
+  margin-bottom: 0;
+}
+.rebel-balance__value-container {
+  margin-bottom: calc(var(--pico-spacing) );
+  text-align: center;
 }
 .rebel-balance__dollar-value {
+  font-size: 1.2rem;
   font-weight: 200;
-  font-size: 70%;
+  display: inline-block;
 }
+.rebel-balance__base-currency-value {
+  font-size: 1.2rem;
+  font-weight: 200;
+  display: inline-block;
 
+  margin-left: 30px;
+}
 #newWalletButton {
   margin-bottom: var(--pico-spacing);
 }
@@ -140,6 +205,84 @@ body {
 #mempool {
   zoom: 0.75;
 }
+
+/* Modern card styling for dark mode */
+[data-theme="dark"] #mempool article {
+  background-color: #1e1e1e;
+  border: 1px solid #333333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] table {
+  border-color: #333333;
+}
+
+[data-theme="dark"] thead {
+  border-bottom-color: #333333;
+}
+
+[data-theme="dark"] tbody tr {
+  border-bottom-color: #2a2a2a;
+}
+
+/* Light mode card styling */
+[data-theme="light"] #mempool article {
+  background-color: #ffffff;
+  border: 1px solid #d0d0d0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Accent colors for buttons in dark mode */
+[data-theme="dark"] button:not([role="switch"]),
+[data-theme="dark"] input[type="submit"],
+[data-theme="dark"] input[type="button"] {
+  background-color: var(--neurai-primary);
+  border-color: var(--neurai-primary);
+}
+
+[data-theme="dark"] button:not([role="switch"]):hover,
+[data-theme="dark"] input[type="submit"]:hover,
+[data-theme="dark"] input[type="button"]:hover {
+  background-color: var(--neurai-primary-hover);
+  border-color: var(--neurai-primary-hover);
+}
+
+[data-theme="dark"] button.secondary {
+  background-color: transparent;
+  border-color: #2a2a2a;
+  color: var(--neurai-text);
+}
+
+[data-theme="dark"] button.secondary:hover {
+  background-color: #2a2a2a;
+  border-color: #3a3a3a;
+}
+
+/* Input fields in dark mode */
+[data-theme="dark"] input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]),
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background-color: #151515;
+  border-color: #333333;
+  color: var(--neurai-text);
+}
+
+[data-theme="dark"] input:focus,
+[data-theme="dark"] textarea:focus,
+[data-theme="dark"] select:focus {
+  border-color: var(--neurai-primary);
+  background-color: #1a1a1a;
+}
+
+/* Links in dark mode */
+[data-theme="dark"] a {
+  color: var(--neurai-primary);
+}
+
+[data-theme="dark"] a:hover {
+  color: var(--neurai-primary-hover);
+}
+
 /*
 
   When we have transfers in progress/Mempool info

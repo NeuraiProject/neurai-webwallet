@@ -1,7 +1,7 @@
 const mempool = [
     {
         "address": "R9iy5zng7NKHm5gEabXqfYD9YtMdRfXRsE",
-        "assetName": "XNA",
+        "assetName": "RVN",
         "txid": "cce1ec50510c4bac28d656491c1b2a9fae4a623cef2b0c7277530cb769b10444",
         "index": 0,
         "satoshis": -274000000,
@@ -11,7 +11,7 @@ const mempool = [
     },
     {
         "address": "RBm5jQj6vXJxhASHoaJ7MqT9GKrsHJAaBB",
-        "assetName": "XNA",
+        "assetName": "RVN",
         "txid": "cce1ec50510c4bac28d656491c1b2a9fae4a623cef2b0c7277530cb769b10444",
         "index": 2,
         "satoshis": 272000000,

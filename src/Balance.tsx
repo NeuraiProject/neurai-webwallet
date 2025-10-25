@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { getAssetBalanceFromMempool } from "./utils";
 
 export function Balance({
@@ -22,8 +22,14 @@ export function Balance({
     currency: "USD",
   });
   const balanceText = _balance.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 4,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const unitPriceText = price?.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 3, // Adjust the number of decimal places
+    maximumFractionDigits: 6, // You can adjust this as needed
   });
   return (
     <div>
@@ -36,10 +42,15 @@ export function Balance({
       )}
       <h1 className="rebel-balance">
         {balanceText} {wallet.baseCurrency}
-        {wallet.baseCurrency === "XNA" && (
-          <div className="rebel-balance__dollar-value">{dollarValue}</div>
-        )}
       </h1>
+      {dollarValue && (
+        <div className="rebel-balance__value-container">         
+          <div className="rebel-balance__dollar-value">{dollarValue} total</div>
+          <div className="rebel-balance__base-currency-value">
+            {unitPriceText} {wallet.baseCurrency}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -48,16 +59,22 @@ function useUSDPrice(wallet: Wallet) {
   const [price, setPrice] = React.useState(0);
 
   React.useEffect(() => {
-    const isRavencoin = wallet && wallet.baseCurrency === "XNA";
-
+    const isNeurai = wallet && wallet.baseCurrency === "XNA";
     const work = () => {
-      if (isRavencoin === true) {
-        const URL = "https://api.xeggex.com/api/v2/ticker/XNA_USDT";
-        
+      if (isNeurai === true) {
+        // CoinGecko API gratuita sin registro
+        const URL = "https://api.coingecko.com/api/v3/simple/price?ids=neurai&vs_currencies=usd";
         fetch(URL)
           .then((response) => response.json())
           .then((obj) => {
-            setPrice(parseFloat(obj.last_price));
+            // La respuesta es: { "neurai": { "usd": 0.00123 } }
+            if (obj.neurai && obj.neurai.usd) {
+              setPrice(parseFloat(obj.neurai.usd));
+            }
+          })
+          .catch((error) => {
+            console.error("Error fetching Neurai price:", error);
+            setPrice(0);
           });
       }
     };

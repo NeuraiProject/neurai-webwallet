@@ -7,14 +7,12 @@ export interface INetworkInfo {
 const neuraiMainnet: INetworkInfo = {
   displayName: "Neurai Mainnet",
   getTransactionURL: (id: string) => {
-    return (
-      "https://xna.cryptoscope.io/tx/?txid=" +
-      id
-    );
+    // Update with actual Neurai explorer URL when available
+    return "https://neuraiexplorer.com/tx/" + id;
   },
   getThumbnailURL(assetName: string) {
-    const baseURL =
-      "https://rebel-explorer.neurai.org/thumbnail?assetName=";
+    // Update with actual Neurai thumbnail service URL when available
+    const baseURL = "https://rebel-explorer.neurai.org/thumbnail?assetName=";
     return baseURL + encodeURIComponent(assetName);
   },
 };
@@ -22,39 +20,24 @@ const neuraiMainnet: INetworkInfo = {
 const neuraiTestnet: INetworkInfo = {
   displayName: "Neurai Testnet",
   getThumbnailURL: (assetName) => {
-    const baseURL = "https://rebel-explorer-testnet.neurai.org/thumbnail?assetName=";
+    // Update with actual Neurai testnet thumbnail service URL when available
+    const baseURL = "https://rebel-explorer.neurai.org/thumbnail?assetName=";
     return baseURL + encodeURIComponent(assetName);
   },
   getTransactionURL: (id: string) => {
-    return "https://rebel-explorer-testnet.neurai.org/index.html?route=TRANSACTION&id=" + id;
+    // Update with actual Neurai testnet explorer URL when available
+    return "https://testnet.neuraiexplorer.com/tx/" + id;
   },
 };
 
-const evrmoreMainnet: INetworkInfo = {
-  displayName: "Evrmore Mainnet",
-  getThumbnailURL(assetName) {
-    const baseURL =
-      "https://evr-explorer-mainnet.ting.finance/thumbnail?assetName=";
-    return baseURL + encodeURIComponent(assetName);
-  },
-  getTransactionURL: (id: string) => {
-    return (
-      "https://evr-explorer-mainnet.ting.finance/index.html?route=TRANSACTION&id=" +
-      id
-    );
-  },
-};
-
-interface INetworks {
+export interface INetworks {
   xna: INetworkInfo;
   "xna-test": INetworkInfo;
-  evr: INetworkInfo;
 }
 
-const asdf: INetworks = {
+const networks: INetworks = {
   xna: neuraiMainnet,
   "xna-test": neuraiTestnet,
-  evr: evrmoreMainnet,
 };
 
-export default asdf;
+export default networks;

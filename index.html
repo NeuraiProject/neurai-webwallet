@@ -5,13 +5,20 @@
 
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Content Security Policy -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'  'unsafe-inline' xna-rpc-mainnet.neurai.org rpc-testnet.neurai.org api.xeggex.com evr-rpc-mainnet.ting.finance; 
-    img-src https://* 'self' data:; 
-    child-src 'none';"
+      content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline';
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: https: http:;
+        connect-src 'self' https://rpc-main.neurai.org https://rpc-testnet.neurai.org https://api.coingecko.com https://api.qrserver.com https://gateway.pinata.cloud;
+        font-src 'self';
+        child-src 'none';
+      "
     />
-      <!-- End of headStart -->
+    <!-- End of headStart -->
     <meta name="viewport" content="width=device-width">
     <meta name="generator" content="Neurai webwallet for Neurai (XNA) with assets NFT & FT">
     <meta name="description" content="Neurai webwallet for Neurai (XNA) with assets NFT & FT">
@@ -29,8 +36,9 @@
     <meta name="twitter:description" content="Neurai webwallet for Neurai (XNA) with assets NFT & FT">
     <meta name="twitter:image" content="header.jpg">
 
+
     <link rel="stylesheet" href="./pico.min.css" />
-    <title>Rebel wallet - Neurai</title>
+    <title>Neurai Wallet</title>
     <link rel="stylesheet" href="./style.css" />
 
     <script>

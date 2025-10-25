@@ -1,5 +1,5 @@
 import React from "react";
-import { Wallet } from "@ravenrebels/ravencoin-jswallet";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "./Types";
 import { QrReader } from "react-qr-reader";
 import {
@@ -162,7 +162,7 @@ interface IAssetOptionsProps {
 function AssetOptions({ wallet, allAssets }: IAssetOptionsProps) {
   const options = Object.keys(allAssets).map((assetName: string) => {
     const balance = allAssets[assetName];
-    //Ignore base currency, such as XNA
+    //Ignore base currency, such as RVN
     if (wallet.baseCurrency === assetName) {
       return null;
     }
@@ -279,7 +279,7 @@ Transaction fee: ${sendResult.debug.fee.toFixed(4)} ${wallet.baseCurrency}`;
             if (isTxSize) {
               betterAlert(
                 "Error",
-                "Oops the transaction was to big, try sending a smaller amount"
+                "Oops the transaction was too big, try sending a smaller amount"
               );
             } else {
               console.log("Error when broadcasting transaction", e + "", e);

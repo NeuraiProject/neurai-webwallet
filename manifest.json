@@ -1,13 +1,13 @@
 {
-  "name": "Rebel wallet",
-  "short_name": "Rebel Wallet",
+  "name": "Neurai Wallet",
+  "short_name": "Neurai Wallet",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#fff",
-  "description": "Neurai wallet.",
+  "description": "A Neurai wallet.",
   "icons": [
     {
-      "src": "./neurai-logo.png",
+      "src": "./neurai-xna-logo.png",
       "sizes": "48x48",
       "type": "image/png"
     }
