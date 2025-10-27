@@ -4,6 +4,7 @@ import { IAsset } from "./Types";
 const CryptoJS = require("crypto-js");
 
 const S = "U2FsdGVkX1/UYDOP/PD64YU3tbCAeJBR";
+const SEPARATOR = "|||";
 
 export function getMnemonic(): string {
   const raw = localStorage.getItem("mnemonic");
@@ -23,6 +24,19 @@ export function getMnemonic(): string {
   return decryptedText;
 }
 
+export function getMnemonicAndPassphrase(): { mnemonic: string; passphrase: string } {
+  const fullData = getMnemonic();
+  
+  // Check if passphrase exists (new format)
+  if (fullData.includes(SEPARATOR)) {
+    const [mnemonic, passphrase] = fullData.split(SEPARATOR);
+    return { mnemonic, passphrase };
+  }
+  
+  // Old format without passphrase (backward compatible)
+  return { mnemonic: fullData, passphrase: "" };
+}
+
 export function setMnemonic(_value: string) {
   const value = _value.trim();
 
@@ -30,7 +44,7 @@ export function setMnemonic(_value: string) {
     localStorage.setItem("mnemonic", "");
     return;
   }
-  const isEncrypted = value.indexOf(" ") === -1;
+  const isEncrypted = value.indexOf(" ") === -1 && !value.includes(SEPARATOR);
 
   //Not encryptred
   if (isEncrypted === true) {

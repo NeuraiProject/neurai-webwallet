@@ -686,7 +686,7 @@ nav details.dropdown summary:focus-visible {
   --pico-card-background-color: #181c25;
   --pico-card-border-color: var(--pico-card-background-color);
   --pico-card-box-shadow: var(--pico-box-shadow);
-  --pico-card-sectioning-background-color: #1a1f28;
+  --pico-card-sectioning-background-color: #1a1a1a;
   --pico-dropdown-background-color: #181c25;
   --pico-dropdown-border-color: #202632;
   --pico-dropdown-box-shadow: var(--pico-box-shadow);

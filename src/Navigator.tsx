@@ -11,6 +11,7 @@ import {
   IconSweep,
 } from "./icons";
 import networkInfo, { INetworks } from "./networkInfo";
+import { getMnemonicAndPassphrase } from "./utils";
 
 const neuraiLogo = new URL("../neurai-xna-logo.png", import.meta.url);
 
@@ -26,6 +27,8 @@ export function Navigator({
   setRoute: any;
 }) {
   const networkDisplayName = networkInfo[wallet.network].displayName;
+  const { passphrase } = getMnemonicAndPassphrase();
+  const hasPassphrase = passphrase !== "";
 
   return (
     <article className="rebel-navigator__container">
@@ -48,7 +51,32 @@ export function Navigator({
           Neurai
         </h2>
       </a>
-        <h5>Rebel Wallet 1.0.6</h5>
+        <h5>Rebel Wallet 1.0.7</h5>
+        
+        {/* Passphrase indicator */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.5rem',
+          marginTop: '0.5rem',
+          marginBottom: '0.5rem'
+        }}>
+          <div style={{
+            width: '12px',
+            height: '12px',
+            borderRadius: '50%',
+            backgroundColor: hasPassphrase ? '#22c55e' : '#ef4444',
+            boxShadow: hasPassphrase 
+              ? '0 0 4px rgba(34, 197, 94, 0.6)' 
+              : '0 0 4px rgba(239, 68, 68, 0.6)'
+          }} />
+          <span style={{ 
+            fontSize: '0.85rem',
+            color: 'var(--muted-color)'
+          }}>
+            Passphrase
+          </span>
+        </div>
 
       {balance}
 

@@ -1,7 +1,7 @@
 import NeuraiWallet, { Wallet } from "@neuraiproject/neurai-jswallet";
 console.log("NeuraiWallet", !!NeuraiWallet);
 import React from "react";
-import { getMnemonic } from "./utils";
+import { getMnemonicAndPassphrase } from "./utils";
 import { createRoot } from "react-dom/client";
 
 import { History } from "./history/History";
@@ -28,7 +28,7 @@ let _mnemonic =
 
 type ChainType = "xna" | "xna-test";
 
-const initMnemonic = getMnemonic();
+const { mnemonic: initMnemonic, passphrase: initPassphrase } = getMnemonicAndPassphrase();
 
 //Set Dark or Light mode if store.
 const theme = localStorage.getItem("data-theme");
@@ -41,6 +41,7 @@ function App() {
   const [currentRoute, setCurrentRoute] = React.useState(Routes.HOME);
 
   const [mnemonic] = React.useState(initMnemonic);
+  const [passphrase] = React.useState(initPassphrase);
 
   const [wallet, setWallet] = React.useState<null | Wallet>(null);
 
@@ -71,12 +72,20 @@ function App() {
       }
     }
 
-    NeuraiWallet.createInstance({
+    // Create wallet config
+    const walletConfig: any = {
       minAmountOfAddresses,
       mnemonic,
       network,
-    }).then(setWallet);
-  }, [mnemonic]);
+    };
+    
+    // Only add passphrase if it exists (backward compatible)
+    if (passphrase) {
+      walletConfig.passphrase = passphrase;
+    }
+
+    NeuraiWallet.createInstance(walletConfig).then(setWallet);
+  }, [mnemonic, passphrase]);
 
   if (!mnemonic) {
     return <Login />;

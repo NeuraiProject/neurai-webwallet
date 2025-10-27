@@ -2,6 +2,13 @@ html,
 body {
   min-height: 100vh;
 }
+
+/* Password field for textarea */
+.password-field {
+  -webkit-text-security: disc;
+  font-family: text-security-disc;
+}
+
 @keyframes taadaa {
   0% {
     opacity: 1;
@@ -63,7 +70,6 @@ body {
   If dark mode, use modern flat colors
 */
 [data-theme="dark"] article {
-  background-color: #1e1e1e;
   border: 1px solid #333333;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
@@ -248,14 +254,14 @@ body {
 }
 
 [data-theme="dark"] button.secondary {
-  background-color: transparent;
-  border-color: #2a2a2a;
+  background-color: #2a2a2a;
+  border-color: #3a3a3a;
   color: var(--neurai-text);
 }
 
 [data-theme="dark"] button.secondary:hover {
-  background-color: #2a2a2a;
-  border-color: #3a3a3a;
+  background-color: #3a3a3a;
+  border-color: #4a4a4a;
 }
 
 /* Input fields in dark mode */
@@ -309,5 +315,18 @@ body {
   .rebel-content-container__content {
     order: -1;
     flex: 2;
+  }
+}
+
+/* Features grid responsive layout */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }

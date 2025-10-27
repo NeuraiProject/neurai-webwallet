@@ -1,6 +1,14 @@
 import React from "react";
 
-export function Footer({ signOut, mnemonic }) {
+export function Footer({ signOut, mnemonic }: { signOut: () => void; mnemonic: string }) {
+  // Extract just the mnemonic part (without passphrase) for word count
+  const mnemonicOnly = mnemonic.includes("|||") ? mnemonic.split("|||")[0] : mnemonic;
+  const hasPassphrase = mnemonic.includes("|||");
+  
+  // Detect if mnemonic has 12 or 24 words
+  const wordCount = mnemonicOnly ? mnemonicOnly.trim().split(/\s+/).filter((w: string) => w.length > 0).length : 12;
+  const wordsText = wordCount === 24 ? "24 words" : "12 words";
+  
   return (
     <article>
       <footer>
@@ -10,12 +18,13 @@ export function Footer({ signOut, mnemonic }) {
             className="secondary"
             onClick={(event) => {
               const target = event.target as HTMLButtonElement;
+              // Copy the full mnemonic (including passphrase if present)
               navigator.clipboard.writeText(mnemonic);
               target.disabled = true;
               setInterval(() => (target.disabled = false), 2000);
             }}
           >
-            Copy your secret 12 words to memory
+            Copy your secret {wordsText}{hasPassphrase ? " + passphrase" : ""} to memory
           </button>
         </div>
       </footer>
