@@ -29,6 +29,7 @@ export function Navigator({
   const networkDisplayName = networkInfo[wallet.network].displayName;
   const { passphrase } = getMnemonicAndPassphrase();
   const hasPassphrase = passphrase !== "";
+  const isFromESP32 = localStorage.getItem("loginFromESP32") === "true";
 
   return (
     <article className="rebel-navigator__container">
@@ -75,6 +76,30 @@ export function Navigator({
             color: 'var(--muted-color)'
           }}>
             Passphrase
+          </span>
+        </div>
+
+        {/* Hardware (ESP32) indicator */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.5rem',
+          marginBottom: '0.5rem'
+        }}>
+          <div style={{
+            width: '12px',
+            height: '12px',
+            borderRadius: '50%',
+            backgroundColor: isFromESP32 ? '#22c55e' : '#ef4444',
+            boxShadow: isFromESP32 
+              ? '0 0 4px rgba(34, 197, 94, 0.6)' 
+              : '0 0 4px rgba(239, 68, 68, 0.6)'
+          }} />
+          <span style={{ 
+            fontSize: '0.85rem',
+            color: 'var(--muted-color)'
+          }}>
+            HW
           </span>
         </div>
 

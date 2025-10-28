@@ -97,6 +97,7 @@ function App() {
   const signOut = () => {
     if (confirm("Are you sure you want to sign out?")) {
       localStorage.removeItem("mnemonic");
+      localStorage.removeItem("loginFromESP32");
       window.location.reload();
     }
   };
@@ -149,7 +150,7 @@ function App() {
         </div>
       </div>
 
-      <Footer signOut={signOut} mnemonic={mnemonic} />
+      <Footer signOut={signOut} mnemonic={mnemonic} isFromESP32={localStorage.getItem("loginFromESP32") === "true"} />
     </>
   );
 }

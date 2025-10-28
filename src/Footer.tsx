@@ -1,6 +1,14 @@
 import React from "react";
 
-export function Footer({ signOut, mnemonic }: { signOut: () => void; mnemonic: string }) {
+export function Footer({
+  signOut,
+  mnemonic,
+  isFromESP32 = false
+}: {
+  signOut: () => void;
+  mnemonic: string;
+  isFromESP32?: boolean;
+}) {
   // Extract just the mnemonic part (without passphrase) for word count
   const mnemonicOnly = mnemonic.includes("|||") ? mnemonic.split("|||")[0] : mnemonic;
   const hasPassphrase = mnemonic.includes("|||");
@@ -12,21 +20,29 @@ export function Footer({ signOut, mnemonic }: { signOut: () => void; mnemonic: s
   return (
     <article>
       <footer>
-        <div className="grid">
-          <button onClick={signOut}>Sign out</button>
-          <button
-            className="secondary"
-            onClick={(event) => {
-              const target = event.target as HTMLButtonElement;
-              // Copy the full mnemonic (including passphrase if present)
-              navigator.clipboard.writeText(mnemonic);
-              target.disabled = true;
-              setInterval(() => (target.disabled = false), 2000);
-            }}
-          >
-            Copy your secret {wordsText}{hasPassphrase ? " + passphrase" : ""} to memory
+        {/* If logged in from ESP32, only show Sign out button (full width) */}
+        {/* Otherwise, show both buttons in a grid */}
+        {isFromESP32 ? (
+          <button onClick={signOut} style={{ width: '100%' }}>
+            Sign out
           </button>
-        </div>
+        ) : (
+          <div className="grid">
+            <button onClick={signOut}>Sign out</button>
+            <button
+              className="secondary"
+              onClick={(event) => {
+                const target = event.target as HTMLButtonElement;
+                // Copy the full mnemonic (including passphrase if present)
+                navigator.clipboard.writeText(mnemonic);
+                target.disabled = true;
+                setInterval(() => (target.disabled = false), 2000);
+              }}
+            >
+              Copy your secret {wordsText}{hasPassphrase ? " + passphrase" : ""} to memory
+            </button>
+          </div>
+        )}
       </footer>
       <div style={{ textAlign: "center", marginTop: "4rem", fontSize: "1rem" }}>
         <p>
