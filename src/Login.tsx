@@ -6,6 +6,9 @@ import ESP32Storage from "./ESP32Storage";
 
 // @ts-ignore - Parcel handles this correctly
 const CryptoJS = require("crypto-js");
+// Fallback bip39 for entropy conversion if NeuraiKey lacks mnemonicToEntropy
+let bip39: any = null;
+import("bip39").then((m) => (bip39 = m)).catch(() => (bip39 = null));
 
 //For bundler not to optimize/remove NeuraiKey
 console.log("NeuraiKey", !!NeuraiKey);
@@ -37,13 +40,14 @@ export function Login() {
   const [loadedPassphrase, setLoadedPassphrase] = React.useState<string>("");
   const [quickPassphraseInput, setQuickPassphraseInput] = React.useState<string>("");
   const [mnemonicWordCount, setMnemonicWordCount] = React.useState<number>(0);
-  const [isMnemonicValid, setIsMnemonicValid] = React.useState<boolean>(false);
   const [showQuickPassphrase, setShowQuickPassphrase] = React.useState<boolean>(false);
   const [showQuickPassphraseText, setShowQuickPassphraseText] = React.useState<boolean>(false);
+  // Removed seed/entropy preview fields and their computation (no longer needed)
 
   // Auto-resize textarea
   const handleTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     autoResizeTextarea(event.target);
+  // seed/entropy preview removed
   };
 
   const handleTextareaInput = (event: React.FormEvent<HTMLTextAreaElement>) => {
@@ -67,7 +71,11 @@ export function Login() {
     if (textareaRef.current) {
       autoResizeTextarea(textareaRef.current);
     }
+    // seed/entropy preview removed
   }, []);
+
+  // Recompute when toggling passphrase usage
+  // no-op: seed/entropy preview removed
 
   function showDialog(title: string, text: string) {
     const onClose = () => setDialog(<></>);
@@ -100,6 +108,8 @@ export function Login() {
       }
       // Auto-resize after setting value
       autoResizeTextarea(element);
+      // Update seed after generation
+    // seed/entropy preview removed
     }
     showDialog(
       "WARNING",
@@ -192,18 +202,28 @@ export function Login() {
     }
 
     const mnemonic = mnemonicInput.value.trim();
-    
-    // Get passphrase if enabled
-    let passphrase = "";
-    if (usePassphrase) {
-      const passphraseInput = document.getElementById("passphrase") as HTMLInputElement;
-      if (passphraseInput) {
-        passphrase = passphraseInput.value;
+
+    // Validate mnemonic and derive BIP39 entropy (hex)
+    if (!NeuraiKey.isMnemonicValid(mnemonic)) {
+      alert("The mnemonic is not valid. Please check the words.");
+      return;
+    }
+    let entropyHex = "";
+    try {
+      if (typeof (NeuraiKey as any).mnemonicToEntropy === "function") {
+        entropyHex = (NeuraiKey as any).mnemonicToEntropy(mnemonic);
+      } else if (bip39 && typeof bip39.mnemonicToEntropy === "function") {
+        entropyHex = bip39.mnemonicToEntropy(mnemonic);
+      } else {
+        throw new Error("mnemonicToEntropy not available");
       }
+    } catch (e: any) {
+      alert("Failed to derive BIP39 entropy from the mnemonic.");
+      return;
     }
 
-    // Create data to save
-    const dataToSave = passphrase ? `${mnemonic}|||${passphrase}` : mnemonic;
+  // Store ONLY the entropy hex as plaintext before encryption (no JSON envelope)
+  const dataToSave = entropyHex;
     
     // Ask for a name/key
     const keyName = prompt("Enter a name for this wallet (e.g., 'wallet1', 'main', etc.):");
@@ -229,13 +249,13 @@ export function Login() {
     }
 
     try {
-      setEsp32Status("� Encrypting and saving to ESP32...");
+  setEsp32Status("🔐 Encrypting and saving to ESP32 (entropy only)...");
       
       // Encrypt the data with the PIN using AES
       const encryptedData = CryptoJS.AES.encrypt(dataToSave, pin).toString();
       
       await esp32Storage.save(keyName.trim(), encryptedData);
-      setEsp32Status(`✅ Saved as "${keyName}" (encrypted)`);
+  setEsp32Status(`✅ Saved as "${keyName}" (encrypted entropy)`);
       
       // Reload keys
       await loadESP32Keys();
@@ -281,36 +301,22 @@ export function Login() {
           return;
         }
         
-        // Now process the decrypted data
-        // Check if it has passphrase
-        if (data.includes("|||")) {
-          const [mnemonic, passphrase] = data.split("|||");
-          
-          // Set mnemonic
+        // Now process the decrypted data as raw entropy hex
+        try {
+          const entropyHex = data.trim();
+          const mnemonicWords = NeuraiKey.entropyToMnemonic(entropyHex);
           const mnemonicInput = document.getElementById("mnemonic") as HTMLTextAreaElement;
           if (mnemonicInput) {
-            mnemonicInput.value = mnemonic;
+            mnemonicInput.value = mnemonicWords;
             autoResizeTextarea(mnemonicInput);
           }
-          
-          // Enable and set passphrase
-          setUsePassphrase(true);
-          setTimeout(() => {
-            const passphraseInput = document.getElementById("passphrase") as HTMLInputElement;
-            if (passphraseInput) {
-              passphraseInput.value = passphrase;
-            }
-          }, 100);
-          
-          setEsp32Status(`✅ Loaded "${selectedKey}" (with passphrase)`);
-        } else {
-          // No passphrase
-          const mnemonicInput = document.getElementById("mnemonic") as HTMLTextAreaElement;
-          if (mnemonicInput) {
-            mnemonicInput.value = data;
-            autoResizeTextarea(mnemonicInput);
-          }
-          setEsp32Status(`✅ Loaded "${selectedKey}"`);
+          // No passphrase stored; keep passphrase disabled/empty
+          setUsePassphrase(false);
+          // Update seed/entropy display
+        // seed/entropy preview removed
+          setEsp32Status(`✅ Loaded "${selectedKey}" (from entropy)`);
+        } catch (e) {
+          setEsp32Status("❌ Error: Invalid data format on device (expected raw BIP39 entropy hex)");
         }
       }
     } catch (error: any) {
@@ -370,7 +376,7 @@ export function Login() {
       setLoadedPassphrase("");
       setQuickPassphraseInput("");
       setMnemonicWordCount(0);
-      setIsMnemonicValid(false);
+  // no validation needed when loading from entropy
       setShowQuickPassphrase(false);
       setShowQuickPassphraseText(false);
       setEsp32QuickStatus("");
@@ -427,40 +433,23 @@ export function Login() {
           return;
         }
         
-        // Now process the decrypted data
-        // Check if it has passphrase
-        if (data.includes("|||")) {
-          const [mnemonic, passphrase] = data.split("|||");
-          setLoadedMnemonic(mnemonic);
-          setLoadedPassphrase(passphrase);
-          setQuickPassphraseInput(passphrase);
-          setShowQuickPassphrase(true);
-          
-          // Validate mnemonic
-          const isValid = NeuraiKey.isMnemonicValid(mnemonic);
-          setIsMnemonicValid(isValid);
-          
-          // Count words
-          const wordCount = mnemonic.trim().split(/\s+/).length;
-          setMnemonicWordCount(wordCount);
-          
-          setEsp32QuickStatus(`✅ Loaded "${selectedQuickKey}" - ${wordCount} words (with passphrase) - ${isValid ? '✅ Valid' : '❌ Invalid'}`);
-        } else {
-          // No passphrase
-          setLoadedMnemonic(data);
+        // Now process the decrypted data as raw entropy hex
+        try {
+          const entropyHex = data.trim();
+          const mnemonicWords = NeuraiKey.entropyToMnemonic(entropyHex);
+          setLoadedMnemonic(mnemonicWords);
+          // No passphrase stored; user may input one if desired
           setLoadedPassphrase("");
           setQuickPassphraseInput("");
           setShowQuickPassphrase(false);
           
-          // Validate mnemonic
-          const isValid = NeuraiKey.isMnemonicValid(data);
-          setIsMnemonicValid(isValid);
-          
           // Count words
-          const wordCount = data.trim().split(/\s+/).length;
+          const wordCount = mnemonicWords.trim().split(/\s+/).length;
           setMnemonicWordCount(wordCount);
           
-          setEsp32QuickStatus(`✅ Loaded "${selectedQuickKey}" - ${wordCount} words - ${isValid ? '✅ Valid' : '❌ Invalid'}`);
+          setEsp32QuickStatus(`✅ Loaded "${selectedQuickKey}" - ${wordCount} words`);
+        } catch (e) {
+          setEsp32QuickStatus("❌ Error: Invalid data format on device (expected raw BIP39 entropy hex)");
         }
       }
     } catch (error: any) {
@@ -475,10 +464,7 @@ export function Login() {
       return;
     }
 
-    if (!isMnemonicValid) {
-      alert("The loaded mnemonic is not valid. Cannot proceed.");
-      return;
-    }
+    // No additional validation needed; mnemonic reconstructed from entropy
 
     // Mark that this login is from ESP32
     localStorage.setItem("loginFromESP32", "true");
@@ -788,6 +774,8 @@ export function Login() {
             )}
           </button>
         </div>
+
+        {/* Removed BIP39 Seed/Entropy previews */}
         
         <label htmlFor="use-passphrase" style={{ marginTop: '1rem' }}>
           <input
@@ -823,13 +811,14 @@ export function Login() {
               Passphrase:
             </label>
             <div style={{ position: 'relative' }}>
-              <input
-                type={showPassphrase ? "text" : "password"}
-                id="passphrase"
-                autoComplete="off"
-                placeholder="Enter your passphrase"
-                style={{ paddingRight: '3rem' }}
-              />
+                <input
+                  type={showPassphrase ? "text" : "password"}
+                  id="passphrase"
+                  autoComplete="off"
+                  placeholder="Enter your passphrase"
+                  // seed/entropy preview removed
+                  style={{ paddingRight: '3rem' }}
+                />
               <button
                 type="button"
                 onClick={() => setShowPassphrase(!showPassphrase)}
@@ -1086,40 +1075,21 @@ export function Login() {
                               return;
                             }
                             
-                            // Now process the decrypted data
-                            // Check if it has passphrase
-                            if (data.includes("|||")) {
-                              const [mnemonic, passphrase] = data.split("|||");
-                              setLoadedMnemonic(mnemonic);
-                              setLoadedPassphrase(passphrase);
-                              setQuickPassphraseInput(passphrase);
-                              setShowQuickPassphrase(true);
-                              
-                              // Validate mnemonic
-                              const isValid = NeuraiKey.isMnemonicValid(mnemonic);
-                              setIsMnemonicValid(isValid);
-                              
-                              // Count words
-                              const wordCount = mnemonic.trim().split(/\s+/).length;
-                              setMnemonicWordCount(wordCount);
-                              
-                              setEsp32QuickStatus(`✅ Loaded "${newKey}" - ${wordCount} words - ${isValid ? '✅ Valid' : '❌ Invalid'}`);
-                            } else {
-                              // No passphrase
-                              setLoadedMnemonic(data);
+                            // Now process the decrypted data as raw entropy hex
+                            try {
+                              const entropyHex = data.trim();
+                              const mnemonicWords = NeuraiKey.entropyToMnemonic(entropyHex);
+                              setLoadedMnemonic(mnemonicWords);
                               setLoadedPassphrase("");
                               setQuickPassphraseInput("");
                               setShowQuickPassphrase(false);
-                              
-                              // Validate mnemonic
-                              const isValid = NeuraiKey.isMnemonicValid(data);
-                              setIsMnemonicValid(isValid);
-                              
-                              // Count words
-                              const wordCount = data.trim().split(/\s+/).length;
+
+                              const wordCount = mnemonicWords.trim().split(/\s+/).length;
                               setMnemonicWordCount(wordCount);
-                              
-                              setEsp32QuickStatus(`✅ Loaded "${newKey}" - ${wordCount} words - ${isValid ? '✅ Valid' : '❌ Invalid'}`);
+                              setEsp32QuickStatus(`✅ Loaded "${newKey}" - ${wordCount} words`);
+                            } catch (e) {
+                              setEsp32QuickStatus("❌ Error: Invalid data format on device (expected raw BIP39 entropy hex)");
+                              setSelectedQuickKey("");
                             }
                           }
                         } catch (error: any) {
@@ -1131,7 +1101,6 @@ export function Login() {
                         setLoadedMnemonic("");
                         setLoadedPassphrase("");
                         setMnemonicWordCount(0);
-                        setIsMnemonicValid(false);
                         setShowQuickPassphrase(false);
                       }
                     }}
@@ -1159,19 +1128,9 @@ export function Login() {
                     <div style={{ marginBottom: '0.75rem' }}>
                       <strong>Word Count:</strong>{' '}
                       <span style={{ 
-                        color: mnemonicWordCount === 12 || mnemonicWordCount === 24 ? 'var(--primary)' : 'var(--muted-color)' 
+                        color: 'var(--primary)'
                       }}>
                         {mnemonicWordCount} words
-                      </span>
-                    </div>
-                    
-                    <div style={{ marginBottom: '1rem' }}>
-                      <strong>Validation:</strong>{' '}
-                      <span style={{ 
-                        color: isMnemonicValid ? '#22c55e' : '#ef4444',
-                        fontWeight: 'bold'
-                      }}>
-                        {isMnemonicValid ? '✅ Valid Mnemonic' : '❌ Invalid Mnemonic'}
                       </span>
                     </div>
                     
@@ -1228,7 +1187,7 @@ export function Login() {
                   </div>
                 )}
 
-                {loadedMnemonic && isMnemonicValid && (
+                {loadedMnemonic && (
                   <button
                     type="button"
                     onClick={loginWithESP32Wallet}

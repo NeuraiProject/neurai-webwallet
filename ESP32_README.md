@@ -2,7 +2,7 @@
 
 ## Description
 
-The Neurai web wallet now includes integration with ESP32 devices to securely store recovery words (12 or 24 words) and passphrases on external hardware.
+The Neurai web wallet includes integration with ESP32 devices to securely store wallet material on external hardware. The device stores only the BIP39 entropy (hex) derived from your 12 or 24 recovery words. No passphrase is stored on the device.
 
 ## Requirements
 
@@ -44,10 +44,11 @@ The Neurai web wallet now includes integration with ESP32 devices to securely st
 5. Enter a **PIN** (6-10 characters) to encrypt the wallet
    - This PIN will be required to decrypt the wallet later
    - ⚠️ **IMPORTANT**: Remember this PIN! If you lose it, you won't be able to recover your wallet from the ESP32
-6. The system will save:
-   - The 12 or 24 words
-   - The passphrase (if configured)
-   - Everything **encrypted with AES** using your PIN before storing on ESP32
+6. What is saved:
+   - The wallet's BIP39 entropy as a hex string (derived from your 12 or 24 words)
+   - The plaintext before encryption is only the entropy hex
+   - The passphrase is NOT stored on the device
+   - Everything is **encrypted with AES** using your PIN before storing on ESP32
 
 ### 4. Load a Wallet
 
@@ -56,8 +57,9 @@ The Neurai web wallet now includes integration with ESP32 devices to securely st
 3. Select a wallet from the **dropdown**
 4. Click **"📖 Load"**
 5. Enter the **PIN** you used when saving this wallet
-6. If the PIN is correct, the words (and passphrase if it exists) will be automatically loaded into the fields
-7. If the PIN is incorrect, you'll see an error message
+6. If the PIN is correct, the words will be reconstructed from the stored entropy and placed into the field
+7. Passphrase is not stored; if you use one, enter it manually in the passphrase field
+8. If the PIN is incorrect, you'll see an error message
 
 ### 5. Delete a Wallet
 
@@ -186,17 +188,11 @@ U2FsdGVkX1+vupppZksvRf5pq5g5XjFRlipRkwB0K1Y96Qsv2Lm+31cmzaAILwytX...
 
 ### Decrypted format (internal):
 
-#### Wallet without passphrase:
+The decrypted plaintext is just the BIP39 entropy as a hex string:
 ```
-word1 word2 word3 ... word12
+6bd238e3b1f4a7f7b0d9f1a2c3d4e5f6... (128 or 256-bit entropy in hex)
 ```
-
-#### Wallet with passphrase:
-```
-word1 word2 ... word12|||my_secret_passphrase
-```
-
-The separator `|||` indicates there's a passphrase after the words.
+From this entropy, the wallet reconstructs the 12 or 24 recovery words in the app. Passphrase, if used, is provided by the user at login time and is not stored.
 
 ## Encryption Details
 
@@ -204,8 +200,8 @@ The separator `|||` indicates there's a passphrase after the words.
 - **Library**: CryptoJS (same used for local storage in the wallet)
 - **Key derivation**: Your PIN is used directly as the encryption key
 - **Process**:
-  1. When saving: `Plaintext mnemonic → AES encrypt with PIN → Store encrypted data on ESP32`
-  2. When loading: `Read encrypted data from ESP32 → AES decrypt with PIN → Plaintext mnemonic`
+   1. When saving: `BIP39 entropy (hex) → AES encrypt with PIN → Store encrypted data on ESP32`
+   2. When loading: `Read encrypted data from ESP32 → AES decrypt with PIN → Entropy (hex) → Reconstruct mnemonic`
 - **Security level**: The encryption strength depends on your PIN complexity
 
 ## References

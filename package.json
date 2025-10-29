@@ -24,6 +24,7 @@
     "@neuraiproject/neurai-message": "^0.7.1",
     "@types/react": "^18.2.6",
     "@types/react-dom": "^18.2.4",
+    "bip39": "^3.1.0",
     "crypto-js": "^4.2.0",
     "parcel": "^2.13.0",
     "react": "^18.2.0",
