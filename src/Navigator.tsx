@@ -52,7 +52,7 @@ export function Navigator({
           Neurai
         </h2>
       </a>
-        <h5>Rebel Wallet 1.0.8</h5>
+        <h5>Rebel Wallet 1.0.8b2</h5>
         
         {/* Passphrase indicator */}
         <div style={{ 
