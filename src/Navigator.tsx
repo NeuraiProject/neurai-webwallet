@@ -24,9 +24,9 @@ export function Navigator({
   balance: ReactNode;
   currentRoute: Routes;
   wallet: Wallet;
-  setRoute: any;
+  setRoute: (route: Routes) => void;
 }) {
-  const networkDisplayName = networkInfo[wallet.network].displayName;
+  // const networkDisplayName = networkInfo[wallet.network].displayName; // unused for now
   const { passphrase } = getMnemonicAndPassphrase();
   const hasPassphrase = passphrase !== "";
   const isFromESP32 = localStorage.getItem("loginFromESP32") === "true";
@@ -156,7 +156,7 @@ export function Navigator({
 interface ILinkProps {
   currentRoute: Routes;
   newRoute: Routes;
-  setRoute: any;
+  setRoute: (route: Routes) => void;
   title: string;
 }
 
@@ -214,7 +214,7 @@ function Link({ currentRoute, newRoute, setRoute, title }: ILinkProps) {
   );
 }
 //Icons from https://feathericons.com/
-const iconMapper = {
+const iconMapper: Record<Routes, JSX.Element> = {
   [Routes.HOME]: <IconHome />,
   [Routes.HISTORY]: <IconHistory />,
   [Routes.RECEIVE]: <IconReceive />,
@@ -222,6 +222,6 @@ const iconMapper = {
   [Routes.SIGN]: <IconSign />,
   [Routes.SWEEP]: <IconSweep />,
 };
-function Icon({ route }) {
-  return <div> {iconMapper[route]}</div>;
+function Icon({ route }: { route: Routes }) {
+  return <div>{iconMapper[route]}</div>;
 }
