@@ -1,27 +1,43 @@
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "./Types";
 
+// @ts-ignore - Parcel handles CommonJS require for CryptoJS
 const CryptoJS = require("crypto-js");
 
 const S = "U2FsdGVkX1/UYDOP/PD64YU3tbCAeJBR";
 const SEPARATOR = "|||";
+const STORAGE_KEY = "mnemonic";
+const SESSION_KEY = "mnemonic_session";
+
+function decryptMnemonic(raw: string) {
+  const decryptedBytes = CryptoJS.AES.decrypt(raw, S);
+  return decryptedBytes.toString(CryptoJS.enc.Utf8);
+}
+
+function isEncryptedMnemonic(value: string): boolean {
+  return value.indexOf(" ") === -1 && value.includes(SEPARATOR) === false;
+}
 
 export function getMnemonic(): string {
-  const raw = localStorage.getItem("mnemonic");
-  if (!raw) {
+  const sessionRaw = sessionStorage.getItem(SESSION_KEY);
+  if (sessionRaw && sessionRaw.length > 0) {
+    return isEncryptedMnemonic(sessionRaw)
+      ? decryptMnemonic(sessionRaw)
+      : sessionRaw;
+  }
+
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw || raw.length === 0) {
     return "";
   }
 
-  const isEncrypted = raw?.indexOf(" ") === -1;
-  //Handle existing plain text mnemonics, by re-saving as encrypted
-  if (isEncrypted === false) {
-    setMnemonic(raw);
-    return raw;
+  if (isEncryptedMnemonic(raw)) {
+    return decryptMnemonic(raw);
   }
 
-  const decryptedBytes = CryptoJS.AES.decrypt(raw, S);
-  const decryptedText = decryptedBytes.toString(CryptoJS.enc.Utf8);
-  return decryptedText;
+  // Handle existing plain text mnemonics by re-saving as encrypted in persistent storage
+  setMnemonic(raw, { persist: true });
+  return raw;
 }
 
 export function getMnemonicAndPassphrase(): { mnemonic: string; passphrase: string } {
@@ -37,25 +53,30 @@ export function getMnemonicAndPassphrase(): { mnemonic: string; passphrase: stri
   return { mnemonic: fullData, passphrase: "" };
 }
 
-export function setMnemonic(_value: string) {
+export function setMnemonic(_value: string, options?: { persist?: boolean }) {
   const value = _value.trim();
+  const persist = options?.persist ?? true;
+  const storage = persist ? localStorage : sessionStorage;
+  const key = persist ? STORAGE_KEY : SESSION_KEY;
+  const otherStorage = persist ? sessionStorage : localStorage;
+  const otherKey = persist ? SESSION_KEY : STORAGE_KEY;
 
   if (!value) {
-    localStorage.setItem("mnemonic", "");
+    storage.removeItem(key);
+    otherStorage.removeItem(otherKey);
     return;
   }
-  const isEncrypted = value.indexOf(" ") === -1 && !value.includes(SEPARATOR);
+  const isEncrypted = isEncryptedMnemonic(value);
 
-  //Not encryptred
-  if (isEncrypted === true) {
-    localStorage.setItem("mnemonic", value);
-  } else if (isEncrypted === false) {
-    // Encrypting the text
-
-    const cipherText = CryptoJS.AES.encrypt(value, S);
-
-    localStorage.setItem("mnemonic", cipherText);
+  if (isEncrypted) {
+    storage.setItem(key, value);
+  } else {
+    const cipherText = CryptoJS.AES.encrypt(value, S).toString();
+    storage.setItem(key, cipherText);
   }
+
+  // Ensure the alternate storage does not retain previous values
+  otherStorage.removeItem(otherKey);
 }
 export function getAssetBalanceIncludingMempool(
   wallet: Wallet,

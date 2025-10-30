@@ -474,7 +474,7 @@ export function Login() {
     
     // Store mnemonic with passphrase if exists
     const mnemonicData = finalPassphrase ? `${loadedMnemonic}|||${finalPassphrase}` : loadedMnemonic;
-    setMnemonic(mnemonicData);
+    setMnemonic(mnemonicData, { persist: false });
     window.location.reload();
   }
 

@@ -97,6 +97,7 @@ function App() {
   const signOut = () => {
     if (confirm("Are you sure you want to sign out?")) {
       localStorage.removeItem("mnemonic");
+      sessionStorage.removeItem("mnemonic_session");
       localStorage.removeItem("loginFromESP32");
       window.location.reload();
     }
