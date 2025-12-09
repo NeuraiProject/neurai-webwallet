@@ -50,13 +50,13 @@
   resolved "https://registry.npmjs.org/@neuraiproject/neurai-history-list/-/neurai-history-list-1.2.5.tgz"
   integrity sha512-NCjBCGS2Yb76HyhgUiKZMT3/jCi+18wPOUcj/8DzgA3U/NC+ctW3c2iQtxV1GEZLJZokdct1y0ucxTY84k1vpw==
 
-"@neuraiproject/neurai-jswallet@0.12.1":
-  version "0.12.1"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-jswallet/-/neurai-jswallet-0.12.1.tgz"
-  integrity sha512-0Tj/Y+OTDan4p73H1LAfgKeKP5EzhaXkrt35zvnTAZLZ2osc9Xgg9xa6rQWEoOw8TGqKEBCaE1263AlqhtURDA==
+"@neuraiproject/neurai-jswallet@0.12.2":
+  version "0.12.2"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-jswallet/-/neurai-jswallet-0.12.2.tgz"
+  integrity sha512-lSN1HUAFBgyD3Lg0DW65+Mq1AeCLxwQLjPWo0cAEUrSOFSKPS9rGH4ODhdDN4BOKdSNZYJUZLv/En8ODU6WNLA==
   dependencies:
     "@neuraiproject/neurai-key" "2.8.4"
-    "@neuraiproject/neurai-rpc" "0.4.2"
+    "@neuraiproject/neurai-rpc" "0.4.4"
     "@neuraiproject/neurai-sign-transaction" "1.1.1"
     parcel "^2.14.4"
 
@@ -77,10 +77,10 @@
   dependencies:
     bitcoinjs-message "^2.2.0"
 
-"@neuraiproject/neurai-rpc@0.4.2":
-  version "0.4.2"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-rpc/-/neurai-rpc-0.4.2.tgz"
-  integrity sha512-Uoh7RV8746c96OioXi7cpkrlLb68937YhoBHsV9gd6dJjcXb+/tfqG/ouRKRVU85+RdPolTBM7jDEk0v7+yrgA==
+"@neuraiproject/neurai-rpc@0.4.4":
+  version "0.4.4"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-rpc/-/neurai-rpc-0.4.4.tgz"
+  integrity sha512-nxrWVvgQooaEFk1aewMeW7v8twqpVnDQmvrbPx4wwMGUKxMT5zUrQv/s2bzoX2M2qfe+nksXKVCkp2kFcnNBng==
 
 "@neuraiproject/neurai-sign-transaction@1.1.1":
   version "1.1.1"
