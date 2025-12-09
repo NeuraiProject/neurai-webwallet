@@ -188,8 +188,12 @@ export function Settings() {
           <li>The wallet will need to reload after changing RPC settings</li>
           <li>If you cannot connect, reset to default settings</li>
           <li>
-            <strong>Security Warning:</strong> You need to update the Content Security Policy
-            in index.html to allow connections to your custom server
+            <strong>Security:</strong> Your custom RPC server must use HTTPS (not HTTP).
+            The wallet is already configured to accept any HTTPS server.
+          </li>
+          <li style={{ fontSize: "0.9rem", color: "var(--muted-color)", marginTop: "0.5rem" }}>
+            Note: If you need to use HTTP (not recommended), you must manually modify
+            the Content Security Policy in index.html
           </li>
         </ul>
       </div>
