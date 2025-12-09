@@ -29,6 +29,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
   const [showAssets, setShowAssets] = React.useState(false);
   const [assetAddresses, setAssetAddresses] = React.useState<Record<string, string>>({});
   const [pubKeyStatus, setPubKeyStatus] = React.useState<Record<string, boolean | null>>({});
+  const [selectedAsset, setSelectedAsset] = React.useState<string | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   const allAssets = getAssetBalanceIncludingMempool(wallet, assets, mempool);
@@ -138,7 +139,14 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
 
   return (
     <article>
-      <h3>Chat DePIN</h3>
+      <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>Chat DePIN</span>
+        {selectedAsset && (
+          <span style={{ fontSize: "0.9rem", fontWeight: "normal" }}>
+            DePIN = {selectedAsset}
+          </span>
+        )}
+      </h3>
 
       {/* Chat container */}
       <div
@@ -319,6 +327,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
           <table role="grid">
             <thead>
               <tr>
+                <th style={{ width: "50px", textAlign: "center" }}>Select</th>
                 <th>Asset Name</th>
                 <th>Address</th>
                 <th style={{ textAlign: "center", width: "100px" }}>PubKey</th>
@@ -334,6 +343,15 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
 
                 return (
                   <tr key={assetName}>
+                    <td style={{ textAlign: "center" }}>
+                      <input
+                        type="radio"
+                        name="selected-asset"
+                        checked={selectedAsset === assetName}
+                        onChange={() => setSelectedAsset(assetName)}
+                        style={{ cursor: "pointer" }}
+                      />
+                    </td>
                     <td>{assetName}</td>
                     <td style={{
                       fontFamily: "monospace",
