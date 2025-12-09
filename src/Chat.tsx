@@ -28,7 +28,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
   const [inputText, setInputText] = React.useState("");
   const [showAssets, setShowAssets] = React.useState(false);
   const [assetAddresses, setAssetAddresses] = React.useState<Record<string, string>>({});
-  const [pubKeyStatus, setPubKeyStatus] = React.useState<Record<string, boolean>>({});
+  const [pubKeyStatus, setPubKeyStatus] = React.useState<Record<string, boolean | null>>({});
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   const allAssets = getAssetBalanceIncludingMempool(wallet, assets, mempool);
@@ -102,12 +102,23 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
 
             // Check if pubkey is available for this address
             try {
+              console.log(`Checking pubkey for ${assetName} at address: ${address}`);
               const pubkeyResult = await wallet.rpc("getpubkey", [address]);
+              console.log(`Pubkey result for ${assetName}:`, pubkeyResult);
+              
               // If getpubkey returns a valid result, pubkey exists
               pubKeys[assetName] = !!(pubkeyResult && pubkeyResult.pubkey);
-            } catch (error) {
-              // If getpubkey fails, pubkey is not available
-              pubKeys[assetName] = false;
+              console.log(`PubKey available for ${assetName}: ${pubKeys[assetName]}`);
+            } catch (error: any) {
+              // If getpubkey fails or is not supported
+              console.warn(`Cannot check pubkey for ${assetName}:`, error.description || error.error);
+              
+              // Mark as null to indicate "not available to check" vs "checked and not found"
+              if (error.error === "Not in whitelist" || error.description?.includes("not supported")) {
+                pubKeys[assetName] = null as any; // Use null to indicate RPC method not available
+              } else {
+                pubKeys[assetName] = false;
+              }
             }
           } else {
             addresses[assetName] = "Not found in wallet";
@@ -334,6 +345,8 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                     <td style={{ textAlign: "center", fontSize: "1.2rem" }}>
                       {address === "Loading..." ? (
                         "..."
+                      ) : hasPubKey === null ? (
+                        <span style={{ color: "#9ca3af" }} title="PubKey check not available on this RPC server">—</span>
                       ) : hasPubKey ? (
                         <span style={{ color: "#22c55e" }} title="Public key available">✓</span>
                       ) : (

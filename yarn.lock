@@ -60,7 +60,18 @@
     "@neuraiproject/neurai-sign-transaction" "1.1.1"
     parcel "^2.14.4"
 
-"@neuraiproject/neurai-key@^2.8.4", "@neuraiproject/neurai-key@2.8.4":
+"@neuraiproject/neurai-key@^2.8.5":
+  version "2.8.5"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-key/-/neurai-key-2.8.5.tgz"
+  integrity sha512-5ovdxwDvEDOPrNML5WYSrVqt+DKAVPlVDwdJYDoAFDDUaYc8KlXX3AaA5kqTvnwc6wA3oaLcQ5qsKAWN4xaAZA==
+  dependencies:
+    "@hyperbitjs/chains" "^1.2.0"
+    bip39 "^3.0.4"
+    bs58check "^2.1.2"
+    coinkey "^3.0.0"
+    hdkey "^2.0.1"
+
+"@neuraiproject/neurai-key@2.8.4":
   version "2.8.4"
   resolved "https://registry.npmjs.org/@neuraiproject/neurai-key/-/neurai-key-2.8.4.tgz"
   integrity sha512-Fsm2AwIbbr5Dz8Rd7Bp5GY+AFeFgC7DjxEIDqLv6tBrD+vxuq5Q2hugfM/wA92CTYJ+9uYq/FyucKKIKjVotQA==
