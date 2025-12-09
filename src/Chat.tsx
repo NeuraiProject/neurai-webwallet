@@ -28,6 +28,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
   const [inputText, setInputText] = React.useState("");
   const [showAssets, setShowAssets] = React.useState(false);
   const [assetAddresses, setAssetAddresses] = React.useState<Record<string, string>>({});
+  const [pubKeyStatus, setPubKeyStatus] = React.useState<Record<string, boolean>>({});
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   const allAssets = getAssetBalanceIncludingMempool(wallet, assets, mempool);
@@ -76,6 +77,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
 
     if (!showAssets && Object.keys(assetAddresses).length === 0) {
       const addresses: Record<string, string> = {};
+      const pubKeys: Record<string, boolean> = {};
       const myAddressObjects = wallet.getAddressObjects();
       const myAddresses = myAddressObjects.map(obj => obj.address);
 
@@ -94,20 +96,32 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
           );
 
           if (myAddressesWithAsset.length > 0) {
-            // Show all my addresses with this asset
-            addresses[assetName] = myAddressesWithAsset.length === 1
-              ? myAddressesWithAsset[0]
-              : myAddressesWithAsset.join(", ");
+            // Use the first address found
+            const address = myAddressesWithAsset[0];
+            addresses[assetName] = address;
+
+            // Check if pubkey is available for this address
+            try {
+              const pubkeyResult = await wallet.rpc("getpubkey", [address]);
+              // If getpubkey returns a valid result, pubkey exists
+              pubKeys[assetName] = !!(pubkeyResult && pubkeyResult.pubkey);
+            } catch (error) {
+              // If getpubkey fails, pubkey is not available
+              pubKeys[assetName] = false;
+            }
           } else {
             addresses[assetName] = "Not found in wallet";
+            pubKeys[assetName] = false;
           }
         } catch (error) {
           console.error(`Error loading address for ${assetName}:`, error);
           addresses[assetName] = "Error loading";
+          pubKeys[assetName] = false;
         }
       }
 
       setAssetAddresses(addresses);
+      setPubKeyStatus(pubKeys);
     }
   };
 
@@ -296,6 +310,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
               <tr>
                 <th>Asset Name</th>
                 <th>Address</th>
+                <th style={{ textAlign: "center", width: "100px" }}>PubKey</th>
               </tr>
             </thead>
             <tbody>
@@ -304,6 +319,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                 if (allAssets[assetName] === 0) return null;
 
                 const address = assetAddresses[assetName] || "Loading...";
+                const hasPubKey = pubKeyStatus[assetName];
 
                 return (
                   <tr key={assetName}>
@@ -314,6 +330,15 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                       wordBreak: "break-all"
                     }}>
                       {address}
+                    </td>
+                    <td style={{ textAlign: "center", fontSize: "1.2rem" }}>
+                      {address === "Loading..." ? (
+                        "..."
+                      ) : hasPubKey ? (
+                        <span style={{ color: "#22c55e" }} title="Public key available">✓</span>
+                      ) : (
+                        <span style={{ color: "#ef4444" }} title="Public key not available">✗</span>
+                      )}
                     </td>
                   </tr>
                 );
