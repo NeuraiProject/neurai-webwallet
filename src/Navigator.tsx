@@ -7,6 +7,7 @@ import {
   IconHome,
   IconReceive,
   IconSend,
+  IconSettings,
   IconSign,
   IconSweep,
 } from "./icons";
@@ -144,6 +145,12 @@ export function Navigator({
             newRoute={Routes.SIGN}
             title="Sign"
           />
+          <Link
+            currentRoute={currentRoute}
+            setRoute={setRoute}
+            newRoute={Routes.SETTINGS}
+            title="Settings"
+          />
         </ul>
       </nav>
       {/* <small>
@@ -219,6 +226,7 @@ const iconMapper: Record<Routes, JSX.Element> = {
   [Routes.HISTORY]: <IconHistory />,
   [Routes.RECEIVE]: <IconReceive />,
   [Routes.SEND]: <IconSend />,
+  [Routes.SETTINGS]: <IconSettings />,
   [Routes.SIGN]: <IconSign />,
   [Routes.SWEEP]: <IconSweep />,
 };

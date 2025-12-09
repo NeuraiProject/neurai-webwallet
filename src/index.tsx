@@ -17,6 +17,7 @@ import { Navigator } from "./Navigator";
 import { Routes } from "./Routes";
 import { Footer } from "./Footer";
 import { Sign } from "./sign/Sign";
+import { Settings } from "./Settings";
 import { useMempool } from "./hooks/useMempool";
 import { useBlockCount } from "./hooks/useBlockCount";
 import { useBalance } from "./hooks/useBalance";
@@ -78,10 +79,30 @@ function App() {
       mnemonic,
       network,
     };
-    
+
     // Only add passphrase if it exists (backward compatible)
     if (passphrase) {
       walletConfig.passphrase = passphrase;
+    }
+
+    // Load custom RPC configuration if available
+    const savedRpcConfig = localStorage.getItem("rpc_config");
+    if (savedRpcConfig) {
+      try {
+        const rpcConfig = JSON.parse(savedRpcConfig);
+        if (rpcConfig.url) {
+          walletConfig.rpc_url = rpcConfig.url;
+          if (rpcConfig.username) {
+            walletConfig.rpc_username = rpcConfig.username;
+          }
+          if (rpcConfig.password) {
+            walletConfig.rpc_password = rpcConfig.password;
+          }
+          console.log("Using custom RPC server:", rpcConfig.url);
+        }
+      } catch (e) {
+        console.error("Error loading custom RPC config:", e);
+      }
     }
 
     NeuraiWallet.createInstance(walletConfig).then(setWallet);
@@ -147,6 +168,10 @@ function App() {
 
           {currentRoute === Routes.SIGN && (
             <Sign assets={assets} wallet={wallet} />
+          )}
+
+          {currentRoute === Routes.SETTINGS && (
+            <Settings />
           )}
         </div>
       </div>

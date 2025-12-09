@@ -3,6 +3,7 @@ export enum Routes {
   HOME = "home",
   RECEIVE = "receive",
   SEND = "send",
+  SETTINGS = "settings",
   SIGN ="sign",
   SWEEP = "sweep",
 }

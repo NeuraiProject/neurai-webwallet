@@ -120,6 +120,26 @@ export function IconHistory() {
   );
 }
 
+export function IconSettings() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={iconSize}
+      height={iconSize}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="feather feather-settings"
+    >
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M12 1v6m0 6v6m-9-9h6m6 0h6m-3.05 6.95l-4.95-4.95m0 9.9l4.95-4.95M6.05 6.05l4.95 4.95m0-9.9L6.05 6.05"></path>
+    </svg>
+  );
+}
+
 export function CopyIcon() {
   return (
     <svg
