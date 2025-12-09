@@ -1,5 +1,7 @@
 import React from "react";
 import { IconSend } from "./icons";
+import { Wallet } from "@neuraiproject/neurai-jswallet";
+import { getAssetBalanceIncludingMempool } from "./utils";
 
 interface Message {
   id: number;
@@ -8,7 +10,13 @@ interface Message {
   timestamp: Date;
 }
 
-export function Chat() {
+interface ChatProps {
+  wallet: Wallet;
+  assets: any[];
+  mempool: any;
+}
+
+export function Chat({ wallet, assets, mempool }: ChatProps) {
   const [messages, setMessages] = React.useState<Message[]>([
     {
       id: 1,
@@ -18,7 +26,11 @@ export function Chat() {
     },
   ]);
   const [inputText, setInputText] = React.useState("");
+  const [showAssets, setShowAssets] = React.useState(false);
+  const [assetAddresses, setAssetAddresses] = React.useState<Record<string, string>>({});
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  const allAssets = getAssetBalanceIncludingMempool(wallet, assets, mempool);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -56,6 +68,46 @@ export function Chat() {
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       handleSend();
+    }
+  };
+
+  const loadAssetAddresses = async () => {
+    setShowAssets(!showAssets);
+
+    if (!showAssets && Object.keys(assetAddresses).length === 0) {
+      const addresses: Record<string, string> = {};
+      const myAddressObjects = wallet.getAddressObjects();
+      const myAddresses = myAddressObjects.map(obj => obj.address);
+
+      for (const assetName of Object.keys(allAssets)) {
+        if (assetName === wallet.baseCurrency) continue;
+        if (allAssets[assetName] === 0) continue;
+
+        try {
+          // Get all addresses that have this asset
+          const data = await wallet.rpc("listaddressesbyasset", [assetName]);
+          const allAddressesWithAsset = Object.keys(data);
+
+          // Filter to get only MY addresses that have this asset
+          const myAddressesWithAsset = allAddressesWithAsset.filter(addr =>
+            myAddresses.includes(addr)
+          );
+
+          if (myAddressesWithAsset.length > 0) {
+            // Show all my addresses with this asset
+            addresses[assetName] = myAddressesWithAsset.length === 1
+              ? myAddressesWithAsset[0]
+              : myAddressesWithAsset.join(", ");
+          } else {
+            addresses[assetName] = "Not found in wallet";
+          }
+        } catch (error) {
+          console.error(`Error loading address for ${assetName}:`, error);
+          addresses[assetName] = "Error loading";
+        }
+      }
+
+      setAssetAddresses(addresses);
     }
   };
 
@@ -228,6 +280,48 @@ export function Chat() {
           </div>
         </div>
       </div>
+
+      {/* Asset List Button */}
+      <div style={{ marginTop: "1rem", textAlign: "center" }}>
+        <button onClick={loadAssetAddresses}>
+          {showAssets ? "Hide Asset List" : "Asset List"}
+        </button>
+      </div>
+
+      {/* Asset List Table */}
+      {showAssets && (
+        <div style={{ marginTop: "1rem" }}>
+          <table role="grid">
+            <thead>
+              <tr>
+                <th>Asset Name</th>
+                <th>Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(allAssets).map((assetName) => {
+                if (assetName === wallet.baseCurrency) return null;
+                if (allAssets[assetName] === 0) return null;
+
+                const address = assetAddresses[assetName] || "Loading...";
+
+                return (
+                  <tr key={assetName}>
+                    <td>{assetName}</td>
+                    <td style={{
+                      fontFamily: "monospace",
+                      fontSize: "0.85rem",
+                      wordBreak: "break-all"
+                    }}>
+                      {address}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <style>{`
         @keyframes slideIn {

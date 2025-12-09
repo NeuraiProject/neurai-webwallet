@@ -172,7 +172,7 @@ function App() {
           )}
 
           {currentRoute === Routes.CHAT && (
-            <Chat />
+            <Chat wallet={wallet} assets={assets} mempool={mempool} />
           )}
 
           {currentRoute === Routes.SETTINGS && (
