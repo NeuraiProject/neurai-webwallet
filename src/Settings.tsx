@@ -82,7 +82,7 @@ export function Settings() {
   };
 
   return (
-    <div>
+    <article>
       <h3>RPC Server Configuration</h3>
 
       <div style={{ marginBottom: "1.5rem" }}>
@@ -193,6 +193,6 @@ export function Settings() {
           </li>
         </ul>
       </div>
-    </div>
+    </article>
   );
 }

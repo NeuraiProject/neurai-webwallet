@@ -3,6 +3,8 @@ import React, { FormEvent } from "react";
 import { LightModeToggle } from "./components/LightModeToggle";
 import { setMnemonic } from "./utils";
 import ESP32Storage from "./ESP32Storage";
+import { Settings } from "./Settings";
+import { IconSettings } from "./icons";
 
 // @ts-ignore - Parcel handles this correctly
 const CryptoJS = require("crypto-js");
@@ -21,6 +23,7 @@ export function Login() {
   const [wordCount, setWordCount] = React.useState<12 | 24>(12);
   const [usePassphrase, setUsePassphrase] = React.useState(false);
   const [dialog, setDialog] = React.useState(<></>);
+  const [showSettings, setShowSettings] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   
   // ESP32 states
@@ -478,9 +481,58 @@ export function Login() {
     window.location.reload();
   }
 
+  // If showing settings, render only the settings component
+  if (showSettings) {
+    return (
+      <article>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+          <button
+            onClick={() => setShowSettings(false)}
+            className="secondary"
+            style={{ marginBottom: 0 }}
+          >
+            ← Back to Login
+          </button>
+          <LightModeToggle />
+        </div>
+        <Settings />
+      </article>
+    );
+  }
+
   return (
     <article>
-      <LightModeToggle />
+      <div style={{
+        display: 'flex',
+        gap: '0.5rem',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        marginBottom: '1rem'
+      }}>
+        <div
+          onClick={() => setShowSettings(true)}
+          style={{
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0.8,
+            transition: 'opacity 0.2s',
+            background: 'none',
+            backgroundColor: 'transparent',
+            border: 'none',
+            padding: 0,
+            margin: 0,
+            outline: 'none'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
+          title="RPC Server Settings"
+        >
+          <IconSettings />
+        </div>
+        <LightModeToggle />
+      </div>
       {dialog}
       
       {/* Hero Section */}
