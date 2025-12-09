@@ -3,6 +3,7 @@ import { Routes } from "./Routes";
 import { LightModeToggle } from "./components/LightModeToggle";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import {
+  IconChat,
   IconHistory,
   IconHome,
   IconReceive,
@@ -148,6 +149,12 @@ export function Navigator({
           <Link
             currentRoute={currentRoute}
             setRoute={setRoute}
+            newRoute={Routes.CHAT}
+            title="Chat"
+          />
+          <Link
+            currentRoute={currentRoute}
+            setRoute={setRoute}
             newRoute={Routes.SETTINGS}
             title="Settings"
           />
@@ -226,6 +233,7 @@ const iconMapper: Record<Routes, JSX.Element> = {
   [Routes.HISTORY]: <IconHistory />,
   [Routes.RECEIVE]: <IconReceive />,
   [Routes.SEND]: <IconSend />,
+  [Routes.CHAT]: <IconChat />,
   [Routes.SETTINGS]: <IconSettings />,
   [Routes.SIGN]: <IconSign />,
   [Routes.SWEEP]: <IconSweep />,

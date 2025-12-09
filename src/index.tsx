@@ -18,6 +18,7 @@ import { Routes } from "./Routes";
 import { Footer } from "./Footer";
 import { Sign } from "./sign/Sign";
 import { Settings } from "./Settings";
+import { Chat } from "./Chat";
 import { useMempool } from "./hooks/useMempool";
 import { useBlockCount } from "./hooks/useBlockCount";
 import { useBalance } from "./hooks/useBalance";
@@ -168,6 +169,10 @@ function App() {
 
           {currentRoute === Routes.SIGN && (
             <Sign assets={assets} wallet={wallet} />
+          )}
+
+          {currentRoute === Routes.CHAT && (
+            <Chat />
           )}
 
           {currentRoute === Routes.SETTINGS && (

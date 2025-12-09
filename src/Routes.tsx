@@ -1,4 +1,5 @@
 export enum Routes {
+  CHAT = "chat",
   HISTORY = "history",
   HOME = "home",
   RECEIVE = "receive",
