@@ -55,6 +55,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
   const [isConnected, setIsConnected] = React.useState(false);
   const [validityStatus, setValidityStatus] = React.useState<any>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const chatInputRef = React.useRef<HTMLTextAreaElement>(null);
   
   // Estado para el listado de direcciones con pubkeys
   const [showAddressList, setShowAddressList] = React.useState(false);
@@ -121,6 +122,20 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   };
+
+  const autoResizeChatInput = React.useCallback((textarea: HTMLTextAreaElement) => {
+    // Reset height to allow shrinking
+    textarea.style.height = "auto";
+    const scrollHeight = textarea.scrollHeight;
+    const minHeight = textarea.value.trim() ? scrollHeight : 48;
+    textarea.style.height = `${minHeight}px`;
+  }, []);
+
+  React.useEffect(() => {
+    if (chatInputRef.current) {
+      autoResizeChatInput(chatInputRef.current);
+    }
+  }, [inputText, autoResizeChatInput]);
 
   React.useEffect(() => {
     // Solo hacer scroll si hay mensajes y estamos conectados
@@ -257,7 +272,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
 
     const messageText = inputText;
     const unixTimestamp = Math.floor(Date.now() / 1000);
-    const deliveryKey = makeDeliveryKey(selectedAsset, selectedAddress, unixTimestamp, messageText.trim());
+    const deliveryKey = makeDeliveryKey(selectedAsset, selectedAddress, unixTimestamp, messageText);
 
     // Optimistic UI: add message immediately as pending
     if (deliveryKey) {
@@ -316,8 +331,10 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
     }]);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter sends; Shift+Enter inserts newline
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
       handleSend();
     }
   };
@@ -768,6 +785,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                         lineHeight: "1.5",
                         fontSize: "0.95rem",
                         padding: "0.5rem",
+                        whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
                         backgroundColor:
                           message.sender === "user"
                             ? "rgba(255,255,255,0.1)"
@@ -787,6 +805,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                       wordWrap: "break-word",
                       lineHeight: "1.5",
                       fontSize: "0.95rem",
+                      whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
                     }}
                   >
                     {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
@@ -822,18 +841,25 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
             padding: "1rem 1.25rem",
             display: "flex",
             gap: "0.75rem",
-            alignItems: "center",
+            alignItems: "flex-end",
             backgroundColor: "#ffffff",
           }}
           className="chat-input-area"
         >
-          <input
-            type="text"
+          <textarea
+            ref={chatInputRef}
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
+            onChange={(e) => {
+              setInputText(e.target.value);
+              autoResizeChatInput(e.target);
+            }}
+            onInput={(e) => {
+              autoResizeChatInput(e.currentTarget);
+            }}
             onKeyDown={handleKeyPress}
             placeholder={isConnected ? "Type your message..." : "Select an asset to start messaging..."}
             disabled={!isConnected}
+            rows={1}
             style={{
               flex: 1,
               padding: "0.875rem 1rem",
@@ -845,6 +871,11 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
               outline: "none",
               transition: "all 0.2s",
               opacity: isConnected ? 1 : 0.6,
+              resize: "none",
+              overflow: "hidden",
+              lineHeight: "1.35",
+              minHeight: "48px",
+              fontFamily: "inherit",
             }}
             onFocus={(e) => {
               if (isConnected) {
@@ -1117,17 +1148,17 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
           border-top-color: #333333 !important;
         }
 
-        [data-theme="dark"] .chat-input-area input {
+        [data-theme="dark"] .chat-input-area textarea {
           background-color: #151515 !important;
           border-color: #333333 !important;
           color: var(--neurai-text) !important;
         }
 
-        [data-theme="dark"] .chat-input-area input::placeholder {
+        [data-theme="dark"] .chat-input-area textarea::placeholder {
           color: var(--neurai-text-secondary) !important;
         }
 
-        [data-theme="dark"] .chat-input-area input:focus {
+        [data-theme="dark"] .chat-input-area textarea:focus {
           background-color: #1a1a1a !important;
           border-color: var(--neurai-primary) !important;
         }
