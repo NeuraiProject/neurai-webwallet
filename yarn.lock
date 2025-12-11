@@ -45,18 +45,25 @@
   resolved "https://registry.npmjs.org/@msgpackr-extract/msgpackr-extract-linux-x64/-/msgpackr-extract-linux-x64-3.0.3.tgz"
   integrity sha512-cvwNfbP07pKUfq1uH+S6KJ7dT9K8WOE4ZiAcsrSes+UY55E/0jLYc+vq+DO7jlmqRb5zAggExKm0H7O/CBaesg==
 
+"@neuraiproject/neurai-depin-msg@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-depin-msg/-/neurai-depin-msg-1.0.0.tgz"
+  integrity sha512-dbla6Xh1G0+c2n64JOgzUgwXkU/1Pb0v3VCwfzIQUnJU5AVzjZBPwS5e/iaTRQUspGL9C/rClFBbbpWb7Wz7GA==
+  dependencies:
+    "@bitcoinerlab/secp256k1" "1.2.0"
+
 "@neuraiproject/neurai-history-list@^1.2.5":
   version "1.2.5"
   resolved "https://registry.npmjs.org/@neuraiproject/neurai-history-list/-/neurai-history-list-1.2.5.tgz"
   integrity sha512-NCjBCGS2Yb76HyhgUiKZMT3/jCi+18wPOUcj/8DzgA3U/NC+ctW3c2iQtxV1GEZLJZokdct1y0ucxTY84k1vpw==
 
-"@neuraiproject/neurai-jswallet@0.12.2":
-  version "0.12.2"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-jswallet/-/neurai-jswallet-0.12.2.tgz"
-  integrity sha512-lSN1HUAFBgyD3Lg0DW65+Mq1AeCLxwQLjPWo0cAEUrSOFSKPS9rGH4ODhdDN4BOKdSNZYJUZLv/En8ODU6WNLA==
+"@neuraiproject/neurai-jswallet@0.12.4":
+  version "0.12.4"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-jswallet/-/neurai-jswallet-0.12.4.tgz"
+  integrity sha512-ufCVW4lMcG4TX67uTfshu0n1buxl+ezfqqCVFtBnnqaajEx2oQgRu1SN7Unggz94DvD6qgPeKIrDFWVJb1qiwg==
   dependencies:
     "@neuraiproject/neurai-key" "2.8.4"
-    "@neuraiproject/neurai-rpc" "0.4.4"
+    "@neuraiproject/neurai-rpc" "0.4.6"
     "@neuraiproject/neurai-sign-transaction" "1.1.1"
     parcel "^2.14.4"
 
@@ -88,10 +95,10 @@
   dependencies:
     bitcoinjs-message "^2.2.0"
 
-"@neuraiproject/neurai-rpc@0.4.4":
-  version "0.4.4"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-rpc/-/neurai-rpc-0.4.4.tgz"
-  integrity sha512-nxrWVvgQooaEFk1aewMeW7v8twqpVnDQmvrbPx4wwMGUKxMT5zUrQv/s2bzoX2M2qfe+nksXKVCkp2kFcnNBng==
+"@neuraiproject/neurai-rpc@0.4.6":
+  version "0.4.6"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-rpc/-/neurai-rpc-0.4.6.tgz"
+  integrity sha512-RcYx6sypTEHSsMfKB59Fb+W4uGzgnUk/5PrC7sIcKP2xUPsaTEVL7V0TyUWN6sz6UUpdOxl4V40i6vDl76ytPw==
 
 "@neuraiproject/neurai-sign-transaction@1.1.1":
   version "1.1.1"
@@ -823,6 +830,18 @@
   dependencies:
     "@swc/counter" "^0.1.3"
 
+"@types/crypto-js@^4.2.2":
+  version "4.2.2"
+  resolved "https://registry.npmjs.org/@types/crypto-js/-/crypto-js-4.2.2.tgz"
+  integrity sha512-sDOLlVbHhXpAUAL0YHDUUwDZf3iN4Bwi4W6a0W0b+QcAezUbRtH4FVb+9J4h+XFPW7l/gQ9F8qC7P+Ec4k8QVQ==
+
+"@types/node@*", "@types/node@^25.0.0":
+  version "25.0.0"
+  resolved "https://registry.npmjs.org/@types/node/-/node-25.0.0.tgz"
+  integrity sha512-rl78HwuZlaDIUSeUKkmogkhebA+8K1Hy7tddZuJ3D0xV8pZSfsYGTsliGUol1JPzu9EKnTxPC4L1fiWouStRew==
+  dependencies:
+    undici-types "~7.16.0"
+
 "@types/prop-types@*":
   version "15.7.15"
   resolved "https://registry.npmjs.org/@types/prop-types/-/prop-types-15.7.15.tgz"
@@ -840,6 +859,18 @@
   dependencies:
     "@types/prop-types" "*"
     csstype "^3.0.2"
+
+"@types/secp256k1@^4.0.7":
+  version "4.0.7"
+  resolved "https://registry.npmjs.org/@types/secp256k1/-/secp256k1-4.0.7.tgz"
+  integrity sha512-Rcvjl6vARGAKRO6jHeKMatGrvOMGrR/AR11N1x2LqintPCyDZ7NBhrh238Z2VZc7aM7KIwnFpFQ7fnfK4H/9Qw==
+  dependencies:
+    "@types/node" "*"
+
+"@types/trusted-types@^2.0.7":
+  version "2.0.7"
+  resolved "https://registry.npmjs.org/@types/trusted-types/-/trusted-types-2.0.7.tgz"
+  integrity sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==
 
 "@zxing/browser@0.0.7":
   version "0.0.7"
@@ -1347,6 +1378,13 @@ diffie-hellman@^5.0.3:
     miller-rabin "^4.0.0"
     randombytes "^2.0.0"
 
+dompurify@^3.1.6:
+  version "3.3.1"
+  resolved "https://registry.npmjs.org/dompurify/-/dompurify-3.3.1.tgz"
+  integrity sha512-qkdCKzLNtrgPFP1Vo+98FRzJnBRGe4ffyCea9IwHB1fyxPOeNTHpLKYGd4Uk9xvNoH0ZoOjwZxNptyMwqrId1Q==
+  optionalDependencies:
+    "@types/trusted-types" "^2.0.7"
+
 dotenv-expand@^11.0.7:
   version "11.0.7"
   resolved "https://registry.npmjs.org/dotenv-expand/-/dotenv-expand-11.0.7.tgz"
@@ -1742,6 +1780,11 @@ loose-envify@^1.1.0:
   dependencies:
     js-tokens "^3.0.0 || ^4.0.0"
 
+marked@^12.0.2:
+  version "12.0.2"
+  resolved "https://registry.npmjs.org/marked/-/marked-12.0.2.tgz"
+  integrity sha512-qXUm7e/YKFoqFPYPa3Ukg9xlI5cyAtGmyEIzMfW//m6kXwCy2Ps9DYf5ioijFKQ8qyuscrHoY04iJGctu2Kg0Q==
+
 math-intrinsics@^1.1.0:
   version "1.1.0"
   resolved "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz"
@@ -1804,9 +1847,9 @@ msgpackr@^1.11.2, msgpackr@^1.9.5:
     msgpackr-extract "^3.0.2"
 
 nan@^2.14.0:
-  version "2.23.0"
-  resolved "https://registry.npmjs.org/nan/-/nan-2.23.0.tgz"
-  integrity sha512-1UxuyYGdoQHcGg87Lkqm3FzefucTa0NAiOcuRsDmysep3c1LVCRK2krrUDafMWtjSG04htvAmvg96+SDknOmgQ==
+  version "2.24.0"
+  resolved "https://registry.npmjs.org/nan/-/nan-2.24.0.tgz"
+  integrity sha512-Vpf9qnVW1RaDkoNKFUvfxqAbtI8ncb8OJlqZ9wwpXzWPEsvsB1nvdUi6oYrHIkQ1Y/tMDnr1h4nczS0VB9Xykg==
 
 node-addon-api@^5.0.0:
   version "5.1.0"
@@ -2080,7 +2123,7 @@ scheduler@^0.23.2:
   dependencies:
     loose-envify "^1.1.0"
 
-secp256k1@^3.0.1, secp256k1@^3.8.1:
+secp256k1@^3.0.1:
   version "3.8.1"
   resolved "https://registry.npmjs.org/secp256k1/-/secp256k1-3.8.1.tgz"
   integrity sha512-tArjQw2P0RTdY7QmkNehgp6TVvQXq6ulIhxv8gaH6YubKG/wxxAoNKcbuXjDhybbc+b2Ihc7e0xxiGN744UIiQ==
@@ -2094,7 +2137,21 @@ secp256k1@^3.0.1, secp256k1@^3.8.1:
     nan "^2.14.0"
     safe-buffer "^5.1.2"
 
-secp256k1@^4.0.0:
+secp256k1@^3.8.1:
+  version "3.8.1"
+  resolved "https://registry.npmjs.org/secp256k1/-/secp256k1-3.8.1.tgz"
+  integrity sha512-tArjQw2P0RTdY7QmkNehgp6TVvQXq6ulIhxv8gaH6YubKG/wxxAoNKcbuXjDhybbc+b2Ihc7e0xxiGN744UIiQ==
+  dependencies:
+    bindings "^1.5.0"
+    bip66 "^1.1.5"
+    bn.js "^4.11.8"
+    create-hash "^1.2.0"
+    drbg.js "^1.0.1"
+    elliptic "^6.5.7"
+    nan "^2.14.0"
+    safe-buffer "^5.1.2"
+
+secp256k1@^4.0.0, secp256k1@^4.0.4:
   version "4.0.4"
   resolved "https://registry.npmjs.org/secp256k1/-/secp256k1-4.0.4.tgz"
   integrity sha512-6JfvwvjUOn8F/jUoBY2Q1v5WY5XS+rj8qSe0v8Y4ezH4InLgTEeOOPQsRll9OV429Pvo6BCHGavIyJfr3TAhsw==
@@ -2217,6 +2274,11 @@ uint8array-tools@^0.0.8:
   version "0.0.8"
   resolved "https://registry.npmjs.org/uint8array-tools/-/uint8array-tools-0.0.8.tgz"
   integrity sha512-xS6+s8e0Xbx++5/0L+yyexukU7pz//Yg6IHg3BKhXotg1JcYtgxVcUctQ0HxLByiJzpAkNFawz1Nz5Xadzo82g==
+
+undici-types@~7.16.0:
+  version "7.16.0"
+  resolved "https://registry.npmjs.org/undici-types/-/undici-types-7.16.0.tgz"
+  integrity sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==
 
 update-browserslist-db@^1.1.4:
   version "1.1.4"
