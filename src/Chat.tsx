@@ -5,6 +5,7 @@ import { getAssetBalanceIncludingMempool } from "./utils";
 import { useDePINChat } from "./hooks/useDePINChat";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
+import { FaRegClock, FaRegCircleCheck } from "react-icons/fa6";
 
 interface Message {
   id: number;
@@ -833,10 +834,18 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                   }}
                 >
                   {message.sender === "user" && message.delivery === "pending" && (
-                    <span style={{ marginRight: "0.35rem" }}>⏳</span>
+                    <FaRegClock 
+                      size={15}
+                      color="#835608ff"
+                      style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                    />
                   )}
                   {message.sender === "user" && message.delivery === "confirmed" && (
-                    <span style={{ marginRight: "0.35rem", color: "var(--neurai-accent)" }}>✓</span>
+                    <FaRegCircleCheck 
+                      size={15}
+                      color="#22c55e"
+                      style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                    />
                   )}
                   {message.timestamp.toLocaleTimeString()}
                 </small>
