@@ -799,10 +799,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                         fontSize: "0.95rem",
                         padding: "0.5rem",
                         whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
-                        backgroundColor:
-                          message.sender === "user"
-                            ? "rgba(255,255,255,0.1)"
-                            : "transparent",
+                        backgroundColor: "transparent",
                         borderRadius: "8px",
                       }}
                     >
@@ -1185,8 +1182,8 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
         }
 
         [data-theme="dark"] .chat-message-user {
-          background-color: rgb(247 232 209) !important;
-          color: rgb(63 54 54) !important;
+          background-color: rgb(85 80 73) !important;
+          color: #e5e7eb !important;
           box-shadow: rgb(42 47 55 / 74%) 0px 2px 8px !important;
         }
 
