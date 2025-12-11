@@ -450,6 +450,12 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
     setSelectedAddress(address);
     console.log('Set selectedAddress to:', address);
 
+    // Auto-load addresses list when selecting an asset
+    console.log('Auto-loading addresses list for asset:', assetName);
+    setTimeout(() => {
+      loadAddressesWithPubkeysInternal(assetName);
+    }, 100);
+
     // La dirección ya fue validada arriba, proceder a conectar
     console.log('Asset has valid address, attempting to connect...');
     console.log('Asset type:', getAssetType(assetName));
@@ -532,19 +538,19 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
     }
   };
 
-  // Obtener listado de direcciones con pubkeys para el asset seleccionado
-  const loadAddressesWithPubkeys = async () => {
-    if (!selectedAsset) return;
+  // Internal function that accepts asset parameter for auto-loading
+  const loadAddressesWithPubkeysInternal = async (assetName: string) => {
+    if (!assetName) return;
     
     setLoadingAddressList(true);
     setShowAddressList(true);
     
     try {
       console.log(`🔵 RPC CALL: listaddressesbyasset`);
-      console.log(`📤 Parameters: ["${selectedAsset}"]`);
+      console.log(`📤 Parameters: ["${assetName}"]`);
       
       // Obtener todas las direcciones que tienen este asset
-      const addressesData: Record<string, number> = await wallet.rpc("listaddressesbyasset", [selectedAsset]) as Record<string, number>;
+      const addressesData: Record<string, number> = await wallet.rpc("listaddressesbyasset", [assetName]) as Record<string, number>;
       
       console.log(`✅ RPC SUCCESS: listaddressesbyasset`);
       console.log(`📥 Response:`, addressesData);
@@ -591,6 +597,12 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
     } finally {
       setLoadingAddressList(false);
     }
+  };
+
+  // Public wrapper for button click (uses selectedAsset)
+  const loadAddressesWithPubkeys = async () => {
+    if (!selectedAsset) return;
+    loadAddressesWithPubkeysInternal(selectedAsset);
   };
 
   return (
