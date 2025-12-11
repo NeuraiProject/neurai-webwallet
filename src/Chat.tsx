@@ -708,15 +708,15 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                     : "16px 16px 16px 4px",
                   backgroundColor:
                     message.sender === "user"
-                      ? "#3b82f6"
-                      : "#ffffff",
+                      ? "rgb(247 232 209)"
+                      : "rgb(239 239 239)",
                   color:
                     message.sender === "user"
-                      ? "#ffffff"
+                      ? "rgb(63 54 54)"
                       : "#1f2937",
                   boxShadow: message.sender === "user"
-                    ? "0 2px 8px rgba(59, 130, 246, 0.3)"
-                    : "0 2px 8px rgba(0, 0, 0, 0.08)",
+                    ? "rgb(42 47 55 / 74%) 0px 2px 8px"
+                    : "rgb(42 47 55 / 74%) 0px 2px 8px",
                   border: message.sender === "user"
                     ? "none"
                     : "1px solid #e5e7eb",
@@ -771,7 +771,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                         backgroundColor:
                           message.sender === "user"
                             ? "rgba(255,255,255,0.1)"
-                            : "rgba(0,0,0,0.03)",
+                            : "transparent",
                         borderRadius: "8px",
                       }}
                     >
@@ -838,8 +838,8 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
               flex: 1,
               padding: "0.875rem 1rem",
               borderRadius: "24px",
-              border: "2px solid #e5e7eb",
-              backgroundColor: isConnected ? "#f9fafb" : "#e5e7eb",
+              border: "2px solid #d1d5db",
+              backgroundColor: isConnected ? "#ffffff" : "#e5e7eb",
               margin: 0,
               fontSize: "0.95rem",
               outline: "none",
@@ -848,13 +848,16 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
             }}
             onFocus={(e) => {
               if (isConnected) {
-                e.target.style.border = "2px solid #3b82f6";
+                // Softer focus styling (avoid strong blue border)
+                e.target.style.border = "2px solid rgba(59, 130, 246, 0.35)";
+                e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.12)";
                 e.target.style.backgroundColor = "#ffffff";
               }
             }}
             onBlur={(e) => {
-              e.target.style.border = "2px solid #e5e7eb";
-              e.target.style.backgroundColor = isConnected ? "#f9fafb" : "#e5e7eb";
+              e.target.style.border = "2px solid #d1d5db";
+              e.target.style.boxShadow = "none";
+              e.target.style.backgroundColor = isConnected ? "#ffffff" : "#e5e7eb";
             }}
           />
           <div
@@ -1051,6 +1054,14 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
           }
         }
 
+        .chat-message-user {
+          box-shadow: rgb(42 47 55 / 74%) 0px 2px 8px;
+        }
+
+        .chat-message-bot {
+          box-shadow: rgb(42 47 55 / 74%) 0px 2px 8px;
+        }
+
         /* Light mode scrollbar */
         [data-theme="light"] .chat-messages::-webkit-scrollbar {
           width: 8px;
@@ -1122,8 +1133,9 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
         }
 
         [data-theme="dark"] .chat-message-user {
-          background-color: var(--neurai-primary) !important;
-          box-shadow: 0 2px 8px rgba(108, 92, 231, 0.4) !important;
+          background-color: rgb(247 232 209) !important;
+          color: rgb(63 54 54) !important;
+          box-shadow: rgb(42 47 55 / 74%) 0px 2px 8px !important;
         }
 
         [data-theme="dark"] .chat-message-bot {
