@@ -171,9 +171,12 @@ function App() {
             <Sign assets={assets} wallet={wallet} />
           )}
 
-          {currentRoute === Routes.CHAT && (
+          <div
+            style={{ display: currentRoute === Routes.CHAT ? "block" : "none" }}
+            aria-hidden={currentRoute !== Routes.CHAT}
+          >
             <Chat wallet={wallet} assets={assets} mempool={mempool} />
-          )}
+          </div>
 
           {currentRoute === Routes.SETTINGS && (
             <Settings />
