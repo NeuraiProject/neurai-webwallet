@@ -13,6 +13,7 @@ import {
   IconSign,
   IconSweep,
 } from "./icons";
+import { FaAnglesDown, FaAnglesUp } from "react-icons/fa6";
 import networkInfo, { INetworks } from "./networkInfo";
 import { getMnemonicAndPassphrase } from "./utils";
 
@@ -139,153 +140,293 @@ export function Navigator({
           ? "0 0 4px rgba(239, 68, 68, 0.6)"
           : "0 0 4px rgba(156, 163, 175, 0.4)";
 
-  return (
-    <article className="rebel-navigator__container">
-      <LightModeToggle />
-      <a
-        href="#"
-        className="primary"
-        onClick={(event) => {
-          setRoute(Routes.HOME);
-          event.preventDefault();
-          return false;
-        }}
-      >
-        <h2 className="rebel-headline" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <img 
-            src={neuraiLogo.href} 
-            alt="Neurai logo" 
-            style={{ width: "32px", height: "32px" }}
-          />
-          Neurai
-        </h2>
-      </a>
-        <h5>Rebel Wallet 1.0.9</h5>
+  const [isCompact, setIsCompact] = React.useState<boolean>(() => {
+    const saved = localStorage.getItem("rebelNavigatorCompact");
+    return saved === "true";
+  });
 
-        {/* Syncr indicator */}
-        <div
-          title={syncHint}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            marginTop: "0.5rem",
-            marginBottom: "0.5rem",
-          }}
-        >
+  React.useEffect(() => {
+    localStorage.setItem("rebelNavigatorCompact", String(isCompact));
+  }, [isCompact]);
+
+  const passphraseColor = hasPassphrase ? "#22c55e" : "#ef4444";
+  const passphraseShadow = hasPassphrase
+    ? "0 0 4px rgba(34, 197, 94, 0.6)"
+    : "0 0 4px rgba(239, 68, 68, 0.6)";
+
+  const hwColor = isFromESP32 ? "#22c55e" : "#ef4444";
+  const hwShadow = isFromESP32
+    ? "0 0 4px rgba(34, 197, 94, 0.6)"
+    : "0 0 4px rgba(239, 68, 68, 0.6)";
+
+  const onClickHome = (event: React.MouseEvent) => {
+    setRoute(Routes.HOME);
+    event.preventDefault();
+    return false;
+  };
+
+  return (
+    <article
+      className={
+        "rebel-navigator__container" + (isCompact ? " rebel-navigator__container--compact" : "")
+      }
+    >
+      {isCompact ? (
+        <div className="rebel-navigator__compact-grid">
+          <div className="rebel-navigator__compact-left">
+            <a href="#" className="primary" onClick={onClickHome}>
+              <h2 className="rebel-headline rebel-navigator__brand">
+                <img
+                  src={neuraiLogo.href}
+                  alt="Neurai logo"
+                  className="rebel-navigator__brand-logo"
+                />
+                Neurai
+              </h2>
+            </a>
+
+            <div className="rebel-navigator__status-list rebel-navigator__status-list--singleline">
+              <StatusItem
+                title={syncHint}
+                label="Syncr"
+                dotColor={syncColor}
+                dotShadow={syncShadow}
+                labelColor={syncHealth === "offline" ? "#ef4444" : "var(--muted-color)"}
+              />
+              <StatusItem
+                title={hasPassphrase ? "Passphrase set" : "No passphrase"}
+                label="Passphrase"
+                dotColor={passphraseColor}
+                dotShadow={passphraseShadow}
+              />
+              <StatusItem
+                title={isFromESP32 ? "Hardware wallet" : "Not hardware"}
+                label="HW"
+                dotColor={hwColor}
+                dotShadow={hwShadow}
+              />
+            </div>
+          </div>
+
+          <nav className="rebel-navigator rebel-navigator--icononly rebel-navigator__compact-center">
+            <ul className="rebel-navigator__list rebel-navigator__list--icononly rebel-navigator__list--icononly-singleline">
+              {navLocked ? (
+                <DisabledIconOnlyLink title="Home" newRoute={Routes.HOME} />
+              ) : (
+                <IconOnlyLink setRoute={setRoute} title="Home" newRoute={Routes.HOME} />
+              )}
+              {navLocked ? (
+                <DisabledIconOnlyLink title="Send" newRoute={Routes.SEND} />
+              ) : (
+                <IconOnlyLink setRoute={setRoute} title="Send" newRoute={Routes.SEND} />
+              )}
+              {navLocked ? (
+                <DisabledIconOnlyLink title="Receive" newRoute={Routes.RECEIVE} />
+              ) : (
+                <IconOnlyLink setRoute={setRoute} title="Receive" newRoute={Routes.RECEIVE} />
+              )}
+              {navLocked ? (
+                <DisabledIconOnlyLink title="Sweep" newRoute={Routes.SWEEP} />
+              ) : (
+                <IconOnlyLink setRoute={setRoute} title="Sweep" newRoute={Routes.SWEEP} />
+              )}
+              {navLocked ? (
+                <DisabledIconOnlyLink title="History" newRoute={Routes.HISTORY} />
+              ) : (
+                <IconOnlyLink setRoute={setRoute} title="History" newRoute={Routes.HISTORY} />
+              )}
+              {navLocked ? (
+                <DisabledIconOnlyLink title="Sign" newRoute={Routes.SIGN} />
+              ) : (
+                <IconOnlyLink setRoute={setRoute} title="Sign" newRoute={Routes.SIGN} />
+              )}
+              {navLocked ? (
+                <DisabledIconOnlyLink title="Chat" newRoute={Routes.CHAT} />
+              ) : (
+                <IconOnlyLink setRoute={setRoute} title="Chat" newRoute={Routes.CHAT} />
+              )}
+
+              <PlaceholderIconOnlyItem title="IoT" icon={<IconIoT />} />
+
+              <IconOnlyLink setRoute={setRoute} title="Settings" newRoute={Routes.SETTINGS} />
+            </ul>
+          </nav>
+
+          <div className="rebel-navigator__controls rebel-navigator__compact-right">
+            <button
+              className="outline rebel-navigator__compact-toggle"
+              title="Expand menu"
+              aria-label="Expand menu"
+              onClick={() => setIsCompact(false)}
+            >
+              <FaAnglesDown />
+            </button>
+            <LightModeToggle />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="rebel-navigator__topbar">
+            <a href="#" className="primary" onClick={onClickHome}>
+              <h2 className="rebel-headline rebel-navigator__brand">
+                <img
+                  src={neuraiLogo.href}
+                  alt="Neurai logo"
+                  className="rebel-navigator__brand-logo"
+                />
+                Neurai
+              </h2>
+            </a>
+
+            <div className="rebel-navigator__controls">
+              <button
+                className="outline rebel-navigator__compact-toggle"
+                title="Compact menu"
+                aria-label="Compact menu"
+                onClick={() => setIsCompact(true)}
+              >
+                <FaAnglesUp />
+              </button>
+              <LightModeToggle />
+            </div>
+          </div>
+
+          <h5>Rebel Wallet 1.0.9</h5>
+
+          {/* Syncr indicator */}
           <div
+            title={syncHint}
             style={{
-              width: "12px",
-              height: "12px",
-              borderRadius: "50%",
-              backgroundColor: syncColor,
-              boxShadow: syncShadow,
-            }}
-          />
-          <span
-            style={{
-              fontSize: "0.85rem",
-              color: syncHealth === "offline" ? "#ef4444" : "var(--muted-color)",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginTop: "0.5rem",
+              marginBottom: "0.5rem",
             }}
           >
-            Syncr
-          </span>
-        </div>
-        
-        {/* Passphrase indicator */}
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '0.5rem',
-          marginTop: '0.5rem',
-          marginBottom: '0.5rem'
-        }}>
-          <div style={{
-            width: '12px',
-            height: '12px',
-            borderRadius: '50%',
-            backgroundColor: hasPassphrase ? '#22c55e' : '#ef4444',
-            boxShadow: hasPassphrase 
-              ? '0 0 4px rgba(34, 197, 94, 0.6)' 
-              : '0 0 4px rgba(239, 68, 68, 0.6)'
-          }} />
-          <span style={{ 
-            fontSize: '0.85rem',
-            color: 'var(--muted-color)'
-          }}>
-            Passphrase
-          </span>
-        </div>
+            <div
+              style={{
+                width: "12px",
+                height: "12px",
+                borderRadius: "50%",
+                backgroundColor: syncColor,
+                boxShadow: syncShadow,
+              }}
+            />
+            <span
+              style={{
+                fontSize: "0.85rem",
+                color: syncHealth === "offline" ? "#ef4444" : "var(--muted-color)",
+              }}
+            >
+              Syncr
+            </span>
+          </div>
 
-        {/* Hardware (ESP32) indicator */}
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '0.5rem',
-          marginBottom: '0.5rem'
-        }}>
-          <div style={{
-            width: '12px',
-            height: '12px',
-            borderRadius: '50%',
-            backgroundColor: isFromESP32 ? '#22c55e' : '#ef4444',
-            boxShadow: isFromESP32 
-              ? '0 0 4px rgba(34, 197, 94, 0.6)' 
-              : '0 0 4px rgba(239, 68, 68, 0.6)'
-          }} />
-          <span style={{ 
-            fontSize: '0.85rem',
-            color: 'var(--muted-color)'
-          }}>
-            HW
-          </span>
-        </div>
+          {/* Passphrase indicator */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginTop: "0.5rem",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <div
+              style={{
+                width: "12px",
+                height: "12px",
+                borderRadius: "50%",
+                backgroundColor: passphraseColor,
+                boxShadow: passphraseShadow,
+              }}
+            />
+            <span
+              style={{
+                fontSize: "0.85rem",
+                color: "var(--muted-color)",
+              }}
+            >
+              Passphrase
+            </span>
+          </div>
 
-      {balance}
+          {/* Hardware (ESP32) indicator */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <div
+              style={{
+                width: "12px",
+                height: "12px",
+                borderRadius: "50%",
+                backgroundColor: hwColor,
+                boxShadow: hwShadow,
+              }}
+            />
+            <span
+              style={{
+                fontSize: "0.85rem",
+                color: "var(--muted-color)",
+              }}
+            >
+              HW
+            </span>
+          </div>
 
-      <nav className="rebel-navigator">
-        <ul className="rebel-navigator__list">
-          {navLocked ? (
-            <DisabledLink title="Home" newRoute={Routes.HOME} />
-          ) : (
-            <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.HOME} title="Home" />
-          )}
-          {navLocked ? (
-            <DisabledLink title="Send" newRoute={Routes.SEND} />
-          ) : (
-            <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SEND} title="Send" />
-          )}
-          {navLocked ? (
-            <DisabledLink title="Receive" newRoute={Routes.RECEIVE} />
-          ) : (
-            <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.RECEIVE} title="Receive" />
-          )}
-          {navLocked ? (
-            <DisabledLink title="Sweep" newRoute={Routes.SWEEP} />
-          ) : (
-            <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SWEEP} title="Sweep" />
-          )}
-          {navLocked ? (
-            <DisabledLink title="History" newRoute={Routes.HISTORY} />
-          ) : (
-            <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.HISTORY} title="History" />
-          )}
-          {navLocked ? (
-            <DisabledLink title="Sign" newRoute={Routes.SIGN} />
-          ) : (
-            <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SIGN} title="Sign" />
-          )}
-          {navLocked ? (
-            <DisabledLink title="Chat" newRoute={Routes.CHAT} />
-          ) : (
-            <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.CHAT} title="Chat" />
-          )}
+          {balance}
 
-          <PlaceholderItem title="IoT" icon={<IconIoT />} />
+          <nav className="rebel-navigator">
+            <ul className="rebel-navigator__list">
+              {navLocked ? (
+                <DisabledLink title="Home" newRoute={Routes.HOME} />
+              ) : (
+                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.HOME} title="Home" />
+              )}
+              {navLocked ? (
+                <DisabledLink title="Send" newRoute={Routes.SEND} />
+              ) : (
+                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SEND} title="Send" />
+              )}
+              {navLocked ? (
+                <DisabledLink title="Receive" newRoute={Routes.RECEIVE} />
+              ) : (
+                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.RECEIVE} title="Receive" />
+              )}
+              {navLocked ? (
+                <DisabledLink title="Sweep" newRoute={Routes.SWEEP} />
+              ) : (
+                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SWEEP} title="Sweep" />
+              )}
+              {navLocked ? (
+                <DisabledLink title="History" newRoute={Routes.HISTORY} />
+              ) : (
+                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.HISTORY} title="History" />
+              )}
+              {navLocked ? (
+                <DisabledLink title="Sign" newRoute={Routes.SIGN} />
+              ) : (
+                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SIGN} title="Sign" />
+              )}
+              {navLocked ? (
+                <DisabledLink title="Chat" newRoute={Routes.CHAT} />
+              ) : (
+                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.CHAT} title="Chat" />
+              )}
 
-          <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SETTINGS} title="Settings" />
-        </ul>
-      </nav>
+              <PlaceholderItem title="IoT" icon={<IconIoT />} />
+
+              <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SETTINGS} title="Settings" />
+            </ul>
+          </nav>
+        </>
+      )}
       {/* <small>
         <NetworkSelect wallet={wallet} networks={networkInfo}></NetworkSelect>
       </small> */}
@@ -399,6 +540,116 @@ function PlaceholderItem({ title, icon }: { title: string; icon?: ReactNode }) {
       >
         {icon ? <div>{icon}</div> : null}
         {title}
+      </a>
+    </li>
+  );
+}
+
+function StatusItem({
+  title,
+  label,
+  dotColor,
+  dotShadow,
+  labelColor,
+}: {
+  title: string;
+  label: string;
+  dotColor: string;
+  dotShadow: string;
+  labelColor?: string;
+}) {
+  return (
+    <div className="rebel-navigator__status-item" title={title}>
+      <span
+        className="rebel-navigator__status-dot"
+        style={{ backgroundColor: dotColor, boxShadow: dotShadow }}
+      />
+      <span
+        className="rebel-navigator__status-label"
+        style={{ color: labelColor ?? "var(--muted-color)" }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function IconOnlyLink({
+  setRoute,
+  title,
+  newRoute,
+}: {
+  setRoute: (route: Routes) => void;
+  title: string;
+  newRoute: Routes;
+}) {
+  return (
+    <li className="rebel-navigator__list-item rebel-navigator__list-item--icononly">
+      <a
+        href="#"
+        className="primary rebel-navigator__list-item-link"
+        title={title}
+        aria-label={title}
+        onClick={(event) => {
+          setRoute(newRoute);
+          event.preventDefault();
+          return false;
+        }}
+        style={{ display: "block" }}
+      >
+        <Icon route={newRoute} />
+      </a>
+    </li>
+  );
+}
+
+function DisabledIconOnlyLink({ title, newRoute }: { title: string; newRoute: Routes }) {
+  return (
+    <li className="rebel-navigator__list-item rebel-navigator__list-item--icononly">
+      <a
+        href="#"
+        className="primary rebel-navigator__list-item-link"
+        title={title}
+        aria-label={title}
+        aria-disabled="true"
+        onClick={(event) => {
+          event.preventDefault();
+          return false;
+        }}
+        style={{
+          display: "block",
+          opacity: 0.45,
+          cursor: "not-allowed",
+          pointerEvents: "none",
+        }}
+      >
+        <Icon route={newRoute} />
+      </a>
+    </li>
+  );
+}
+
+function PlaceholderIconOnlyItem({ title, icon }: { title: string; icon: ReactNode }) {
+  return (
+    <li className="rebel-navigator__list-item rebel-navigator__list-item--icononly">
+      <a
+        href="#"
+        className="primary rebel-navigator__list-item-link"
+        title={title}
+        aria-label={title}
+        aria-disabled="true"
+        onClick={(event) => {
+          event.preventDefault();
+          return false;
+        }}
+        style={{
+          display: "block",
+          opacity: 0.55,
+          cursor: "default",
+          pointerEvents: "none",
+        }}
+      >
+        <div>{icon}</div>
       </a>
     </li>
   );
