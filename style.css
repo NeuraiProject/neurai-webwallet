@@ -251,21 +251,54 @@ body {
   min-width: 0;
 }
 
-/* Compact mode: keep icons in ONE row on desktop/tablet, but TWO rows on mobile */
-@media (max-width: 768px) {
-  .rebel-navigator__container--compact .rebel-navigator__list--icononly-singleline {
-    display: grid;
-    grid-template-columns: repeat(5, auto);
-    justify-content: center;
-    align-items: start;
-    gap: 0.25rem;
+/* Compact mode: on mobile we move icons to a dedicated row below the grid */
+.rebel-navigator__compact-mobile-icons {
+  display: none;
+}
+
+@media (max-width: 1279px) {
+  .rebel-navigator__container--compact .rebel-navigator__compact-grid {
+    grid-template-columns: 1fr max-content;
+  }
+
+  .rebel-navigator__container--compact .rebel-navigator__compact-center {
+    display: none;
+  }
+
+  .rebel-navigator__container--compact .rebel-navigator__compact-mobile-icons {
+    display: block;
+    margin-top: 0.35rem;
+    padding-top: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Always one line; squeeze spacing as viewport narrows */
+  .rebel-navigator__container--compact .rebel-navigator__compact-mobile-icons .rebel-navigator__list--icononly-singleline {
+    justify-content: space-between;
+    flex-wrap: nowrap !important;
+    gap: clamp(0px, 1.2vw, 6px);
+    width: 100%;
+  }
+
+  .rebel-navigator__container--compact .rebel-navigator__compact-mobile-icons .rebel-navigator__list-item--icononly {
+    padding: 2px clamp(0px, 1vw, 6px) 0 clamp(0px, 1vw, 6px);
+  }
+
+  .rebel-navigator__container--compact .rebel-navigator__compact-mobile-icons svg {
+    width: clamp(18px, 3.2vw, 24px);
+    height: clamp(18px, 3.2vw, 24px);
   }
 }
 
-@media (min-width: 769px) {
-  .rebel-navigator__container--compact .rebel-navigator__list--icononly-singleline {
-    display: flex;
-    flex-wrap: nowrap;
+@media (min-width: 1280px) {
+  .rebel-navigator__container--compact .rebel-navigator__compact-center {
+    display: block;
+  }
+
+  .rebel-navigator__container--compact .rebel-navigator__compact-mobile-icons {
+    display: none;
   }
 }
 
@@ -287,6 +320,19 @@ body {
   padding: 0;
   margin: 0;
   list-style-type: none; /* Remove list bullets */
+}
+
+/* Icon-only menu must NEVER become a grid */
+.rebel-navigator__list.rebel-navigator__list--icononly {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.rebel-navigator__list.rebel-navigator__list--icononly.rebel-navigator__list--icononly-singleline {
+  flex-wrap: nowrap;
 }
 .rebel-navigator__list-item {
   padding: 20px;

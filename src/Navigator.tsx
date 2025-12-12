@@ -165,6 +165,50 @@ export function Navigator({
     return false;
   };
 
+  const renderCompactIconMenu = () => (
+    <ul className="rebel-navigator__list rebel-navigator__list--icononly rebel-navigator__list--icononly-singleline">
+      {navLocked ? (
+        <DisabledIconOnlyLink title="Home" newRoute={Routes.HOME} />
+      ) : (
+        <IconOnlyLink setRoute={setRoute} title="Home" newRoute={Routes.HOME} />
+      )}
+      {navLocked ? (
+        <DisabledIconOnlyLink title="Send" newRoute={Routes.SEND} />
+      ) : (
+        <IconOnlyLink setRoute={setRoute} title="Send" newRoute={Routes.SEND} />
+      )}
+      {navLocked ? (
+        <DisabledIconOnlyLink title="Receive" newRoute={Routes.RECEIVE} />
+      ) : (
+        <IconOnlyLink setRoute={setRoute} title="Receive" newRoute={Routes.RECEIVE} />
+      )}
+      {navLocked ? (
+        <DisabledIconOnlyLink title="Sweep" newRoute={Routes.SWEEP} />
+      ) : (
+        <IconOnlyLink setRoute={setRoute} title="Sweep" newRoute={Routes.SWEEP} />
+      )}
+      {navLocked ? (
+        <DisabledIconOnlyLink title="History" newRoute={Routes.HISTORY} />
+      ) : (
+        <IconOnlyLink setRoute={setRoute} title="History" newRoute={Routes.HISTORY} />
+      )}
+      {navLocked ? (
+        <DisabledIconOnlyLink title="Sign" newRoute={Routes.SIGN} />
+      ) : (
+        <IconOnlyLink setRoute={setRoute} title="Sign" newRoute={Routes.SIGN} />
+      )}
+      {navLocked ? (
+        <DisabledIconOnlyLink title="Chat" newRoute={Routes.CHAT} />
+      ) : (
+        <IconOnlyLink setRoute={setRoute} title="Chat" newRoute={Routes.CHAT} />
+      )}
+
+      <PlaceholderIconOnlyItem title="IoT" icon={<IconIoT />} />
+
+      <IconOnlyLink setRoute={setRoute} title="Settings" newRoute={Routes.SETTINGS} />
+    </ul>
+  );
+
   return (
     <article
       className={
@@ -172,6 +216,7 @@ export function Navigator({
       }
     >
       {isCompact ? (
+        <>
         <div className="rebel-navigator__compact-grid">
           <div className="rebel-navigator__compact-left">
             <a href="#" className="primary" onClick={onClickHome}>
@@ -209,47 +254,7 @@ export function Navigator({
           </div>
 
           <nav className="rebel-navigator rebel-navigator--icononly rebel-navigator__compact-center">
-            <ul className="rebel-navigator__list rebel-navigator__list--icononly rebel-navigator__list--icononly-singleline">
-              {navLocked ? (
-                <DisabledIconOnlyLink title="Home" newRoute={Routes.HOME} />
-              ) : (
-                <IconOnlyLink setRoute={setRoute} title="Home" newRoute={Routes.HOME} />
-              )}
-              {navLocked ? (
-                <DisabledIconOnlyLink title="Send" newRoute={Routes.SEND} />
-              ) : (
-                <IconOnlyLink setRoute={setRoute} title="Send" newRoute={Routes.SEND} />
-              )}
-              {navLocked ? (
-                <DisabledIconOnlyLink title="Receive" newRoute={Routes.RECEIVE} />
-              ) : (
-                <IconOnlyLink setRoute={setRoute} title="Receive" newRoute={Routes.RECEIVE} />
-              )}
-              {navLocked ? (
-                <DisabledIconOnlyLink title="Sweep" newRoute={Routes.SWEEP} />
-              ) : (
-                <IconOnlyLink setRoute={setRoute} title="Sweep" newRoute={Routes.SWEEP} />
-              )}
-              {navLocked ? (
-                <DisabledIconOnlyLink title="History" newRoute={Routes.HISTORY} />
-              ) : (
-                <IconOnlyLink setRoute={setRoute} title="History" newRoute={Routes.HISTORY} />
-              )}
-              {navLocked ? (
-                <DisabledIconOnlyLink title="Sign" newRoute={Routes.SIGN} />
-              ) : (
-                <IconOnlyLink setRoute={setRoute} title="Sign" newRoute={Routes.SIGN} />
-              )}
-              {navLocked ? (
-                <DisabledIconOnlyLink title="Chat" newRoute={Routes.CHAT} />
-              ) : (
-                <IconOnlyLink setRoute={setRoute} title="Chat" newRoute={Routes.CHAT} />
-              )}
-
-              <PlaceholderIconOnlyItem title="IoT" icon={<IconIoT />} />
-
-              <IconOnlyLink setRoute={setRoute} title="Settings" newRoute={Routes.SETTINGS} />
-            </ul>
+            {renderCompactIconMenu()}
           </nav>
 
           <div className="rebel-navigator__controls rebel-navigator__compact-right">
@@ -264,6 +269,13 @@ export function Navigator({
             <LightModeToggle />
           </div>
         </div>
+
+        <div className="rebel-navigator__compact-mobile-icons" aria-label="Compact menu">
+          <nav className="rebel-navigator rebel-navigator--icononly">
+            {renderCompactIconMenu()}
+          </nav>
+        </div>
+        </>
       ) : (
         <>
           <div className="rebel-navigator__topbar">
