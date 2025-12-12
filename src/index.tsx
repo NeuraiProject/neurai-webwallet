@@ -46,6 +46,8 @@ function App() {
   const [passphrase] = React.useState(initPassphrase);
 
   const [wallet, setWallet] = React.useState<null | Wallet>(null);
+  const [rpcError, setRpcError] = React.useState<string | null>(null);
+  const [isRpcTimeout, setIsRpcTimeout] = React.useState(false);
 
   const blockCount = useBlockCount(wallet);
   const receiveAddress = useReceiveAddress(wallet, blockCount);
@@ -106,14 +108,123 @@ function App() {
       }
     }
 
-    NeuraiWallet.createInstance(walletConfig).then(setWallet);
+    // Set a global timeout for wallet initialization
+    let initTimeout: NodeJS.Timeout | null = null;
+    let isTimedOut = false;
+
+    initTimeout = setTimeout(() => {
+      isTimedOut = true;
+      setIsRpcTimeout(true);
+      setRpcError("Wallet initialization timeout. Cannot connect to RPC server - the URL might be invalid or the server is not responding.");
+    }, 10000); // 10 second timeout for createInstance
+
+    NeuraiWallet.createInstance(walletConfig)
+      .then((w) => {
+        if (!isTimedOut && initTimeout) {
+          clearTimeout(initTimeout);
+          setWallet(w);
+        }
+      })
+      .catch((err) => {
+        if (initTimeout) clearTimeout(initTimeout);
+        console.error("Failed to create wallet instance:", err);
+        setRpcError(`Failed to initialize wallet: ${err.message || 'Unknown error'}`);
+        setIsRpcTimeout(true);
+      });
+
+    return () => {
+      if (initTimeout) clearTimeout(initTimeout);
+    };
   }, [mnemonic, passphrase]);
+
+  // Timeout detection for RPC connection
+  React.useEffect(() => {
+    if (!wallet || blockCount > 0 || rpcError) return;
+
+    const timeout = setTimeout(() => {
+      if (blockCount === 0) {
+        setIsRpcTimeout(true);
+        setRpcError("RPC connection timeout. The server might be offline or unreachable.");
+      }
+    }, 15000); // 15 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [wallet, blockCount, rpcError]);
 
   if (!mnemonic) {
     return <Login />;
   }
-  if (!wallet || blockCount === 0) {
+  if (!wallet || (blockCount === 0 && !isRpcTimeout)) {
     return <Loader />;
+  }
+
+  // Show error UI with access to Settings if RPC failed
+  if (rpcError) {
+    return (
+      <>
+        <article style={{ padding: "2rem" }}>
+          <div style={{
+            border: "2px solid #ef4444",
+            borderRadius: "12px",
+            padding: "2rem",
+            backgroundColor: "#fee2e2",
+            color: "#991b1b",
+            marginBottom: "2rem"
+          }}>
+            <h3 style={{ margin: "0 0 1rem 0", color: "#991b1b" }}>⚠️ RPC Connection Error</h3>
+            <p style={{ margin: "0 0 1rem 0", fontSize: "0.95rem" }}>
+              <strong>The wallet cannot connect to the RPC server.</strong>
+            </p>
+            <p style={{ margin: "0 0 1rem 0", fontSize: "0.9rem" }}>
+              {rpcError}
+            </p>
+            <details style={{ marginTop: "1rem" }}>
+              <summary style={{ cursor: "pointer", fontWeight: "bold", marginBottom: "0.5rem" }}>What can I do?</summary>
+              <ul style={{ marginLeft: "1.25rem", fontSize: "0.9rem" }}>
+                <li>Check your internet connection</li>
+                <li>Verify the RPC server is running</li>
+                <li>Go to Settings below to update your RPC configuration</li>
+                <li>If using default server, it might be temporarily offline</li>
+              </ul>
+            </details>
+          </div>
+          
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+            <button 
+              onClick={() => window.location.reload()}
+              style={{ flex: "1", minWidth: "200px" }}
+            >
+              🔄 Retry Connection
+            </button>
+            <button 
+              onClick={() => setCurrentRoute(Routes.SETTINGS)}
+              style={{ flex: "1", minWidth: "200px", backgroundColor: "#3b82f6" }}
+            >
+              ⚙️ Open Settings
+            </button>
+            <button 
+              onClick={() => {
+                if (confirm("Sign out and return to login?")) {
+                  localStorage.removeItem("mnemonic");
+                  sessionStorage.removeItem("mnemonic_session");
+                  localStorage.removeItem("loginFromESP32");
+                  window.location.reload();
+                }
+              }}
+              style={{ flex: "1", minWidth: "200px", backgroundColor: "#6b7280" }}
+            >
+              🚪 Sign Out
+            </button>
+          </div>
+        </article>
+
+        {currentRoute === Routes.SETTINGS && (
+          <article style={{ marginTop: "2rem" }}>
+            <Settings />
+          </article>
+        )}
+      </>
+    );
   }
 
   const signOut = () => {
