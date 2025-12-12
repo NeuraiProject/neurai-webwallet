@@ -7,7 +7,9 @@ export function useBalance(wallet: Wallet | null, blockCount: number) {
 
   const work = () => {
     if (wallet) {
-      wallet.getBalance().then(setBalance);
+      wallet.getBalance().then(setBalance).catch(() => {
+        // ignore while offline
+      });
     }
   };
 

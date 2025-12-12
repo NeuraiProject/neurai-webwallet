@@ -48,47 +48,52 @@ function App() {
   const [wallet, setWallet] = React.useState<null | Wallet>(null);
   const [rpcError, setRpcError] = React.useState<string | null>(null);
   const [isRpcTimeout, setIsRpcTimeout] = React.useState(false);
+  const [isSplashMinElapsed, setIsSplashMinElapsed] = React.useState(false);
 
-  const blockCount = useBlockCount(wallet);
-  const receiveAddress = useReceiveAddress(wallet, blockCount);
-  const balance = useBalance(wallet, blockCount);
+  const walletInitInFlightRef = React.useRef(false);
 
-  const mempool = useMempool(wallet, blockCount);
-  const assets = useAssets(wallet, blockCount);
+  const navLocked = !!rpcError;
+  const dataWallet = navLocked ? null : wallet;
 
-  //At startup init wallet
+  const blockCount = useBlockCount(dataWallet);
+  const receiveAddress = useReceiveAddress(dataWallet, blockCount);
+  const balance = useBalance(dataWallet, blockCount);
+
+  const mempool = useMempool(dataWallet, blockCount);
+  const assets = useAssets(dataWallet, blockCount);
+
   React.useEffect(() => {
-    if (!mnemonic) {
-      return;
+    if (navLocked && currentRoute !== Routes.SETTINGS) {
+      setCurrentRoute(Routes.SETTINGS);
     }
-    let minAmountOfAddresses = 50;
-    //Override network to xna-test if present in query string (search)
+  }, [navLocked, currentRoute]);
+
+  // Determine network from query string (stable for this session)
+  const network: ChainType = React.useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
-    let network: ChainType = "xna";
-    if (searchParams.get("network") === "xna-test") {
-      network = "xna-test";
-    }
+    return searchParams.get("network") === "xna-test" ? "xna-test" : "xna";
+  }, []);
 
-    if (searchParams.get("min")) {
-      const v = searchParams.get("min");
-      if (v && isFinite(parseInt(v)) === true) {
-        minAmountOfAddresses = parseInt(v);
-      }
+  const minAmountOfAddresses: number = React.useMemo(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const v = searchParams.get("min");
+    if (v && isFinite(parseInt(v)) === true) {
+      return parseInt(v);
     }
+    return 50;
+  }, []);
 
-    // Create wallet config
+  const buildWalletConfig = React.useCallback(() => {
     const walletConfig: any = {
       minAmountOfAddresses,
       mnemonic,
       network,
     };
 
-    // Only add passphrase if it exists (backward compatible)
     if (passphrase) {
       walletConfig.passphrase = passphrase;
     }
 
-    // Load custom RPC configuration if available
     const savedRpcConfig = localStorage.getItem("rpc_config");
     if (savedRpcConfig) {
       try {
@@ -108,123 +113,135 @@ function App() {
       }
     }
 
+    return walletConfig;
+  }, [minAmountOfAddresses, mnemonic, network, passphrase]);
+
+  const tryInitWallet = React.useCallback(() => {
+    if (!mnemonic) return;
+    if (walletInitInFlightRef.current) return;
+    if (wallet) return;
+
+    walletInitInFlightRef.current = true;
+
     // Set a global timeout for wallet initialization
-    let initTimeout: NodeJS.Timeout | null = null;
+    let initTimeout: ReturnType<typeof setTimeout> | null = null;
     let isTimedOut = false;
 
     initTimeout = setTimeout(() => {
       isTimedOut = true;
       setIsRpcTimeout(true);
-      setRpcError("Wallet initialization timeout. Cannot connect to RPC server - the URL might be invalid or the server is not responding.");
-    }, 10000); // 10 second timeout for createInstance
+      setRpcError(
+        "Wallet initialization timeout. Cannot connect to RPC server - the URL might be invalid or the server is not responding."
+      );
+      walletInitInFlightRef.current = false;
+    }, 10000);
+
+    const walletConfig = buildWalletConfig();
 
     NeuraiWallet.createInstance(walletConfig)
       .then((w) => {
-        if (!isTimedOut && initTimeout) {
-          clearTimeout(initTimeout);
+        if (!isTimedOut) {
           setWallet(w);
+          setRpcError(null);
+          setIsRpcTimeout(false);
         }
       })
       .catch((err) => {
+        if (!isTimedOut) {
+          console.error("Failed to create wallet instance:", err);
+          setRpcError(`Failed to connect to RPC: ${err?.message || "Unknown error"}`);
+          setIsRpcTimeout(true);
+        }
+      })
+      .finally(() => {
         if (initTimeout) clearTimeout(initTimeout);
-        console.error("Failed to create wallet instance:", err);
-        setRpcError(`Failed to initialize wallet: ${err.message || 'Unknown error'}`);
-        setIsRpcTimeout(true);
+        walletInitInFlightRef.current = false;
       });
+  }, [buildWalletConfig, mnemonic, wallet]);
 
-    return () => {
-      if (initTimeout) clearTimeout(initTimeout);
-    };
+  // Keep the initial splash visible for at least 2 seconds.
+  React.useEffect(() => {
+    if (!mnemonic) return;
+
+    setIsSplashMinElapsed(false);
+    const t = setTimeout(() => setIsSplashMinElapsed(true), 2000);
+    return () => clearTimeout(t);
+  }, [mnemonic]);
+
+  //At startup init wallet
+  React.useEffect(() => {
+    if (!mnemonic) {
+      return;
+    }
+    // One initial attempt
+    tryInitWallet();
   }, [mnemonic, passphrase]);
 
-  // Timeout detection for RPC connection
+  // Keep trying to (re)connect while wallet is not available.
   React.useEffect(() => {
-    if (!wallet || blockCount > 0 || rpcError) return;
+    if (!mnemonic) return;
+    if (wallet) return;
 
-    const timeout = setTimeout(() => {
-      if (blockCount === 0) {
-        setIsRpcTimeout(true);
-        setRpcError("RPC connection timeout. The server might be offline or unreachable.");
+    const intervalId = setInterval(() => {
+      tryInitWallet();
+    }, 15000);
+
+    return () => clearInterval(intervalId);
+  }, [mnemonic, tryInitWallet, wallet]);
+
+  // If we have a wallet instance, keep a lightweight RPC health check to show/hide banner.
+  React.useEffect(() => {
+    if (!wallet) return;
+
+    let cancelled = false;
+
+    const withTimeout = async <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      const timeoutPromise = new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("timeout")), ms);
+      });
+      try {
+        return (await Promise.race([promise, timeoutPromise])) as T;
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
       }
-    }, 15000); // 15 second timeout
+    };
 
-    return () => clearTimeout(timeout);
-  }, [wallet, blockCount, rpcError]);
+    const ping = async () => {
+      try {
+        await withTimeout(wallet.rpc("getblockchaininfo", []), 4500);
+        if (cancelled) return;
+        setRpcError(null);
+        setIsRpcTimeout(false);
+      } catch (e: any) {
+        if (cancelled) return;
+        const msg = String(e?.message || e || "RPC error");
+
+        // If the RPC is reachable but disallows the method, don't treat it as offline.
+        const lower = msg.toLowerCase();
+        if (lower.includes("whitelist") || lower.includes("not in whitelist")) {
+          return;
+        }
+
+        setRpcError(`RPC error: ${msg}`);
+      }
+    };
+
+    ping();
+    const intervalId = setInterval(ping, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [wallet]);
 
   if (!mnemonic) {
     return <Login />;
   }
-  if (!wallet || (blockCount === 0 && !isRpcTimeout)) {
+
+  // Keep the initial splash visible for at least 2 seconds.
+  if (!isSplashMinElapsed) {
     return <Loader />;
-  }
-
-  // Show error UI with access to Settings if RPC failed
-  if (rpcError) {
-    return (
-      <>
-        <article style={{ padding: "2rem" }}>
-          <div style={{
-            border: "2px solid #ef4444",
-            borderRadius: "12px",
-            padding: "2rem",
-            backgroundColor: "#fee2e2",
-            color: "#991b1b",
-            marginBottom: "2rem"
-          }}>
-            <h3 style={{ margin: "0 0 1rem 0", color: "#991b1b" }}>⚠️ RPC Connection Error</h3>
-            <p style={{ margin: "0 0 1rem 0", fontSize: "0.95rem" }}>
-              <strong>The wallet cannot connect to the RPC server.</strong>
-            </p>
-            <p style={{ margin: "0 0 1rem 0", fontSize: "0.9rem" }}>
-              {rpcError}
-            </p>
-            <details style={{ marginTop: "1rem" }}>
-              <summary style={{ cursor: "pointer", fontWeight: "bold", marginBottom: "0.5rem" }}>What can I do?</summary>
-              <ul style={{ marginLeft: "1.25rem", fontSize: "0.9rem" }}>
-                <li>Check your internet connection</li>
-                <li>Verify the RPC server is running</li>
-                <li>Go to Settings below to update your RPC configuration</li>
-                <li>If using default server, it might be temporarily offline</li>
-              </ul>
-            </details>
-          </div>
-          
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            <button 
-              onClick={() => window.location.reload()}
-              style={{ flex: "1", minWidth: "200px" }}
-            >
-              🔄 Retry Connection
-            </button>
-            <button 
-              onClick={() => setCurrentRoute(Routes.SETTINGS)}
-              style={{ flex: "1", minWidth: "200px", backgroundColor: "#3b82f6" }}
-            >
-              ⚙️ Open Settings
-            </button>
-            <button 
-              onClick={() => {
-                if (confirm("Sign out and return to login?")) {
-                  localStorage.removeItem("mnemonic");
-                  sessionStorage.removeItem("mnemonic_session");
-                  localStorage.removeItem("loginFromESP32");
-                  window.location.reload();
-                }
-              }}
-              style={{ flex: "1", minWidth: "200px", backgroundColor: "#6b7280" }}
-            >
-              🚪 Sign Out
-            </button>
-          </div>
-        </article>
-
-        {currentRoute === Routes.SETTINGS && (
-          <article style={{ marginTop: "2rem" }}>
-            <Settings />
-          </article>
-        )}
-      </>
-    );
   }
 
   const signOut = () => {
@@ -236,16 +253,77 @@ function App() {
     }
   };
 
+  // If we don't have a wallet instance yet, render the normal shell locked to Settings.
+  if (!wallet) {
+    return (
+      <>
+        {rpcError && (
+          <div
+            role="status"
+            style={{
+              position: "sticky",
+              top: 0,
+              zIndex: 999,
+              backgroundColor: "#ef4444",
+              color: "#ffffff",
+              padding: "0.45rem 0.75rem",
+              fontSize: "0.85rem",
+              lineHeight: 1.25,
+            }}
+          >
+            {rpcError}
+          </div>
+        )}
+
+        <Navigator
+          balance={<></>}
+          currentRoute={Routes.SETTINGS}
+          setRoute={setCurrentRoute}
+          wallet={null}
+          navLocked={true}
+        />
+
+        <div className="rebel-content-container">
+          <div className="rebel-content-container__content">
+            <Settings />
+          </div>
+        </div>
+
+        <Footer
+          signOut={signOut}
+          mnemonic={mnemonic}
+          isFromESP32={localStorage.getItem("loginFromESP32") === "true"}
+        />
+      </>
+    );
+  }
+
   const hasMempool = mempool.length > 0;
   return (
     <>
+      {rpcError && (
+        <div
+          role="status"
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 999,
+            backgroundColor: "#ef4444",
+            color: "#ffffff",
+            padding: "0.45rem 0.75rem",
+            fontSize: "0.85rem",
+            lineHeight: 1.25,
+          }}
+        >
+          {rpcError}
+        </div>
+      )}
       <Navigator
-        balance={
-          <Balance balance={balance} mempool={mempool} wallet={wallet} />
-        }
+        balance={navLocked ? <></> : <Balance balance={balance} mempool={mempool} wallet={wallet} />}
         currentRoute={currentRoute}
         setRoute={setCurrentRoute}
         wallet={wallet}
+        navLocked={navLocked}
       />
 
       <div className="rebel-content-container">

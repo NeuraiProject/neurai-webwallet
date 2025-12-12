@@ -6,9 +6,11 @@ export function useReceiveAddress(wallet: Wallet | null, blockCount: number) {
 
   React.useEffect(() => {
     if (wallet) {
-      wallet.getReceiveAddress().then(setReceiveAddress);
+      wallet.getReceiveAddress().then(setReceiveAddress).catch(() => {
+        // ignore while offline
+      });
     }
-  }, [blockCount]);
+  }, [wallet, blockCount]);
 
   return receiveAddress;
 }

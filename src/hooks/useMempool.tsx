@@ -6,8 +6,12 @@ export function useMempool(wallet: Wallet | null, blockCount: number) {
   const [mempool, setMempool] = React.useState<any>([]);
   const fetchMempool = async () => {
     if (wallet) {
-      const promise = wallet.getMempool();
-      const m = await promise;
+      let m: any = [];
+      try {
+        m = await wallet.getMempool();
+      } catch {
+        return;
+      }
       //Compare with prev state.
       //If less items in mempool, we suspect a new block is out
       setMempool((prevState: any) => {

@@ -7,7 +7,9 @@ export function useAssets(wallet: Wallet | null, blockCount: number) {
 
   React.useEffect(() => {
     if (wallet) {
-      wallet.getAssets().then(setAssets);
+      wallet.getAssets().then(setAssets).catch(() => {
+        // ignore while offline
+      });
     }
   }, [wallet, blockCount]);
   return assets;
