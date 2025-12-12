@@ -6,6 +6,7 @@ import {
   IconChat,
   IconHistory,
   IconHome,
+  IconIoT,
   IconReceive,
   IconSend,
   IconSettings,
@@ -280,6 +281,8 @@ export function Navigator({
             <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.CHAT} title="Chat" />
           )}
 
+          <PlaceholderItem title="IoT" icon={<IconIoT />} />
+
           <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SETTINGS} title="Settings" />
         </ul>
       </nav>
@@ -370,6 +373,31 @@ function DisabledLink({ title, newRoute }: { title: string; newRoute: Routes }) 
         }}
       >
         <Icon route={newRoute} />
+        {title}
+      </a>
+    </li>
+  );
+}
+
+function PlaceholderItem({ title, icon }: { title: string; icon?: ReactNode }) {
+  return (
+    <li className={"rebel-navigator__list-item"}>
+      <a
+        href="#"
+        className="primary rebel-navigator__list-item-link"
+        aria-disabled="true"
+        onClick={(event) => {
+          event.preventDefault();
+          return false;
+        }}
+        style={{
+          display: "block",
+          opacity: 0.55,
+          cursor: "default",
+          pointerEvents: "none",
+        }}
+      >
+        {icon ? <div>{icon}</div> : null}
         {title}
       </a>
     </li>
