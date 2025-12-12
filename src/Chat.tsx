@@ -5,7 +5,7 @@ import { getAssetBalanceIncludingMempool } from "./utils";
 import { useDePINChat } from "./hooks/useDePINChat";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import { FaRegClock, FaRegCircleCheck } from "react-icons/fa6";
+import { FaRegClock, FaRegCircleCheck, FaRobot } from "react-icons/fa6";
 
 interface Message {
   id: number;
@@ -763,7 +763,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                       wordBreak: "break-all",
                       opacity: message.sender === "user" ? 0.95 : 0.8,
                     }}>
-                      📤 {message.senderAddress}
+                      {message.senderAddress}
                     </p>
                     {/* Dates */}
                     {message.sendDate && message.expiresDate && (
@@ -773,7 +773,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                           fontSize: "0.75rem",
                           opacity: message.sender === "user" ? 0.85 : 0.6,
                         }}>
-                          📅 Sent: {message.sendDate} | ⏳ Expires: {message.expiresDate}
+                          Sent: {message.sendDate} | Expires: {message.expiresDate}
                         </p>
                         {/* BOT model (if present in prefix) */}
                         {message.sender === "bot" && extractBotModel(message.text).model && (
@@ -785,7 +785,11 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                               opacity: 0.6,
                             }}
                           >
-                            🤖: {extractBotModel(message.text).model}
+                            <FaRobot
+                              size={14}
+                              style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                            />
+                            {extractBotModel(message.text).model}
                           </p>
                         )}
                       </>
