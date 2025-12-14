@@ -6,7 +6,7 @@ interface RPCConfig {
   password: string;
 }
 
-const DEFAULT_RPC_MAINNET = "https://rpc-main.neurai.org/rpc";
+const DEFAULT_RPC_MAINNET = "https://rpc-depin.neurai.org/rpc";
 const DEFAULT_RPC_TESTNET = "https://rpc-testnet.neurai.org/rpc";
 
 export function Settings() {

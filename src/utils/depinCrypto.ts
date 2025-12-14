@@ -125,6 +125,39 @@ function sha256(data: Buffer): Buffer {
   return wordArrayToBuffer(hash);
 }
 
+function ripemd160(data: Buffer): Buffer {
+  const wa = CryptoJS.lib.WordArray.create(data as any);
+  // crypto-js exposes RIPEMD160 in the default build
+  const hash = (CryptoJS as any).RIPEMD160(wa) as CryptoJS.lib.WordArray;
+  return wordArrayToBuffer(hash);
+}
+
+function hash160(data: Buffer): Buffer {
+  return ripemd160(sha256(data));
+}
+
+// KDF_SHA256(sharedSecret, outLen): SHA256(sharedSecret || counter_be32) repeated
+function kdfSha256Counter(sharedSecret: Buffer, outputLen: number): Buffer {
+  let out = Buffer.alloc(0);
+  let counter = 1;
+  while (out.length < outputLen) {
+    const counterBytes = Buffer.from([
+      (counter >>> 24) & 0xff,
+      (counter >>> 16) & 0xff,
+      (counter >>> 8) & 0xff,
+      counter & 0xff,
+    ]);
+    const block = sha256(Buffer.concat([sharedSecret, counterBytes]));
+    out = Buffer.concat([out, block]);
+    counter++;
+  }
+  return out.slice(0, outputLen);
+}
+
+function sha256d(data: Buffer): Buffer {
+  return sha256(sha256(data));
+}
+
 // AES-256-CBC encryption
 function aes256CbcEncrypt(plaintext: Buffer, key: Buffer, iv: Buffer): Buffer {
   const plaintextWA = CryptoJS.lib.WordArray.create(plaintext as any);
@@ -138,6 +171,143 @@ function aes256CbcEncrypt(plaintext: Buffer, key: Buffer, iv: Buffer): Buffer {
   });
   
   return wordArrayToBuffer(encrypted.ciphertext);
+}
+
+// AES-256-CBC decryption
+function aes256CbcDecrypt(ciphertext: Buffer, key: Buffer, iv: Buffer): Buffer {
+  const ciphertextWA = CryptoJS.lib.WordArray.create(ciphertext as any);
+  const keyWA = CryptoJS.lib.WordArray.create(key as any);
+  const ivWA = CryptoJS.lib.WordArray.create(iv as any);
+
+  const cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: ciphertextWA });
+  const decrypted = CryptoJS.AES.decrypt(cipherParams, keyWA, {
+    iv: ivWA,
+    mode: CryptoJS.mode.CBC,
+    padding: CryptoJS.pad.Pkcs7,
+  });
+
+  return wordArrayToBuffer(decrypted);
+}
+
+function buffersEqual(a: Buffer, b: Buffer): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function normalizeHex(hex: string): string {
+  return (hex ?? '').trim().toLowerCase().replace(/^0x/, '');
+}
+
+function base58DecodeToBuffer(str: string): Buffer {
+  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  let num = BigInt(0);
+  for (const char of str) {
+    const idx = alphabet.indexOf(char);
+    if (idx === -1) throw new Error('Invalid base58 character');
+    num = num * BigInt(58) + BigInt(idx);
+  }
+
+  let hex = num.toString(16);
+  if (hex.length % 2 === 1) hex = '0' + hex;
+  let buf = Buffer.from(hex, 'hex');
+
+  // Preserve leading zeros
+  let leadingZeros = 0;
+  for (let i = 0; i < str.length && str[i] === '1'; i++) leadingZeros++;
+  if (leadingZeros > 0) {
+    buf = Buffer.concat([Buffer.alloc(leadingZeros, 0), buf]);
+  }
+
+  return buf;
+}
+
+function base58CheckDecode(str: string): Buffer {
+  const raw = base58DecodeToBuffer(str);
+  if (raw.length < 4) throw new Error('Invalid base58check payload');
+  const payload = raw.slice(0, -4);
+  const checksum = raw.slice(-4);
+  const expected = sha256d(payload).slice(0, 4);
+  if (!buffersEqual(checksum, expected)) throw new Error('Invalid base58check checksum');
+  return payload;
+}
+
+function normalizePrivateKeyTo32Bytes(privateKey: string): Buffer {
+  const pk = (privateKey ?? '').trim();
+  if (!pk) throw new Error('Missing private key');
+
+  const maybeHex = normalizeHex(pk);
+  if (/^[0-9a-f]{64}$/.test(maybeHex)) {
+    return Buffer.from(maybeHex, 'hex');
+  }
+
+  // WIF (Base58Check): [version(1) || key(32) || (optional 0x01 compressed)]
+  const payload = base58CheckDecode(pk);
+  if (payload.length !== 33 && payload.length !== 34) {
+    throw new Error('Invalid WIF payload length');
+  }
+  const key = payload.slice(1, 33);
+  if (key.length !== 32) throw new Error('Invalid WIF key length');
+  return key;
+}
+
+function readVarInt(buf: Buffer, offset: number): { value: number; offset: number } {
+  if (offset >= buf.length) throw new Error('readVarInt: out of range');
+  const first = buf[offset];
+  if (first < 0xfd) return { value: first, offset: offset + 1 };
+  if (first === 0xfd) {
+    if (offset + 3 > buf.length) throw new Error('readVarInt: truncated (0xfd)');
+    return { value: buf.readUInt16LE(offset + 1), offset: offset + 3 };
+  }
+  if (first === 0xfe) {
+    if (offset + 5 > buf.length) throw new Error('readVarInt: truncated (0xfe)');
+    return { value: buf.readUInt32LE(offset + 1), offset: offset + 5 };
+  }
+  if (offset + 9 > buf.length) throw new Error('readVarInt: truncated (0xff)');
+  const v = Number(buf.readBigUInt64LE(offset + 1));
+  return { value: v, offset: offset + 9 };
+}
+
+function readVector(buf: Buffer, offset: number): { data: Buffer; offset: number } {
+  const { value: len, offset: afterLen } = readVarInt(buf, offset);
+  const end = afterLen + len;
+  if (end > buf.length) throw new Error('readVector: truncated');
+  return { data: buf.slice(afterLen, end), offset: end };
+}
+
+function deserializeECIESMessage(serialized: Buffer): CECIESEncryptedMessage {
+  let offset = 0;
+
+  // Neurai CECIESEncryptedMessage encodes ephemeral pubkey as a vector
+  // (CompactSize length + raw pubkey bytes).
+  const pubKeyRead = readVector(serialized, offset);
+  const ephemeralPubKey = pubKeyRead.data;
+  offset = pubKeyRead.offset;
+  if (ephemeralPubKey.length !== 33 && ephemeralPubKey.length !== 65) {
+    throw new Error('ECIES: invalid pubkey length');
+  }
+
+  // encryptedPayload vector
+  const payloadRead = readVector(serialized, offset);
+  const encryptedPayload = payloadRead.data;
+  offset = payloadRead.offset;
+
+  // recipientKeys map
+  const { value: count, offset: afterCount } = readVarInt(serialized, offset);
+  offset = afterCount;
+  const recipientKeys = new Map<string, Buffer>();
+  for (let i = 0; i < count; i++) {
+    if (offset + 20 > serialized.length) throw new Error('ECIES: truncated hash160');
+    const hash160Hex = serialized.slice(offset, offset + 20).toString('hex');
+    offset += 20;
+    const vec = readVector(serialized, offset);
+    offset = vec.offset;
+    recipientKeys.set(hash160Hex, vec.data);
+  }
+
+  return { ephemeralPubKey, encryptedPayload, recipientKeys };
 }
 
 // ECDH compute shared secret using secp256k1 v4 API
@@ -517,4 +687,75 @@ export function buildDepinMessage(
     console.error('Stack:', err.stack);
     throw err;
   }
+}
+
+/**
+ * Decrypt `encrypted_payload_hex` returned by `depinreceivemsg`.
+ *
+ * - Uses `recipientAddress` to pick the correct per-recipient key from the ECIES map.
+ * - Uses the selected address private key (WIF or 64-hex) to decrypt.
+ * - Returns null when the payload isn't decryptable for this address.
+ */
+export function decryptDepinReceiveEncryptedPayload(
+  encryptedPayloadHex: string,
+  recipientAddress: string,
+  recipientPrivateKey: string
+): string | null {
+  const hex = normalizeHex(encryptedPayloadHex);
+  if (!hex) return null;
+
+  const serialized = Buffer.from(hex, 'hex');
+  const ecies = deserializeECIESMessage(serialized);
+
+  // recipientKeys is keyed by CKeyID = Hash160(compressed_pubkey), not address hash160.
+  const privKey32 = normalizePrivateKeyTo32Bytes(recipientPrivateKey);
+  if (!privateKeyVerify(privKey32)) throw new Error('Invalid recipient private key');
+
+  const recipientPubKey = publicKeyCreate(privKey32, true);
+  const keyIdBE = hash160(recipientPubKey).toString('hex');
+  const keyIdLE = Buffer.from(keyIdBE, 'hex').reverse().toString('hex');
+
+  const recipientPackage = ecies.recipientKeys.get(keyIdBE) ?? ecies.recipientKeys.get(keyIdLE);
+  if (!recipientPackage) return null;
+
+  const ephemeralPubKey = ecies.ephemeralPubKey;
+  if (!publicKeyVerify(ephemeralPubKey)) throw new Error('Invalid ephemeral public key');
+
+  // recipientPackage = [IV(16) || encrypted_aes_key || HMAC(32)]
+  if (recipientPackage.length < 16 + 16 + 32) {
+    throw new Error('Recipient key package too short');
+  }
+  const recipientIV = recipientPackage.slice(0, 16);
+  const recipientHMAC = recipientPackage.slice(recipientPackage.length - 32);
+  const encryptedAESKey = recipientPackage.slice(16, recipientPackage.length - 32);
+
+  // sharedSecret and KDF must match Neurai Core:
+  // sharedSecret := SHA256(compressed(shared_point))
+  // encKey := KDF_SHA256(sharedSecret, 32)
+  const sharedSecret = ecdhComputeSecret(privKey32, ephemeralPubKey);
+  const encKey = kdfSha256Counter(sharedSecret, 32);
+
+  const expectedRecipientHMAC = hmacSha256(encKey, encryptedAESKey);
+  if (!buffersEqual(expectedRecipientHMAC, recipientHMAC)) {
+    return null;
+  }
+
+  const aesKeyRaw = aes256CbcDecrypt(encryptedAESKey, encKey, recipientIV);
+  if (aesKeyRaw.length < 32) return null;
+  const aesKey = aesKeyRaw.slice(0, 32);
+
+  // encryptedPayload = [IV(16) || ciphertext || HMAC(32)]
+  const payload = ecies.encryptedPayload;
+  if (payload.length < 16 + 32) return null;
+  const iv = payload.slice(0, 16);
+  const payloadHmac = payload.slice(payload.length - 32);
+  const ciphertext = payload.slice(16, payload.length - 32);
+
+  const expectedPayloadHmac = hmacSha256(aesKey, ciphertext);
+  if (!buffersEqual(expectedPayloadHmac, payloadHmac)) {
+    return null;
+  }
+
+  const plaintextBuf = aes256CbcDecrypt(ciphertext, aesKey, iv);
+  return plaintextBuf.toString('utf8');
 }

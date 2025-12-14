@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Wallet } from '@neuraiproject/neurai-jswallet';
+import { decryptDepinReceiveEncryptedPayload } from '../utils/depinCrypto';
 
 // Side-effect import: attaches globalThis.neuraiDepinMsg (IIFE bundle)
 import '@neuraiproject/neurai-depin-msg/dist/neurai-depin-msg.js';
+
+const DEPIN_POLL_INTERVAL_MS = 20_000;
 
 interface DePINMessage {
   recipient: string;
@@ -43,6 +46,15 @@ interface RecipientInfo {
   pubkey: string | null;
 }
 
+interface DepinReceiveMsgItem {
+  hash: string;
+  token: string;
+  sender: string;
+  timestamp: number;
+  encrypted_payload_hex: string;
+  signature_hex: string;
+}
+
 export function useDePINChat(
   wallet: Wallet,
   selectedAsset: string | null,
@@ -55,6 +67,9 @@ export function useDePINChat(
   const [stats, setStats] = useState<PoolStats | null>(null);
   const [lastPoll, setLastPoll] = useState<Date | null>(null);
 
+  const lastTimestampRef = useRef<number>(0);
+  const seenMessageKeysRef = useRef<Set<string>>(new Set());
+
   // Cache sender pubkey per address to avoid repeated getpubkey calls
   const senderPubKeyCacheRef = useRef<{ address: string | null; pubkey: string | null }>({
     address: null,
@@ -66,61 +81,91 @@ export function useDePINChat(
     senderPubKeyCacheRef.current = { address: myAddress, pubkey: null };
   }, [myAddress]);
 
-  // Helper function to check if messages have changed
-  const messagesAreEqual = (oldMsgs: DePINMessage[], newMsgs: DePINMessage[]): boolean => {
-    if (oldMsgs.length !== newMsgs.length) return false;
-    
-    // Compare by timestamp and message content (unique identifiers)
-    const oldKeys = new Set(oldMsgs.map(m => `${m.timestamp}-${m.sender}-${m.message}`));
-    return newMsgs.every(m => oldKeys.has(`${m.timestamp}-${m.sender}-${m.message}`));
-  };
+  useEffect(() => {
+    // Reset incremental polling + dedupe on token/address change
+    lastTimestampRef.current = 0;
+    seenMessageKeysRef.current = new Set();
+    setMessages([]);
+  }, [selectedAsset, myAddress]);
 
   // Automatic message polling every 5 seconds
   useEffect(() => {
-    console.log('=== useDePINChat useEffect triggered ===');
-    console.log('  selectedAsset:', selectedAsset);
-    console.log('  myAddress:', myAddress);
-    console.log('  isPolling:', isPolling);
-
     if (!selectedAsset || !myAddress || !isPolling) {
-      console.log('Polling conditions not met, skipping...');
       return;
     }
 
-    console.log('Starting message polling...');
-
     const pollMessages = async () => {
       try {
-        // Local query via the configured RPC server
-        // depingetmsg format:
-        //   - depingetmsg "TOKEN" -> local, for all wallet addresses
-        const params = [selectedAsset];
+        const addressObjects = wallet.getAddressObjects();
+        const addressObj = addressObjects.find(obj => obj.address === myAddress);
+        const recipientPrivateKey = addressObj?.privateKey;
+        if (!recipientPrivateKey) {
+          throw new Error('Private key not available for selected address');
+        }
 
-        console.log('🔵 RPC CALL: depingetmsg');
-        console.log('📤 Parameters:', JSON.stringify(params, null, 2));
+        const params: any[] = [selectedAsset, myAddress];
+        if (lastTimestampRef.current > 0) {
+          params.push(lastTimestampRef.current);
+        }
 
-        const result = await wallet.rpc('depingetmsg', params);
+        const result = await wallet.rpc('depinreceivemsg', params);
 
-        console.log('✅ RPC SUCCESS: depingetmsg');
-        console.log('📥 Response:', JSON.stringify(result, null, 2));
-        console.log('Number of messages received:', Array.isArray(result) ? result.length : 0);
+        const items: DepinReceiveMsgItem[] = Array.isArray(result) ? result : [];
+        let maxTimestamp = lastTimestampRef.current;
+        const newDecrypted: DePINMessage[] = [];
+        const seen = seenMessageKeysRef.current;
 
-        const newMessages = Array.isArray(result) ? result : [];
-        
-        // Only update state if messages have actually changed
-        setMessages(prevMessages => {
-          if (messagesAreEqual(prevMessages, newMessages)) {
-            console.log('📋 No new messages, skipping update');
-            return prevMessages;
+        for (const item of items) {
+          if (typeof item?.timestamp === 'number') {
+            maxTimestamp = Math.max(maxTimestamp, item.timestamp);
           }
-          console.log('📬 New messages detected, updating state');
-          return newMessages;
-        });
-        
+
+          const key = `${String(item?.hash ?? '')}|${String(item?.signature_hex ?? '')}`;
+          if (!item?.hash || seen.has(key)) continue;
+
+          let plaintext: string | null = null;
+          try {
+            plaintext = decryptDepinReceiveEncryptedPayload(
+              String(item.encrypted_payload_hex ?? ''),
+              myAddress,
+              String(recipientPrivateKey)
+            );
+          } catch (e) {
+            // Non-decryptable or malformed payload; ignore.
+            plaintext = null;
+          }
+
+          if (typeof plaintext !== 'string' || plaintext.length === 0) {
+            continue;
+          }
+
+          seen.add(key);
+          const ts = typeof item.timestamp === 'number' ? item.timestamp : Math.floor(Date.now() / 1000);
+          newDecrypted.push({
+            recipient: myAddress,
+            sender: String(item.sender ?? ''),
+            message: plaintext,
+            timestamp: ts,
+            date: new Date(ts * 1000).toLocaleString(),
+            expires: '',
+          });
+        }
+
+        lastTimestampRef.current = maxTimestamp;
+
+        if (newDecrypted.length > 0) {
+          console.log(`[DePIN] +${newDecrypted.length} mensaje(s) descifrado(s)`);
+          setMessages(prev => {
+            const merged = [...prev, ...newDecrypted];
+            merged.sort((a, b) => a.timestamp - b.timestamp);
+            return merged;
+          });
+        }
+
         setLastPoll(new Date());
         setError(null);
       } catch (err: any) {
-        console.error('❌ RPC ERROR: depingetmsg failed');
+        console.error('❌ RPC ERROR: depinreceivemsg failed');
         console.error('Error object:', err);
         console.error('Error message:', err.message);
         console.error('Error description:', err.description);
@@ -142,10 +187,9 @@ export function useDePINChat(
     };
 
     pollMessages(); // Initial call
-    const interval = setInterval(pollMessages, 5000); // Every 5 seconds
+    const interval = setInterval(pollMessages, DEPIN_POLL_INTERVAL_MS);
 
     return () => {
-      console.log('Stopping message polling...');
       clearInterval(interval);
     };
   }, [wallet, selectedAsset, myAddress, isPolling]);
@@ -158,28 +202,69 @@ export function useDePINChat(
     }
 
     try {
-      // Local query via the configured RPC server
-      const params = [selectedAsset];
+      // Trigger an immediate poll (same incremental + dedupe logic)
+      // Note: we keep lastTimestampRef as-is to avoid re-downloading the whole pool.
+      const addressObjects = wallet.getAddressObjects();
+      const addressObj = addressObjects.find(obj => obj.address === myAddress);
+      const recipientPrivateKey = addressObj?.privateKey;
+      if (!recipientPrivateKey) return;
 
-      console.log('🔄 Manual refresh: depingetmsg');
+      const params: any[] = [selectedAsset, myAddress];
+      if (lastTimestampRef.current > 0) {
+        params.push(lastTimestampRef.current);
+      }
+
+      console.log('🔄 Manual refresh: depinreceivemsg');
       console.log('📤 Parameters:', JSON.stringify(params, null, 2));
 
-      const result = await wallet.rpc('depingetmsg', params);
+      const result = await wallet.rpc('depinreceivemsg', params);
+      const items: DepinReceiveMsgItem[] = Array.isArray(result) ? result : [];
 
-      console.log('✅ Refresh SUCCESS');
-      console.log('📥 Response:', JSON.stringify(result, null, 2));
+      let maxTimestamp = lastTimestampRef.current;
+      const newDecrypted: DePINMessage[] = [];
+      const seen = seenMessageKeysRef.current;
 
-      const newMessages = Array.isArray(result) ? result : [];
-      
-      setMessages(prevMessages => {
-        if (messagesAreEqual(prevMessages, newMessages)) {
-          console.log('📋 No new messages after refresh');
-          return prevMessages;
+      for (const item of items) {
+        if (typeof item?.timestamp === 'number') {
+          maxTimestamp = Math.max(maxTimestamp, item.timestamp);
         }
-        console.log('📬 New messages detected after refresh');
-        return newMessages;
-      });
-      
+
+        const key = `${String(item?.hash ?? '')}|${String(item?.signature_hex ?? '')}`;
+        if (!item?.hash || seen.has(key)) continue;
+
+        let plaintext: string | null = null;
+        try {
+          plaintext = decryptDepinReceiveEncryptedPayload(
+            String(item.encrypted_payload_hex ?? ''),
+            myAddress,
+            String(recipientPrivateKey)
+          );
+        } catch {
+          plaintext = null;
+        }
+
+        if (typeof plaintext !== 'string' || plaintext.length === 0) continue;
+        seen.add(key);
+        const ts = typeof item.timestamp === 'number' ? item.timestamp : Math.floor(Date.now() / 1000);
+        newDecrypted.push({
+          recipient: myAddress,
+          sender: String(item.sender ?? ''),
+          message: plaintext,
+          timestamp: ts,
+          date: new Date(ts * 1000).toLocaleString(),
+          expires: '',
+        });
+      }
+
+      lastTimestampRef.current = maxTimestamp;
+      if (newDecrypted.length > 0) {
+        setMessages(prev => {
+          const merged = [...prev, ...newDecrypted];
+          merged.sort((a, b) => a.timestamp - b.timestamp);
+          return merged;
+        });
+      }
+
       setLastPoll(new Date());
       setError(null);
     } catch (err: any) {

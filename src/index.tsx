@@ -18,6 +18,9 @@ import { Routes } from "./Routes";
 import { Footer } from "./Footer";
 import { Sign } from "./sign/Sign";
 import { Settings } from "./Settings";
+
+const DEFAULT_RPC_MAINNET = "https://rpc-depin.neurai.org/rpc";
+const DEFAULT_RPC_TESTNET = "https://rpc-testnet.neurai.org/rpc";
 import { Chat } from "./Chat";
 import { useMempool } from "./hooks/useMempool";
 import { useBlockCount } from "./hooks/useBlockCount";
@@ -111,6 +114,8 @@ function App() {
       } catch (e) {
         console.error("Error loading custom RPC config:", e);
       }
+      } else {
+        walletConfig.rpc_url = network === "xna-test" ? DEFAULT_RPC_TESTNET : DEFAULT_RPC_MAINNET;
     }
 
     return walletConfig;
