@@ -80,6 +80,42 @@ export function useDePINChat(
     pubkey: null,
   });
 
+  // Cache recipient pubkeys per address to avoid repeated getpubkey calls
+  const recipientPubKeyCacheRef = useRef<Map<string, string | null>>(new Map());
+
+  const resolveRecipientPubkey = useCallback(async (address: string, existing: string | null) => {
+    const normalizedExisting = (existing || '').trim().toLowerCase();
+    if (normalizedExisting) return normalizedExisting;
+
+    if (recipientPubKeyCacheRef.current.has(address)) {
+      return recipientPubKeyCacheRef.current.get(address) ?? null;
+    }
+
+    try {
+      const res: any = await wallet.rpc('getpubkey', [address]);
+      const revealed = typeof res?.revealed === 'number' ? res.revealed === 1 : null;
+      const pkRaw = typeof res?.pubkey === 'string' ? res.pubkey.trim().toLowerCase() : '';
+
+      // If revealed is explicitly false, treat as no pubkey.
+      if (revealed === false) {
+        recipientPubKeyCacheRef.current.set(address, null);
+        return null;
+      }
+
+      // Accept only compressed 33-byte pubkeys for message encryption.
+      if (pkRaw.length === 66 && (pkRaw.startsWith('02') || pkRaw.startsWith('03'))) {
+        recipientPubKeyCacheRef.current.set(address, pkRaw);
+        return pkRaw;
+      }
+
+      recipientPubKeyCacheRef.current.set(address, null);
+      return null;
+    } catch {
+      recipientPubKeyCacheRef.current.set(address, null);
+      return null;
+    }
+  }, [wallet]);
+
   useEffect(() => {
     // Reset cache when effective address changes
     senderPubKeyCacheRef.current = {
@@ -332,17 +368,6 @@ export function useDePINChat(
       throw new Error('No recipients available. Click "Show All Addresses" first to load token holders.');
     }
 
-    // Filter recipients that have public keys
-    console.log('\nFiltering recipients with pubkeys...');
-    const validRecipients = recipientList.filter(r => r.pubkey !== null);
-    console.log('  Total recipients:', recipientList.length);
-    console.log('  Recipients with pubkeys:', validRecipients.length);
-    
-    if (validRecipients.length === 0) {
-      console.error('❌ No recipients with public keys');
-      throw new Error('No recipients with public keys available. Recipients need to have revealed their public keys.');
-    }
-
     try {
       // Get sender's private key
       console.log('\nGetting sender private key...');
@@ -376,21 +401,19 @@ export function useDePINChat(
       const recipientPubKeys: string[] = [];
       const recipientSet = new Set<string>();
 
-      for (const recipient of validRecipients) {
-        const pk = (recipient.pubkey || '').trim().toLowerCase();
-        if (pk.length !== 66) {
-          console.warn(`    ❌ Invalid pubkey length for ${recipient.address}: ${pk.length}`);
-          continue;
-        }
-        if (!(pk.startsWith('02') || pk.startsWith('03'))) {
-          console.warn(`    ❌ Pubkey not compressed for ${recipient.address}: ${pk.substring(0, 2)}`);
-          continue;
-        }
+      let recipientsWithPubkeys = 0;
+      for (const recipient of recipientList) {
+        const pk = await resolveRecipientPubkey(String(recipient.address), recipient.pubkey ?? null);
+        if (!pk) continue;
+        recipientsWithPubkeys++;
         if (!recipientSet.has(pk)) {
           recipientSet.add(pk);
           recipientPubKeys.push(pk);
         }
       }
+
+      console.log('  Total recipients:', recipientList.length);
+      console.log('  Recipients with pubkeys:', recipientsWithPubkeys);
 
       console.log('  Final recipient pubkeys:', recipientPubKeys.length);
       if (recipientPubKeys.length === 0) {
@@ -477,7 +500,7 @@ export function useDePINChat(
       console.error('Actual error to throw:', actualError);
       throw new Error(actualError);
     }
-  }, [wallet, selectedAsset, effectiveAddress, depinChatIdentity?.wif, depinChatIdentity?.publicKey, recipientList]);
+  }, [wallet, selectedAsset, effectiveAddress, depinChatIdentity?.wif, depinChatIdentity?.publicKey, recipientList, resolveRecipientPubkey]);
 
   // Check DePIN asset validity
   const checkAssetValidity = useCallback(async (): Promise<AssetValidity | null> => {
