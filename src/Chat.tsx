@@ -207,6 +207,18 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     return `${a.slice(0, 4)}...${a.slice(-4)}`;
   }, []);
 
+  const formatUnixTimestampNoSeconds = React.useCallback((unixTimestamp: number) => {
+    const d = new Date(unixTimestamp * 1000);
+    return d.toLocaleString(undefined, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }, []);
+
   const burnDepinPubkeyAddress = React.useMemo(() => {
     return "NbURNXXXXXXXXXXXXXXXXXXXXXXXT65Gdr";
   }, []);
@@ -329,9 +341,9 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     (unixTimestamp: number) => {
       if (!messageExpiryHours || messageExpiryHours <= 0) return undefined;
       const expiresAt = unixTimestamp + messageExpiryHours * 60 * 60;
-      return new Date(expiresAt * 1000).toLocaleString();
+      return formatUnixTimestampNoSeconds(expiresAt);
     },
-    [messageExpiryHours]
+    [messageExpiryHours, formatUnixTimestampNoSeconds]
   );
 
   const extractBotModel = (text: string): { cleanText: string; model: string | null } => {
@@ -424,7 +436,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           deliveryKey,
           // DePIN specific fields
           senderAddress: msg.sender,
-          sendDate: msg.date,
+          sendDate: formatUnixTimestampNoSeconds(unixTimestamp),
           expiresDate: computeExpiresDate(unixTimestamp) ?? msg.expires,
           isDePIN: true,
         };
@@ -545,7 +557,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
     // Optimistic UI: add message immediately as pending
     if (deliveryKey) {
-      const sendDate = new Date(unixTimestamp * 1000).toLocaleString();
+      const sendDate = formatUnixTimestampNoSeconds(unixTimestamp);
       const expiresDate = computeExpiresDate(unixTimestamp);
       setMessages((prev) => [
         ...prev,
@@ -862,7 +874,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         <span
           style={{
             display: "grid",
-            gridTemplateColumns: "auto auto",
+            gridTemplateColumns: "auto auto auto",
             gridTemplateRows: "auto auto",
             columnGap: "0.5rem",
             rowGap: "0.25rem",
@@ -894,6 +906,18 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
               }}
             />
             DePIN Address
+          </span>
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "24px",
+              height: "24px",
+              justifySelf: "center",
+              alignSelf: "center",
+            }}
+          >
             <button
               type="button"
               aria-label="Burn 0.1 XNA to reveal pubkey"
@@ -912,13 +936,15 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
               }
               onClick={handleBurnDepinPubkey}
               style={{
-                marginLeft: "0.25rem",
                 padding: 0,
+                margin: 0,
                 border: 0,
                 background: "transparent",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
+                width: "100%",
+                height: "100%",
                 cursor: depinChatPubkeyRevealed === false && !isBurningDepinPubkey ? "pointer" : "default",
                 opacity: isBurningDepinPubkey ? 0.6 : 1,
               }}
@@ -929,6 +955,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                     ? "depin-flame depin-flame-lit"
                     : "depin-flame depin-flame-done"
                 }
+                style={{ width: "100%", height: "100%", display: "block" }}
               />
             </button>
           </span>
@@ -950,7 +977,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           </button>
           <span
             style={{
-              gridColumn: "1 / 3",
+              gridColumn: "1 / 4",
               fontSize: "0.9rem",
               fontWeight: "normal",
               wordBreak: "break-all",
