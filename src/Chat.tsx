@@ -88,6 +88,12 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
 
   const allAssets = getAssetBalanceIncludingMempool(wallet, assets, mempool);
 
+  const shortenAddress = React.useCallback((address?: string) => {
+    const a = (address ?? '').trim();
+    if (a.length <= 12) return a;
+    return `${a.slice(0, 4)}...${a.slice(-4)}`;
+  }, []);
+
   const computeExpiresDate = React.useCallback(
     (unixTimestamp: number) => {
       if (!messageExpiryHours || messageExpiryHours <= 0) return undefined;
@@ -805,7 +811,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                       wordBreak: "break-all",
                       opacity: message.sender === "user" ? 0.95 : 0.8,
                     }}>
-                      {message.senderAddress}
+                      {shortenAddress(message.senderAddress)}
                     </p>
                     {/* Dates */}
                     {message.sendDate && (
