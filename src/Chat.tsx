@@ -780,7 +780,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                 className={message.sender === "user" ? "chat-message-user" : "chat-message-bot"}
                 style={{
                   maxWidth: "70%",
-                  padding: "0.875rem 1.125rem",
+                  padding: "0.5rem 0.5rem",
                   borderRadius: message.sender === "user"
                     ? "16px 16px 4px 16px"
                     : "16px 16px 16px 4px",
