@@ -991,15 +991,22 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
             disabled={!depinAddressText}
             onClick={() => setShowDepinAddressQr((v) => !v)}
             style={{
-              width: "auto",
-              padding: "0.35rem 0.6rem",
+              width: "24px",
+              height: "24px",
+              padding: 0,
               margin: 0,
+              border: 0,
+              background: "transparent",
+              color: "inherit",
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
+              lineHeight: 1,
+              cursor: depinAddressText ? "pointer" : "default",
+              opacity: depinAddressText ? 0.9 : 0.35,
             }}
           >
-            <FaQrcode />
+            <FaQrcode style={{ fontSize: "1em" }} />
           </button>
           <span
             style={{
