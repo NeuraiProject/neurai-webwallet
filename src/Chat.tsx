@@ -803,45 +803,49 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                 {/* DePIN Message Format */}
                 {message.isDePIN && (
                   <>
-                    {/* Sender Address in Bold */}
-                    <p style={{
-                      margin: "0 0 0.5rem 0",
-                      fontWeight: "bold",
-                      fontSize: "0.85rem",
-                      wordBreak: "break-all",
-                      opacity: message.sender === "user" ? 0.95 : 0.8,
-                    }}>
-                      {shortenAddress(message.senderAddress)}
-                    </p>
-                    {/* Dates */}
-                    {message.sendDate && (
-                      <>
-                        <p style={{
+                    {/* Sender (left) + Expires (right) */}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        gap: "0.75rem",
+                        margin: "0 0 0.5rem 0",
+                        opacity: message.sender === "user" ? 0.95 : 0.8,
+                      }}
+                    >
+                      <span style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
+                        {shortenAddress(message.senderAddress)}
+                      </span>
+                      {message.expiresDate && (
+                        <span
+                          style={{
+                            fontSize: "0.75rem",
+                            textAlign: "right",
+                            whiteSpace: "nowrap",
+                            opacity: message.sender === "user" ? 0.85 : 0.6,
+                          }}
+                        >
+                          Expires: {message.expiresDate}
+                        </span>
+                      )}
+                    </div>
+                    {/* BOT model (if present in prefix) */}
+                    {message.sender === "bot" && extractBotModel(message.text).model && (
+                      <p
+                        style={{
                           margin: "0 0 0.75rem 0",
                           fontSize: "0.75rem",
-                          opacity: message.sender === "user" ? 0.85 : 0.6,
-                        }}>
-                          Sent: {message.sendDate}
-                          {message.expiresDate ? ` | Expires: ${message.expiresDate}` : ''}
-                        </p>
-                        {/* BOT model (if present in prefix) */}
-                        {message.sender === "bot" && extractBotModel(message.text).model && (
-                          <p
-                            style={{
-                              margin: "-0.35rem 0 0.75rem 0",
-                              fontSize: "0.75rem",
-                              fontWeight: "bold",
-                              opacity: 0.6,
-                            }}
-                          >
-                            <FaRobot
-                              size={14}
-                              style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
-                            />
-                            {extractBotModel(message.text).model}
-                          </p>
-                        )}
-                      </>
+                          fontWeight: "bold",
+                          opacity: 0.6,
+                        }}
+                      >
+                        <FaRobot
+                          size={14}
+                          style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                        />
+                        {extractBotModel(message.text).model}
+                      </p>
                     )}
                     {/* Message Content */}
                     <div
@@ -897,7 +901,9 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                       style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
                     />
                   )}
-                  {message.timestamp.toLocaleTimeString()}
+                  {message.isDePIN && message.sendDate
+                    ? message.sendDate
+                    : message.timestamp.toLocaleTimeString()}
                 </small>
               </div>
             </div>
