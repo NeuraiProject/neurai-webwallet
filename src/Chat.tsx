@@ -55,6 +55,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
   const [selectedAddress, setSelectedAddress] = React.useState<string | null>(null);
   const [isConnected, setIsConnected] = React.useState(false);
   const [validityStatus, setValidityStatus] = React.useState<any>(null);
+  const [messageExpiryHours, setMessageExpiryHours] = React.useState<number | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const chatInputRef = React.useRef<HTMLTextAreaElement>(null);
   
@@ -82,9 +83,19 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
     sendMessage: sendDePINMessage,
     refreshMessages,
     fetchStats,
+    getMsgInfo,
   } = useDePINChat(wallet, selectedAsset, selectedAddress, recipientInfoList);
 
   const allAssets = getAssetBalanceIncludingMempool(wallet, assets, mempool);
+
+  const computeExpiresDate = React.useCallback(
+    (unixTimestamp: number) => {
+      if (!messageExpiryHours || messageExpiryHours <= 0) return undefined;
+      const expiresAt = unixTimestamp + messageExpiryHours * 60 * 60;
+      return new Date(expiresAt * 1000).toLocaleString();
+    },
+    [messageExpiryHours]
+  );
 
   const extractBotModel = (text: string): { cleanText: string; model: string | null } => {
     // Expected formats (at the start):
@@ -177,7 +188,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
           // DePIN specific fields
           senderAddress: msg.sender,
           sendDate: msg.date,
-          expiresDate: msg.expires,
+          expiresDate: computeExpiresDate(unixTimestamp) ?? msg.expires,
           isDePIN: true,
         };
       });
@@ -219,7 +230,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
         return merged;
       });
     }
-  }, [depinMessages, isConnected, selectedAddress, selectedAsset]);
+  }, [depinMessages, isConnected, selectedAddress, selectedAsset, computeExpiresDate]);
 
   // Obtener stats periódicamente si está conectado
   React.useEffect(() => {
@@ -229,6 +240,26 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
       return () => clearInterval(interval);
     }
   }, [isConnected, selectedAsset, fetchStats]);
+
+  // Obtener configuración del pool (por ejemplo expiración) al conectar
+  React.useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const info: any = await getMsgInfo();
+        const hours = typeof info?.messageexpiryhours === 'number' ? info.messageexpiryhours : null;
+        if (!cancelled) setMessageExpiryHours(hours);
+      } catch {
+        if (!cancelled) setMessageExpiryHours(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, getMsgInfo]);
 
   const handleSend = async () => {
     console.log('=== handleSend START ===');
@@ -277,6 +308,8 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
 
     // Optimistic UI: add message immediately as pending
     if (deliveryKey) {
+      const sendDate = new Date(unixTimestamp * 1000).toLocaleString();
+      const expiresDate = computeExpiresDate(unixTimestamp);
       setMessages((prev) => [
         ...prev,
         {
@@ -290,6 +323,8 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
           deliveryKey,
           isDePIN: true,
           senderAddress: selectedAddress ?? undefined,
+          sendDate,
+          expiresDate,
         },
       ]);
     }
@@ -766,14 +801,15 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
                       {message.senderAddress}
                     </p>
                     {/* Dates */}
-                    {message.sendDate && message.expiresDate && (
+                    {message.sendDate && (
                       <>
                         <p style={{
                           margin: "0 0 0.75rem 0",
                           fontSize: "0.75rem",
                           opacity: message.sender === "user" ? 0.85 : 0.6,
                         }}>
-                          Sent: {message.sendDate} | Expires: {message.expiresDate}
+                          Sent: {message.sendDate}
+                          {message.expiresDate ? ` | Expires: ${message.expiresDate}` : ''}
                         </p>
                         {/* BOT model (if present in prefix) */}
                         {message.sender === "bot" && extractBotModel(message.text).model && (
