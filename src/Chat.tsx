@@ -1,11 +1,11 @@
 import React from "react";
 import { IconSend } from "./icons";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
-import { getAssetBalanceIncludingMempool } from "./utils";
 import { useDePINChat } from "./hooks/useDePINChat";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import { FaRegClock, FaRegCircleCheck, FaRobot, FaUserGroup } from "react-icons/fa6";
+import { FaQrcode, FaRegClock, FaRegCircleCheck, FaRobot, FaUserGroup } from "react-icons/fa6";
+import type { DepinChatIdentity } from "./utils/depinChatIdentity";
 
 interface Message {
   id: number;
@@ -36,9 +36,23 @@ interface ChatProps {
   wallet: Wallet;
   assets: any[];
   mempool: any;
+  depinChatIdentity?: DepinChatIdentity | null;
 }
 
-export function Chat({ wallet, assets, mempool }: ChatProps) {
+function normalizeAssetAmountMaybe(raw: unknown): number {
+  const n = typeof raw === "string" ? Number(raw) : (raw as number);
+  if (!Number.isFinite(n)) return 0;
+
+  // Heuristic: many RPCs return asset amounts in satoshis (1e8). If it looks like an integer
+  // larger than typical human-scale amounts, treat it as satoshis.
+  if (Number.isInteger(n) && Math.abs(n) > 100_000) {
+    return n / 1e8;
+  }
+
+  return n;
+}
+
+export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) {
   const [messages, setMessages] = React.useState<Message[]>([
     {
       id: 1,
@@ -51,6 +65,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
   const [showAssets, setShowAssets] = React.useState(false);
   const [assetAddresses, setAssetAddresses] = React.useState<Record<string, string>>({});
   const [pubKeyStatus, setPubKeyStatus] = React.useState<Record<string, boolean | null>>({});
+  const [chatAssets, setChatAssets] = React.useState<Record<string, number>>({});
   const [selectedAsset, setSelectedAsset] = React.useState<string | null>(null);
   const [selectedAddress, setSelectedAddress] = React.useState<string | null>(null);
   const [isConnected, setIsConnected] = React.useState(false);
@@ -63,6 +78,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
   const [showAddressList, setShowAddressList] = React.useState(false);
   const [addressList, setAddressList] = React.useState<Array<{address: string, amount: number, pubkey: string | null}>>([]);
   const [loadingAddressList, setLoadingAddressList] = React.useState(false);
+  const [showDepinAddressQr, setShowDepinAddressQr] = React.useState(false);
 
   // Preparar lista de recipients para el hook (address + pubkey)
   const recipientInfoList = React.useMemo(() => {
@@ -71,6 +87,19 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
       pubkey: item.pubkey
     }));
   }, [addressList]);
+
+  const chatAddress = depinChatIdentity?.address ?? null;
+  const depinAddressText = chatAddress ?? selectedAddress ?? "";
+  const depinAddressQrSrc = depinAddressText
+    ? "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=" + encodeURIComponent(depinAddressText)
+    : "";
+
+  // Keep selectedAddress pinned to the dedicated chat address (account 100)
+  React.useEffect(() => {
+    if (chatAddress) {
+      setSelectedAddress(chatAddress);
+    }
+  }, [chatAddress]);
 
   // Hook DePIN para mensajería
   const {
@@ -84,9 +113,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
     refreshMessages,
     fetchStats,
     getMsgInfo,
-  } = useDePINChat(wallet, selectedAsset, selectedAddress, recipientInfoList);
-
-  const allAssets = getAssetBalanceIncludingMempool(wallet, assets, mempool);
+  } = useDePINChat(wallet, selectedAsset, selectedAddress, recipientInfoList, depinChatIdentity ?? null);
 
   const shortenAddress = React.useCallback((address?: string) => {
     const a = (address ?? '').trim();
@@ -385,81 +412,51 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
     setShowAssets(!showAssets);
 
     if (!showAssets && Object.keys(assetAddresses).length === 0) {
+      if (!chatAddress || !depinChatIdentity) {
+        setMessages([{
+          id: 1,
+          text: "DePIN Chat identity is not available. Please log in/unlock your mnemonic and reload.",
+          sender: "bot",
+          timestamp: new Date(),
+        }]);
+        return;
+      }
+
       const addresses: Record<string, string> = {};
       const pubKeys: Record<string, boolean> = {};
-      const myAddressObjects = wallet.getAddressObjects();
-      const myAddresses = myAddressObjects.map(obj => obj.address);
+      console.log('🔵 RPC CALL: listassetbalancesbyaddress (chat address)');
+      console.log('📤 Parameters:', JSON.stringify([chatAddress], null, 2));
 
-      for (const assetName of Object.keys(allAssets)) {
-        if (assetName === wallet.baseCurrency) continue;
-        if (allAssets[assetName] === 0) continue;
+      let balance: any = null;
+      try {
+        balance = await wallet.rpc('listassetbalancesbyaddress', [chatAddress]);
+        console.log('✅ RPC SUCCESS: listassetbalancesbyaddress (chat address)');
+        console.log('📥 Response:', balance);
+      } catch (e: any) {
+        console.error('❌ RPC ERROR: listassetbalancesbyaddress failed for chat address');
+        console.error(e);
+        setMessages([{
+          id: 1,
+          text: `Failed to load chat assets for ${chatAddress}.\n\nMake sure your RPC supports listassetbalancesbyaddress and try again.`,
+          sender: 'bot',
+          timestamp: new Date(),
+        }]);
+        return;
+      }
 
-        try {
-          // Buscar la dirección que actualmente tiene este asset en la wallet
-          let foundAddress: string | null = null;
-
-          // Iterar sobre todas mis direcciones y verificar cuál tiene el asset
-          for (const addr of myAddresses) {
-            try {
-              console.log(`🔵 RPC CALL: listassetbalancesbyaddress for ${assetName}`);
-              console.log(`📤 Parameters: ["${addr}"]`);
-
-              const balance: any = await wallet.rpc("listassetbalancesbyaddress", [addr]);
-
-              console.log(`✅ RPC SUCCESS: listassetbalancesbyaddress for ${addr}`);
-              console.log(`📥 Response:`, balance);
-
-              if (balance && balance[assetName] && balance[assetName] > 0) {
-                foundAddress = addr;
-                console.log(`✅ Found asset ${assetName} in address: ${addr} with balance: ${balance[assetName]}`);
-                break;
-              }
-            } catch (err: any) {
-              // Si falla, continuar con la siguiente dirección
-              console.warn(`❌ RPC ERROR: listassetbalancesbyaddress failed for ${addr}`);
-              console.warn('Error:', err);
-            }
-          }
-
-          if (foundAddress) {
-            addresses[assetName] = foundAddress;
-
-            // Check if pubkey is available for this address
-            try {
-              console.log(`🔵 RPC CALL: getpubkey for ${assetName}`);
-              console.log(`📤 Parameters: ["${foundAddress}"]`);
-
-              const pubkeyResult: any = await wallet.rpc("getpubkey", [foundAddress]);
-
-              console.log(`✅ RPC SUCCESS: getpubkey for ${assetName}`);
-              console.log(`📥 Response:`, pubkeyResult);
-
-              // If getpubkey returns a valid result, pubkey exists
-              pubKeys[assetName] = !!(pubkeyResult && pubkeyResult.pubkey);
-              console.log(`✅ PubKey available for ${assetName}: ${pubKeys[assetName]}`);
-            } catch (error: any) {
-              // If getpubkey fails or is not supported
-              console.warn(`❌ RPC ERROR: getpubkey failed for ${assetName}`);
-              console.warn('Error:', error);
-
-              // Mark as null to indicate "not available to check" vs "checked and not found"
-              if (error.error === "Not in whitelist" || error.description?.includes("not supported")) {
-                pubKeys[assetName] = null as any; // Use null to indicate RPC method not available
-              } else {
-                pubKeys[assetName] = false;
-              }
-            }
-          } else {
-            addresses[assetName] = "Not found in wallet";
-            pubKeys[assetName] = false;
-          }
-        } catch (error) {
-          console.error(`Error loading address for ${assetName}:`, error);
-          addresses[assetName] = "Error loading";
-          pubKeys[assetName] = false;
+      const nextChatAssets: Record<string, number> = {};
+      if (balance && typeof balance === 'object') {
+        for (const assetName of Object.keys(balance)) {
+          if (assetName === wallet.baseCurrency) continue;
+          const amount = normalizeAssetAmountMaybe(balance[assetName]);
+          if (amount <= 0) continue;
+          nextChatAssets[assetName] = amount;
+          addresses[assetName] = chatAddress;
+          pubKeys[assetName] = true; // we always have a local pubkey via depinChatIdentity
         }
       }
 
+      setChatAssets(nextChatAssets);
       setAssetAddresses(addresses);
       setPubKeyStatus(pubKeys);
     }
@@ -509,7 +506,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
     if (hasPubKey === true) {
       // Asset con pubkey disponible - conectar
       console.log('Asset has pubkey, connecting...');
-      setValidityStatus({ has_asset: true, valid: 1, blocked: false, amount: allAssets[assetName] });
+      setValidityStatus({ has_asset: true, valid: 1, blocked: false, amount: chatAssets[assetName] });
       setIsConnected(true);
       setIsPolling(true);
       console.log('States set: isConnected=true, isPolling=true');
@@ -524,7 +521,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
     } else if (hasPubKey === null) {
       console.log('Cannot verify pubkey, connecting anyway...');
       // No podemos verificar pubkey - advertencia pero conectamos igual
-      setValidityStatus({ has_asset: true, valid: 1, blocked: false, amount: allAssets[assetName] });
+      setValidityStatus({ has_asset: true, valid: 1, blocked: false, amount: chatAssets[assetName] });
       setIsConnected(true);
       setIsPolling(true);
 
@@ -557,7 +554,7 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
 
   // Verificar si es un asset válido para mensajería (cualquier asset con balance > 0)
   const isValidMessagingAsset = (assetName: string) => {
-    return assetName && allAssets[assetName] && allAssets[assetName] > 0;
+    return !!(assetName && chatAssets[assetName] && chatAssets[assetName] > 0);
   };
 
   // Obtener el icono según el tipo de asset
@@ -656,6 +653,55 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
 
   return (
     <article>
+      <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>DePIN Address</span>
+        <span
+          style={{
+            display: "flex",
+            gap: "0.5rem",
+            alignItems: "center",
+            fontSize: "0.9rem",
+            fontWeight: "normal",
+            wordBreak: "break-all",
+          }}
+        >
+          <span>{depinAddressText || "-"}</span>
+          <button
+            type="button"
+            aria-label="Show DePIN address QR"
+            disabled={!depinAddressText}
+            onClick={() => setShowDepinAddressQr((v) => !v)}
+            style={{
+              width: "auto",
+              padding: "0.35rem 0.6rem",
+              margin: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <FaQrcode />
+          </button>
+        </span>
+      </h3>
+
+      {showDepinAddressQr && depinAddressText && (
+        <div style={{ display: "flex", justifyContent: "center", marginTop: "0.75rem" }}>
+          <img
+            alt="DePIN address QR"
+            src={depinAddressQrSrc}
+            style={{
+              width: "90%",
+              maxWidth: "400px",
+              marginBottom: 20,
+              padding: "10px",
+              background: "white",
+              borderRadius: "10px",
+            }}
+          />
+        </div>
+      )}
+
       <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span>Asset Messaging</span>
         {selectedAsset && (
@@ -1102,9 +1148,9 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
               </tr>
             </thead>
             <tbody>
-              {Object.keys(allAssets).map((assetName) => {
+              {Object.keys(chatAssets).map((assetName) => {
                 if (assetName === wallet.baseCurrency) return null;
-                if (allAssets[assetName] === 0) return null;
+                if (chatAssets[assetName] === 0) return null;
 
                 const address = assetAddresses[assetName] || "Loading...";
                 const hasPubKey = pubKeyStatus[assetName];

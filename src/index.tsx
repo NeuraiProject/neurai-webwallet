@@ -27,6 +27,7 @@ import { useBlockCount } from "./hooks/useBlockCount";
 import { useBalance } from "./hooks/useBalance";
 import { useAssets } from "./hooks/useAssets";
 import { useReceiveAddress } from "./hooks/useReceiveAddress";
+import { deriveDepinChatIdentity, DepinChatIdentity } from "./utils/depinChatIdentity";
 
 let _mnemonic =
   "sight rate burger maid melody slogan attitude gas account sick awful hammer";
@@ -65,17 +66,27 @@ function App() {
   const mempool = useMempool(dataWallet, blockCount);
   const assets = useAssets(dataWallet, blockCount);
 
-  React.useEffect(() => {
-    if (navLocked && currentRoute !== Routes.SETTINGS) {
-      setCurrentRoute(Routes.SETTINGS);
-    }
-  }, [navLocked, currentRoute]);
-
   // Determine network from query string (stable for this session)
   const network: ChainType = React.useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
     return searchParams.get("network") === "xna-test" ? "xna-test" : "xna";
   }, []);
+
+  const depinChatIdentity = React.useMemo<DepinChatIdentity | null>(() => {
+    if (!mnemonic) return null;
+    try {
+      return deriveDepinChatIdentity({ network, mnemonic, passphrase, account: 100, index: 0 });
+    } catch (e) {
+      console.warn('Failed to derive DePIN chat identity:', e);
+      return null;
+    }
+  }, [mnemonic, passphrase, network]);
+
+  React.useEffect(() => {
+    if (navLocked && currentRoute !== Routes.SETTINGS) {
+      setCurrentRoute(Routes.SETTINGS);
+    }
+  }, [navLocked, currentRoute]);
 
   const minAmountOfAddresses: number = React.useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -369,7 +380,7 @@ function App() {
             style={{ display: currentRoute === Routes.CHAT ? "block" : "none" }}
             aria-hidden={currentRoute !== Routes.CHAT}
           >
-            <Chat wallet={wallet} assets={assets} mempool={mempool} />
+            <Chat wallet={wallet} assets={assets} mempool={mempool} depinChatIdentity={depinChatIdentity} />
           </div>
 
           {currentRoute === Routes.SETTINGS && (

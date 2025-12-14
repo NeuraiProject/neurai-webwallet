@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Wallet } from '@neuraiproject/neurai-jswallet';
 import { decryptDepinReceiveEncryptedPayload } from '../utils/depinCrypto';
+import type { DepinChatIdentity } from '../utils/depinChatIdentity';
 
 // Side-effect import: attaches globalThis.neuraiDepinMsg (IIFE bundle)
 import '@neuraiproject/neurai-depin-msg/dist/neurai-depin-msg.js';
@@ -59,13 +60,16 @@ export function useDePINChat(
   wallet: Wallet,
   selectedAsset: string | null,
   myAddress: string | null,
-  recipientList?: RecipientInfo[]
+  recipientList?: RecipientInfo[],
+  depinChatIdentity?: DepinChatIdentity | null
 ) {
   const [messages, setMessages] = useState<DePINMessage[]>([]);
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<PoolStats | null>(null);
   const [lastPoll, setLastPoll] = useState<Date | null>(null);
+
+  const effectiveAddress = depinChatIdentity?.address ?? myAddress;
 
   const lastTimestampRef = useRef<number>(0);
   const seenMessageKeysRef = useRef<Set<string>>(new Set());
@@ -77,33 +81,40 @@ export function useDePINChat(
   });
 
   useEffect(() => {
-    // Reset cache when address changes
-    senderPubKeyCacheRef.current = { address: myAddress, pubkey: null };
-  }, [myAddress]);
+    // Reset cache when effective address changes
+    senderPubKeyCacheRef.current = {
+      address: effectiveAddress,
+      pubkey: depinChatIdentity?.publicKey ? String(depinChatIdentity.publicKey).trim().toLowerCase() : null,
+    };
+  }, [effectiveAddress, depinChatIdentity?.publicKey]);
 
   useEffect(() => {
     // Reset incremental polling + dedupe on token/address change
     lastTimestampRef.current = 0;
     seenMessageKeysRef.current = new Set();
     setMessages([]);
-  }, [selectedAsset, myAddress]);
+  }, [selectedAsset, effectiveAddress]);
 
   // Automatic message polling every 5 seconds
   useEffect(() => {
-    if (!selectedAsset || !myAddress || !isPolling) {
+    if (!selectedAsset || !effectiveAddress || !isPolling) {
       return;
     }
 
     const pollMessages = async () => {
       try {
-        const addressObjects = wallet.getAddressObjects();
-        const addressObj = addressObjects.find(obj => obj.address === myAddress);
-        const recipientPrivateKey = addressObj?.privateKey;
+        const recipientPrivateKey = depinChatIdentity?.wif
+          ? String(depinChatIdentity.wif)
+          : (() => {
+              const addressObjects = wallet.getAddressObjects();
+              const addressObj = addressObjects.find(obj => obj.address === effectiveAddress);
+              return addressObj?.privateKey;
+            })();
         if (!recipientPrivateKey) {
           throw new Error('Private key not available for selected address');
         }
 
-        const params: any[] = [selectedAsset, myAddress];
+        const params: any[] = [selectedAsset, effectiveAddress];
         if (lastTimestampRef.current > 0) {
           params.push(lastTimestampRef.current);
         }
@@ -127,7 +138,7 @@ export function useDePINChat(
           try {
             plaintext = decryptDepinReceiveEncryptedPayload(
               String(item.encrypted_payload_hex ?? ''),
-              myAddress,
+              effectiveAddress,
               String(recipientPrivateKey)
             );
           } catch (e) {
@@ -142,7 +153,7 @@ export function useDePINChat(
           seen.add(key);
           const ts = typeof item.timestamp === 'number' ? item.timestamp : Math.floor(Date.now() / 1000);
           newDecrypted.push({
-            recipient: myAddress,
+            recipient: effectiveAddress,
             sender: String(item.sender ?? ''),
             message: plaintext,
             timestamp: ts,
@@ -192,11 +203,11 @@ export function useDePINChat(
     return () => {
       clearInterval(interval);
     };
-  }, [wallet, selectedAsset, myAddress, isPolling]);
+  }, [wallet, selectedAsset, effectiveAddress, depinChatIdentity?.wif, isPolling]);
 
   // Manual refresh
   const refreshMessages = useCallback(async () => {
-    if (!selectedAsset || !myAddress) {
+    if (!selectedAsset || !effectiveAddress) {
       console.log('Cannot refresh: no asset or address selected');
       return;
     }
@@ -204,12 +215,16 @@ export function useDePINChat(
     try {
       // Trigger an immediate poll (same incremental + dedupe logic)
       // Note: we keep lastTimestampRef as-is to avoid re-downloading the whole pool.
-      const addressObjects = wallet.getAddressObjects();
-      const addressObj = addressObjects.find(obj => obj.address === myAddress);
-      const recipientPrivateKey = addressObj?.privateKey;
+      const recipientPrivateKey = depinChatIdentity?.wif
+        ? String(depinChatIdentity.wif)
+        : (() => {
+            const addressObjects = wallet.getAddressObjects();
+            const addressObj = addressObjects.find(obj => obj.address === effectiveAddress);
+            return addressObj?.privateKey;
+          })();
       if (!recipientPrivateKey) return;
 
-      const params: any[] = [selectedAsset, myAddress];
+      const params: any[] = [selectedAsset, effectiveAddress];
       if (lastTimestampRef.current > 0) {
         params.push(lastTimestampRef.current);
       }
@@ -236,7 +251,7 @@ export function useDePINChat(
         try {
           plaintext = decryptDepinReceiveEncryptedPayload(
             String(item.encrypted_payload_hex ?? ''),
-            myAddress,
+            effectiveAddress,
             String(recipientPrivateKey)
           );
         } catch {
@@ -247,7 +262,7 @@ export function useDePINChat(
         seen.add(key);
         const ts = typeof item.timestamp === 'number' ? item.timestamp : Math.floor(Date.now() / 1000);
         newDecrypted.push({
-          recipient: myAddress,
+          recipient: effectiveAddress,
           sender: String(item.sender ?? ''),
           message: plaintext,
           timestamp: ts,
@@ -271,7 +286,7 @@ export function useDePINChat(
       console.error('❌ Refresh failed:', err.message);
       // Don't set error on refresh failure, just log it
     }
-  }, [wallet, selectedAsset, myAddress]);
+  }, [wallet, selectedAsset, effectiveAddress, depinChatIdentity?.wif]);
 
   // Fetch pool statistics
   const fetchStats = useCallback(async () => {
@@ -304,10 +319,10 @@ export function useDePINChat(
     console.log('Input:');
     console.log('  Message:', message);
     console.log('  Selected asset:', selectedAsset);
-    console.log('  My address:', myAddress);
+    console.log('  My address:', effectiveAddress);
     console.log('  Recipient list length:', recipientList?.length || 0);
 
-    if (!selectedAsset || !myAddress) {
+    if (!selectedAsset || !effectiveAddress) {
       console.error('❌ Asset or address not selected');
       throw new Error('Asset or address not selected');
     }
@@ -331,26 +346,28 @@ export function useDePINChat(
     try {
       // Get sender's private key
       console.log('\nGetting sender private key...');
-      const addressObjects = wallet.getAddressObjects();
-      console.log('  Address objects count:', addressObjects.length);
-      
-      const addressObj = addressObjects.find(obj => obj.address === myAddress);
-      
-      if (!addressObj) {
-        console.error('❌ Address object not found for:', myAddress);
-        throw new Error('Address not found in wallet: ' + myAddress);
-      }
-      
-      if (!addressObj.privateKey) {
-        console.error('❌ Private key not found for address');
-        throw new Error('Private key not found for address: ' + myAddress);
-      }
-      
-      console.log('  ✓ Private key found, length:', addressObj.privateKey.length);
+      const senderPrivateKey = depinChatIdentity?.wif
+        ? String(depinChatIdentity.wif)
+        : (() => {
+            const addressObjects = wallet.getAddressObjects();
+            console.log('  Address objects count:', addressObjects.length);
+            const addressObj = addressObjects.find(obj => obj.address === effectiveAddress);
+            if (!addressObj) {
+              console.error('❌ Address object not found for:', effectiveAddress);
+              throw new Error('Address not found in wallet: ' + effectiveAddress);
+            }
+            if (!addressObj.privateKey) {
+              console.error('❌ Private key not found for address');
+              throw new Error('Private key not found for address: ' + effectiveAddress);
+            }
+            return String(addressObj.privateKey);
+          })();
+
+      console.log('  ✓ Private key found, length:', senderPrivateKey.length);
 
       console.log('\n📝 Building DePIN message...');
       console.log('  Token:', selectedAsset);
-      console.log('  Sender:', myAddress);
+      console.log('  Sender:', effectiveAddress);
       console.log('  Message:', message);
       console.log('  Recipients with pubkeys:', validRecipients.length);
 
@@ -383,18 +400,24 @@ export function useDePINChat(
 
       // Get sender pubkey from cache/RPC (required by neuraiDepinMsg)
       let senderPubKey: string | null = null;
-      const cache = senderPubKeyCacheRef.current;
-      if (cache.address === myAddress && cache.pubkey) {
-        senderPubKey = cache.pubkey;
-        console.log('\nUsing cached sender pubkey');
+      if (depinChatIdentity?.publicKey) {
+        senderPubKey = String(depinChatIdentity.publicKey).trim().toLowerCase();
+        senderPubKeyCacheRef.current = { address: effectiveAddress, pubkey: senderPubKey };
+        console.log('\nUsing derived chat sender pubkey');
       } else {
-        console.log('\nGetting sender pubkey via getpubkey...');
-        try {
-          const pubkeyResult: any = await wallet.rpc('getpubkey', [myAddress]);
-          senderPubKey = pubkeyResult?.pubkey ? String(pubkeyResult.pubkey).trim().toLowerCase() : null;
-          senderPubKeyCacheRef.current = { address: myAddress, pubkey: senderPubKey };
-        } catch (e: any) {
-          console.warn('❌ getpubkey failed for sender address:', e?.message || e);
+        const cache = senderPubKeyCacheRef.current;
+        if (cache.address === effectiveAddress && cache.pubkey) {
+          senderPubKey = cache.pubkey;
+          console.log('\nUsing cached sender pubkey');
+        } else {
+          console.log('\nGetting sender pubkey via getpubkey...');
+          try {
+            const pubkeyResult: any = await wallet.rpc('getpubkey', [effectiveAddress]);
+            senderPubKey = pubkeyResult?.pubkey ? String(pubkeyResult.pubkey).trim().toLowerCase() : null;
+            senderPubKeyCacheRef.current = { address: effectiveAddress, pubkey: senderPubKey };
+          } catch (e: any) {
+            console.warn('❌ getpubkey failed for sender address:', e?.message || e);
+          }
         }
       }
 
@@ -411,9 +434,9 @@ export function useDePINChat(
 
       const buildResult = await depinMsg.buildDepinMessage({
         token: selectedAsset,
-        senderAddress: myAddress,
+        senderAddress: effectiveAddress,
         senderPubKey,
-        privateKey: addressObj.privateKey, // accepts WIF or 64-hex
+        privateKey: senderPrivateKey, // accepts WIF or 64-hex
         timestamp: Math.floor(Date.now() / 1000),
         message,
         recipientPubKeys
@@ -454,13 +477,13 @@ export function useDePINChat(
       console.error('Actual error to throw:', actualError);
       throw new Error(actualError);
     }
-  }, [wallet, selectedAsset, myAddress, recipientList]);
+  }, [wallet, selectedAsset, effectiveAddress, depinChatIdentity?.wif, depinChatIdentity?.publicKey, recipientList]);
 
   // Check DePIN asset validity
   const checkAssetValidity = useCallback(async (): Promise<AssetValidity | null> => {
-    if (!selectedAsset || !myAddress) return null;
+    if (!selectedAsset || !effectiveAddress) return null;
 
-    const params = [selectedAsset, myAddress];
+    const params = [selectedAsset, effectiveAddress];
 
     try {
       console.log('🔵 RPC CALL: checkdepinvalidity');
@@ -478,7 +501,7 @@ export function useDePINChat(
       console.error('Full error:', JSON.stringify(err, null, 2));
       return null;
     }
-  }, [wallet, selectedAsset, myAddress]);
+  }, [wallet, selectedAsset, effectiveAddress]);
 
   // Get messaging system info
   const getMsgInfo = useCallback(async () => {
