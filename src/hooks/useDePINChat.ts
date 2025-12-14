@@ -394,7 +394,7 @@ export function useDePINChat(
       console.log('  Token:', selectedAsset);
       console.log('  Sender:', effectiveAddress);
       console.log('  Message:', message);
-      console.log('  Recipients with pubkeys:', validRecipients.length);
+      console.log('  Recipients with provided pubkeys:', recipientList.filter((r) => !!r.pubkey).length);
 
       // Build recipient pubkeys list
       console.log('\nBuilding recipient pubkeys list...');

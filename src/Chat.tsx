@@ -4,7 +4,7 @@ import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { useDePINChat } from "./hooks/useDePINChat";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import { FaFireFlameCurved, FaQrcode, FaRegClock, FaRegCircleCheck, FaRobot, FaUserGroup } from "react-icons/fa6";
+import { FaFireFlameCurved, FaQrcode, FaRegClock, FaRegCircleCheck, FaRegCopy, FaRobot, FaUserGroup } from "react-icons/fa6";
 import { betterAlert, betterToast } from "./betterDialog";
 import type { DepinChatIdentity } from "./utils/depinChatIdentity";
 
@@ -217,6 +217,32 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       minute: "2-digit",
       hour12: false,
     });
+  }, []);
+
+  const copyToClipboard = React.useCallback(async (text: string) => {
+    const value = (text ?? "").trim();
+    if (!value) return;
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const el = document.createElement("textarea");
+        el.value = value;
+        el.style.position = "fixed";
+        el.style.left = "-9999px";
+        el.style.top = "-9999px";
+        document.body.appendChild(el);
+        el.focus();
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+      betterToast("✓ Address copied");
+    } catch (e) {
+      console.error("Copy failed", e);
+      betterAlert("Error", "Unable to copy address to clipboard");
+    }
   }, []);
 
   const burnDepinPubkeyAddress = React.useMemo(() => {
@@ -983,7 +1009,30 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
               wordBreak: "break-all",
             }}
           >
-            {depinAddressText || "-"}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+              <button
+                type="button"
+                aria-label="Copy DePIN chat address"
+                title="Copy"
+                disabled={!chatAddress}
+                onClick={() => copyToClipboard(chatAddress ?? "")}
+                style={{
+                  padding: 0,
+                  margin: 0,
+                  border: 0,
+                  background: "transparent",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "inherit",
+                  cursor: chatAddress ? "pointer" : "default",
+                  opacity: chatAddress ? 0.9 : 0.35,
+                }}
+              >
+                <FaRegCopy style={{ fontSize: "1em", lineHeight: 1 }} />
+              </button>
+              <span>{depinAddressText || "-"}</span>
+            </span>
           </span>
         </span>
       </h3>
