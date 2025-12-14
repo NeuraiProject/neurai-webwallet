@@ -5,7 +5,7 @@ import { getAssetBalanceIncludingMempool } from "./utils";
 import { useDePINChat } from "./hooks/useDePINChat";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import { FaRegClock, FaRegCircleCheck, FaRobot } from "react-icons/fa6";
+import { FaRegClock, FaRegCircleCheck, FaRobot, FaUserGroup } from "react-icons/fa6";
 
 interface Message {
   id: number;
@@ -555,12 +555,19 @@ export function Chat({ wallet, assets, mempool }: ChatProps) {
   };
 
   // Obtener el icono según el tipo de asset
-  const getAssetIcon = (assetName: string) => {
+  const getAssetIcon = (assetName: string): React.ReactNode => {
     const type = getAssetType(assetName);
     switch (type) {
       case 'depin': return '🔒';
       case 'qualifier': return '#';
-      default: return '📦';
+      default:
+        return (
+          <FaUserGroup
+            size={16}
+            style={{ verticalAlign: "-0.15em" }}
+            aria-label="Chat"
+          />
+        );
     }
   };
 
