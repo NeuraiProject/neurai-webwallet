@@ -4,7 +4,8 @@ import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { useDePINChat } from "./hooks/useDePINChat";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import { FaQrcode, FaRegClock, FaRegCircleCheck, FaRobot, FaUserGroup } from "react-icons/fa6";
+import { FaFireFlameCurved, FaQrcode, FaRegClock, FaRegCircleCheck, FaRobot, FaUserGroup } from "react-icons/fa6";
+import { betterAlert, betterToast } from "./betterDialog";
 import type { DepinChatIdentity } from "./utils/depinChatIdentity";
 
 interface Message {
@@ -106,6 +107,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   const [showDepinAddressQr, setShowDepinAddressQr] = React.useState(false);
   const [depinChatPubkeyRevealed, setDepinChatPubkeyRevealed] = React.useState<boolean | null>(null);
   const depinPubkeyIntervalRef = React.useRef<number | null>(null);
+  const [isBurningDepinPubkey, setIsBurningDepinPubkey] = React.useState(false);
 
   // Preparar lista de recipients para el hook (address + pubkey)
   const recipientInfoList = React.useMemo(() => {
@@ -204,6 +206,124 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     if (a.length <= 12) return a;
     return `${a.slice(0, 4)}...${a.slice(-4)}`;
   }, []);
+
+  const burnDepinPubkeyAddress = React.useMemo(() => {
+    return "NbURNXXXXXXXXXXXXXXXXXXXXXXXT65Gdr";
+  }, []);
+
+  const pickForcedUtxosForAmount = React.useCallback(
+    (utxos: any[], requiredSats: number) => {
+      const norm = (u: any) => {
+        const satoshis =
+          typeof u?.satoshis === "number"
+            ? u.satoshis
+            : typeof u?.value === "number"
+              ? Math.round(u.value * 1e8)
+              : 0;
+        return { ...u, satoshis };
+      };
+
+      const normalized = (utxos ?? []).map(norm).filter((u) => Number.isFinite(u.satoshis) && u.satoshis > 0);
+      normalized.sort((a, b) => b.satoshis - a.satoshis);
+
+      const picked: any[] = [];
+      let sum = 0;
+      for (const u of normalized) {
+        picked.push(u);
+        sum += u.satoshis;
+        if (sum >= requiredSats) break;
+      }
+
+      return { picked, sumSats: sum };
+    },
+    []
+  );
+
+  const handleBurnDepinPubkey = React.useCallback(async () => {
+    if (isBurningDepinPubkey) return;
+
+    if (!chatAddress || !depinChatIdentity?.wif) {
+      betterAlert("Error", "DePIN Chat identity is not available. Please unlock your mnemonic and reload.");
+      return;
+    }
+
+    const minSendXna = 1;
+    const burnAmountXna = 0.1;
+    const feeBufferXna = 0.01;
+    const requiredXna = burnAmountXna + feeBufferXna;
+    const requiredSats = Math.round(requiredXna * 1e8);
+
+    setIsBurningDepinPubkey(true);
+    try {
+      const baseUtxosAny: any = await wallet.rpc("getaddressutxos", [
+        {
+          addresses: [chatAddress],
+        },
+      ]);
+
+      const baseUtxos: any[] = Array.isArray(baseUtxosAny) ? baseUtxosAny : [];
+      const filtered = baseUtxos.filter((u) => (u?.assetName ?? wallet.baseCurrency) === wallet.baseCurrency);
+      const { picked, sumSats } = pickForcedUtxosForAmount(filtered, requiredSats);
+
+      if (!picked.length || sumSats < requiredSats) {
+        betterAlert(
+          "Insufficient funds",
+          `Send at least ${minSendXna} ${wallet.baseCurrency} to the DePIN address and try again:\n\n${chatAddress}`
+        );
+        return;
+      }
+
+      const forcedUTXOs = picked.map((utxo) => ({
+        utxo,
+        address: chatAddress,
+        privateKey: depinChatIdentity.wif,
+      }));
+
+      const tx = await wallet.createTransaction({
+        toAddress: burnDepinPubkeyAddress,
+        assetName: wallet.baseCurrency,
+        amount: burnAmountXna,
+        forcedUTXOs,
+        forcedChangeAddressBaseCurrency: chatAddress,
+        forcedChangeAddressAssets: chatAddress,
+      } as any);
+
+      // Safety: do not allow the wallet to add inputs from other addresses.
+      // If it does, abort before broadcasting.
+      const debug: any = (tx as any)?.debug;
+      const inputAddresses: string[] = Array.isArray(debug?.inputs)
+        ? debug.inputs.map((i: any) => i?.address).filter((a: any) => typeof a === "string")
+        : [];
+      const utxoAddresses: string[] = Array.isArray(debug?.UTXOs)
+        ? debug.UTXOs.map((u: any) => u?.address).filter((a: any) => typeof a === "string")
+        : [];
+      const allAddresses = Array.from(new Set([...inputAddresses, ...utxoAddresses]));
+      const hasForeignInputs = allAddresses.some((a) => a !== chatAddress);
+      if (hasForeignInputs) {
+        betterAlert(
+          "Insufficient funds",
+          `The burn transaction would require funds from another address.\n\nSend at least ${minSendXna} ${wallet.baseCurrency} to the DePIN address and try again:\n\n${chatAddress}`
+        );
+        return;
+      }
+
+      const raw = debug?.signedTransaction;
+      if (!raw || typeof raw !== "string") {
+        throw new Error("Failed to create a signed burn transaction");
+      }
+
+      await wallet.sendRawTransaction(raw);
+      betterToast("✓ Burn transaction sent");
+    } catch (e: any) {
+      console.error("Burn pubkey error", e);
+      betterAlert(
+        "Error",
+        `Unable to burn from the DePIN address. Send at least ${minSendXna} ${wallet.baseCurrency} to the DePIN address and try again:\n\n${chatAddress}`
+      );
+    } finally {
+      setIsBurningDepinPubkey(false);
+    }
+  }, [isBurningDepinPubkey, chatAddress, depinChatIdentity?.wif, wallet, burnDepinPubkeyAddress, pickForcedUtxosForAmount]);
 
   const computeExpiresDate = React.useCallback(
     (unixTimestamp: number) => {
@@ -774,6 +894,43 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
               }}
             />
             DePIN Address
+            <button
+              type="button"
+              aria-label="Burn 0.1 XNA to reveal pubkey"
+              title={
+                depinChatPubkeyRevealed === true
+                  ? "PubKey already revealed"
+                  : depinChatPubkeyRevealed === false
+                    ? `Burn 0.1 ${wallet.baseCurrency} from ${shortenAddress(chatAddress ?? undefined)} to reveal pubkey`
+                    : "Checking pubkey status"
+              }
+              disabled={
+                isBurningDepinPubkey ||
+                depinChatPubkeyRevealed !== false ||
+                !chatAddress ||
+                !depinChatIdentity?.wif
+              }
+              onClick={handleBurnDepinPubkey}
+              style={{
+                marginLeft: "0.25rem",
+                padding: 0,
+                border: 0,
+                background: "transparent",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: depinChatPubkeyRevealed === false && !isBurningDepinPubkey ? "pointer" : "default",
+                opacity: isBurningDepinPubkey ? 0.6 : 1,
+              }}
+            >
+              <FaFireFlameCurved
+                className={
+                  depinChatPubkeyRevealed === false
+                    ? "depin-flame depin-flame-lit"
+                    : "depin-flame depin-flame-done"
+                }
+              />
+            </button>
           </span>
           <button
             type="button"
@@ -1303,6 +1460,25 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       )}
 
       <style>{`
+        @keyframes depinFlameFlicker {
+          0% { color: #ef4444; }
+          50% { color: #f59e0b; }
+          100% { color: #ef4444; }
+        }
+
+        .depin-flame {
+          font-size: 1.05em;
+          line-height: 1;
+        }
+
+        .depin-flame-lit {
+          animation: depinFlameFlicker 700ms infinite;
+        }
+
+        .depin-flame-done {
+          color: #9ca3af;
+        }
+
         @keyframes slideIn {
           from {
             opacity: 0;

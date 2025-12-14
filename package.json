@@ -1,6 +1,6 @@
 {
   "name": "neurai-wallet",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Web wallet for Neurai",
   "private": true,
   "scripts": {
@@ -19,7 +19,7 @@
   "license": "MIT",
   "dependencies": {
     "@neuraiproject/neurai-history-list": "^1.2.5",
-    "@neuraiproject/neurai-jswallet": "0.12.4",
+    "@neuraiproject/neurai-jswallet": "0.12.8",
     "@neuraiproject/neurai-key": "^2.8.5",
     "@neuraiproject/neurai-depin-msg": "^1.0.0",
     "@neuraiproject/neurai-message": "^0.7.1",

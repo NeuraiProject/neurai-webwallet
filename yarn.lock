@@ -57,10 +57,10 @@
   resolved "https://registry.npmjs.org/@neuraiproject/neurai-history-list/-/neurai-history-list-1.2.5.tgz"
   integrity sha512-NCjBCGS2Yb76HyhgUiKZMT3/jCi+18wPOUcj/8DzgA3U/NC+ctW3c2iQtxV1GEZLJZokdct1y0ucxTY84k1vpw==
 
-"@neuraiproject/neurai-jswallet@0.12.4":
-  version "0.12.4"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-jswallet/-/neurai-jswallet-0.12.4.tgz"
-  integrity sha512-ufCVW4lMcG4TX67uTfshu0n1buxl+ezfqqCVFtBnnqaajEx2oQgRu1SN7Unggz94DvD6qgPeKIrDFWVJb1qiwg==
+"@neuraiproject/neurai-jswallet@0.12.8":
+  version "0.12.8"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-jswallet/-/neurai-jswallet-0.12.8.tgz"
+  integrity sha512-DRaiN2bxwNHm1lCJnXYI9A7CzJ1bVpyab8bhsSlanodO0g5R8ZP2OubltdLm+v3s7X3oVlJJU9lEqNcuzcU6BA==
   dependencies:
     "@neuraiproject/neurai-key" "2.8.4"
     "@neuraiproject/neurai-rpc" "0.4.6"
