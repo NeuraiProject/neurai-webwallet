@@ -4,7 +4,7 @@ import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { useDePINChat } from "./hooks/useDePINChat";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import { FaFireFlameCurved, FaQrcode, FaRegClock, FaRegCircleCheck, FaRegCopy, FaRobot, FaUserGroup } from "react-icons/fa6";
+import { FaBomb, FaFireFlameCurved, FaQrcode, FaRegClock, FaRegCircleCheck, FaRegCopy, FaRobot, FaUserGroup } from "react-icons/fa6";
 import { betterAlert, betterToast } from "./betterDialog";
 import type { DepinChatIdentity } from "./utils/depinChatIdentity";
 
@@ -96,6 +96,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   const [selectedAddress, setSelectedAddress] = React.useState<string | null>(null);
   const [isConnected, setIsConnected] = React.useState(false);
   const [validityStatus, setValidityStatus] = React.useState<any>(null);
+  const [msgInfo, setMsgInfo] = React.useState<any>(null);
   const [messageExpiryHours, setMessageExpiryHours] = React.useState<number | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const chatInputRef = React.useRef<HTMLTextAreaElement>(null);
@@ -211,6 +212,18 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     const d = new Date(unixTimestamp * 1000);
     return d.toLocaleString(undefined, {
       year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }, []);
+
+  const formatUnixTimestampNoSecondsShortYear = React.useCallback((unixTimestamp: number) => {
+    const d = new Date(unixTimestamp * 1000);
+    return d.toLocaleString(undefined, {
+      year: "2-digit",
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
@@ -367,9 +380,9 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     (unixTimestamp: number) => {
       if (!messageExpiryHours || messageExpiryHours <= 0) return undefined;
       const expiresAt = unixTimestamp + messageExpiryHours * 60 * 60;
-      return formatUnixTimestampNoSeconds(expiresAt);
+      return formatUnixTimestampNoSecondsShortYear(expiresAt);
     },
-    [messageExpiryHours, formatUnixTimestampNoSeconds]
+    [messageExpiryHours, formatUnixTimestampNoSecondsShortYear]
   );
 
   const extractBotModel = (text: string): { cleanText: string; model: string | null } => {
@@ -525,8 +538,10 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       try {
         const info: any = await getMsgInfo();
         const hours = typeof info?.messageexpiryhours === 'number' ? info.messageexpiryhours : null;
+        if (!cancelled) setMsgInfo(info ?? null);
         if (!cancelled) setMessageExpiryHours(hours);
       } catch {
+        if (!cancelled) setMsgInfo(null);
         if (!cancelled) setMessageExpiryHours(null);
       }
     })();
@@ -1087,12 +1102,6 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                 {isConnected ? "● Connected" : "○ Disconnected"}
               </span>
             </div>
-            <div>
-              <strong>Polling:</strong>{" "}
-              <span style={{ color: isPolling ? "#3b82f6" : "#6b7280" }}>
-                {isPolling ? "ON" : "OFF"}
-              </span>
-            </div>
             {stats && (
               <>
                 <div>
@@ -1103,9 +1112,28 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                 </div>
               </>
             )}
-            {lastPoll && (
+            {(lastPoll || msgInfo) && (
               <div>
-                <strong>Last Poll:</strong> {lastPoll.toLocaleTimeString()}
+                <strong>Last check:</strong> {lastPoll ? lastPoll.toLocaleTimeString() : "-"}
+                {typeof msgInfo?.maxmessagesize === "number" && (
+                  <>
+                    {" "}| <strong>Max message:</strong>{" "}
+                    {(msgInfo.maxmessagesize / 1024).toLocaleString(undefined, {
+                      maximumFractionDigits: msgInfo.maxmessagesize % 1024 === 0 ? 0 : 1,
+                    })}{" "}
+                    KB
+                  </>
+                )}
+                {typeof msgInfo?.messageexpiryhours === "number" && (
+                  <>
+                    {" "}| <strong>Expiry:</strong> {msgInfo.messageexpiryhours}h
+                  </>
+                )}
+                {typeof msgInfo?.maxpoolsizemb === "number" && (
+                  <>
+                    {" "}| <strong>Max pool:</strong> {msgInfo.maxpoolsizemb} MB
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1184,7 +1212,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
               <div
                 className={message.sender === "user" ? "chat-message-user" : "chat-message-bot"}
                 style={{
-                  maxWidth: "70%",
+                  maxWidth: "90%",
                   padding: "0.5rem 0.5rem",
                   borderRadius: message.sender === "user"
                     ? "16px 16px 4px 16px"
@@ -1228,10 +1256,14 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                             fontSize: "0.75rem",
                             textAlign: "right",
                             whiteSpace: "nowrap",
-                            opacity: message.sender === "user" ? 0.85 : 0.6,
+                            color: "#000",
+                            display: "inline-flex",
+                            alignItems: "baseline",
+                            gap: "0.3rem",
                           }}
                         >
-                          Expires: {message.expiresDate}
+                          <FaBomb style={{ color: "#000", fontSize: "1em", lineHeight: 1 }} />
+                          <span>{message.expiresDate}</span>
                         </span>
                       )}
                     </div>

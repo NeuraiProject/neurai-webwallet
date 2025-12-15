@@ -781,12 +781,12 @@ body > main {
   width: 100%;
   margin-right: auto;
   margin-left: auto;
-  padding-right: var(--pico-spacing);
+ padding-right: var(--pico-spacing);
   padding-left: var(--pico-spacing);
 }
 @media (min-width: 576px) {
   .container {
-    max-width: 95%;
+    max-width: 100%;
     padding-right: 0;
     padding-left: 0;
   }
