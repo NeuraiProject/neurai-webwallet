@@ -196,6 +196,39 @@ body {
   justify-self: end;
 }
 
+/* Compact mode: stack controls + balance, aligned to the right */
+.rebel-navigator__container--compact .rebel-navigator__controls.rebel-navigator__compact-right {
+  display: grid;
+  grid-auto-rows: max-content;
+  justify-items: end;
+  align-content: start;
+  gap: 0.25rem;
+}
+
+.rebel-navigator__container--compact .rebel-navigator__compact-right-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rebel-navigator__container--compact .rebel-navigator__compact-balance {
+  justify-self: end;
+}
+
+/* Render balance as normal-sized bold text in compact mode */
+.rebel-navigator__container--compact .rebel-navigator__compact-balance .rebel-balance {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.1;
+}
+
+/* Keep compact layout homogeneous: hide extra balance sub-lines */
+.rebel-navigator__container--compact .rebel-navigator__compact-balance small,
+.rebel-navigator__container--compact .rebel-navigator__compact-balance .rebel-balance__value-container {
+  display: none;
+}
+
 .rebel-navigator__compact-left,
 .rebel-navigator__compact-right {
   white-space: nowrap;
@@ -216,6 +249,7 @@ body {
   flex-wrap: nowrap;
   gap: 0.6rem;
   white-space: nowrap;
+  margin-top: 2px;
 }
 
 .rebel-navigator__status-item {

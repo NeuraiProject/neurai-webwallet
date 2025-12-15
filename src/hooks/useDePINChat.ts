@@ -5,7 +5,7 @@ import type { DepinChatIdentity } from '../utils/depinChatIdentity';
 // Side-effect import: attaches globalThis.neuraiDepinMsg (IIFE bundle)
 import '@neuraiproject/neurai-depin-msg/dist/neurai-depin-msg.js';
 
-const DEPIN_POLL_INTERVAL_MS = 20_000;
+const DEPIN_POLL_INTERVAL_MS = 5_000;
 
 interface DePINMessage {
   recipient: string;

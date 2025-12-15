@@ -258,15 +258,20 @@ export function Navigator({
           </nav>
 
           <div className="rebel-navigator__controls rebel-navigator__compact-right">
-            <button
-              className="outline rebel-navigator__compact-toggle"
-              title="Expand menu"
-              aria-label="Expand menu"
-              onClick={() => setIsCompact(false)}
-            >
-              <FaAnglesDown />
-            </button>
-            <LightModeToggle />
+            <div className="rebel-navigator__controls rebel-navigator__compact-right-controls">
+              <button
+                className="outline rebel-navigator__compact-toggle"
+                title="Expand menu"
+                aria-label="Expand menu"
+                onClick={() => setIsCompact(false)}
+              >
+                <FaAnglesDown />
+              </button>
+              <LightModeToggle />
+            </div>
+            <div className="rebel-navigator__compact-balance">
+              {balance}
+            </div>
           </div>
         </div>
 

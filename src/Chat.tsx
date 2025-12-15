@@ -1243,7 +1243,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                         justifyContent: "space-between",
                         alignItems: "baseline",
                         gap: "0.75rem",
-                        margin: "0 0 0.5rem 0",
+                        margin: "0",
                         opacity: message.sender === "user" ? 0.95 : 0.8,
                       }}
                     >
@@ -1263,7 +1263,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                           }}
                         >
                           <FaBomb style={{ color: "#000", fontSize: "1em", lineHeight: 1 }} />
-                          <span>{message.expiresDate}</span>
+                          <span style={{ fontStyle: "italic" }}>{message.expiresDate}</span>
                         </span>
                       )}
                     </div>
