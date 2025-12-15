@@ -21,7 +21,7 @@
     "@neuraiproject/neurai-history-list": "^1.2.5",
     "@neuraiproject/neurai-jswallet": "0.12.8",
     "@neuraiproject/neurai-key": "^2.8.5",
-    "@neuraiproject/neurai-depin-msg": "^1.0.1",
+    "@neuraiproject/neurai-depin-msg": "^2.0.0",
     "@neuraiproject/neurai-message": "^0.7.1",
     "@types/react": "^18.2.6",
     "@types/react-dom": "^18.2.4",
