@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Wallet } from '@neuraiproject/neurai-jswallet';
-import { decryptDepinReceiveEncryptedPayload } from '../utils/depinCrypto';
 import type { DepinChatIdentity } from '../utils/depinChatIdentity';
 
 // Side-effect import: attaches globalThis.neuraiDepinMsg (IIFE bundle)
@@ -172,9 +171,12 @@ export function useDePINChat(
 
           let plaintext: string | null = null;
           try {
-            plaintext = decryptDepinReceiveEncryptedPayload(
+            const depinMsg = (globalThis as any).neuraiDepinMsg;
+            if (!depinMsg?.decryptDepinReceiveEncryptedPayload) {
+              throw new Error('neuraiDepinMsg.decryptDepinReceiveEncryptedPayload is not available');
+            }
+            plaintext = await depinMsg.decryptDepinReceiveEncryptedPayload(
               String(item.encrypted_payload_hex ?? ''),
-              effectiveAddress,
               String(recipientPrivateKey)
             );
           } catch (e) {
@@ -285,9 +287,12 @@ export function useDePINChat(
 
         let plaintext: string | null = null;
         try {
-          plaintext = decryptDepinReceiveEncryptedPayload(
+          const depinMsg = (globalThis as any).neuraiDepinMsg;
+          if (!depinMsg?.decryptDepinReceiveEncryptedPayload) {
+            throw new Error('neuraiDepinMsg.decryptDepinReceiveEncryptedPayload is not available');
+          }
+          plaintext = await depinMsg.decryptDepinReceiveEncryptedPayload(
             String(item.encrypted_payload_hex ?? ''),
-            effectiveAddress,
             String(recipientPrivateKey)
           );
         } catch {
