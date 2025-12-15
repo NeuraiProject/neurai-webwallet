@@ -132,6 +132,70 @@ function App() {
     return walletConfig;
   }, [minAmountOfAddresses, mnemonic, network, passphrase]);
 
+  const formatRpcError = React.useCallback((err: any): string => {
+    if (!err) return "Unknown RPC error";
+    if (typeof err === "string") return err;
+    if (err instanceof Error) {
+      const m = String(err.message || "").trim();
+      return m || "RPC error";
+    }
+
+    // Try common nested error shapes
+    const msgCandidate =
+      err?.message ??
+      err?.error?.message ??
+      err?.error?.error?.message ??
+      err?.data?.message ??
+      err?.response?.data?.error ??
+      err?.response?.statusText ??
+      null;
+
+    const statusCandidate = err?.status ?? err?.statusCode ?? err?.code ?? null;
+
+    const msg = typeof msgCandidate === "string" ? msgCandidate.trim() : "";
+    const status =
+      typeof statusCandidate === "string" || typeof statusCandidate === "number"
+        ? String(statusCandidate)
+        : "";
+
+    const lower = msg.toLowerCase();
+    if (lower.includes("timeout")) {
+      return "RPC timeout: server is not responding";
+    }
+    if (
+      lower.includes("failed to fetch") ||
+      lower.includes("networkerror") ||
+      lower.includes("network request failed")
+    ) {
+      return "RPC unreachable: cannot connect to server";
+    }
+
+    if (msg) {
+      return status ? `RPC error (${status}): ${msg}` : `RPC error: ${msg}`;
+    }
+
+    // Last resort: JSON stringify the object.
+    try {
+      const seen = new WeakSet();
+      const json = JSON.stringify(
+        err,
+        (_k, v) => {
+          if (typeof v === "object" && v !== null) {
+            if (seen.has(v)) return "[Circular]";
+            seen.add(v);
+          }
+          return v;
+        },
+        2
+      );
+      if (json && json !== "{}") return `RPC error: ${json}`;
+    } catch {
+      // ignore
+    }
+
+    return "RPC error";
+  }, []);
+
   const tryInitWallet = React.useCallback(() => {
     if (!mnemonic) return;
     if (walletInitInFlightRef.current) return;
@@ -165,7 +229,7 @@ function App() {
       .catch((err) => {
         if (!isTimedOut) {
           console.error("Failed to create wallet instance:", err);
-          setRpcError(`Failed to connect to RPC: ${err?.message || "Unknown error"}`);
+          setRpcError(`Failed to connect to RPC: ${formatRpcError(err)}`);
           setIsRpcTimeout(true);
         }
       })
@@ -231,7 +295,7 @@ function App() {
         setIsRpcTimeout(false);
       } catch (e: any) {
         if (cancelled) return;
-        const msg = String(e?.message || e || "RPC error");
+        const msg = formatRpcError(e);
 
         // If the RPC is reachable but disallows the method, don't treat it as offline.
         const lower = msg.toLowerCase();
@@ -239,7 +303,7 @@ function App() {
           return;
         }
 
-        setRpcError(`RPC error: ${msg}`);
+        setRpcError(msg.startsWith("RPC") ? msg : `RPC error: ${msg}`);
       }
     };
 

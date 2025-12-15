@@ -447,6 +447,18 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   // Sincronizar mensajes DePIN con la UI de mensajes local
   React.useEffect(() => {
     if (depinMessages && depinMessages.length > 0 && isConnected) {
+      const isDepinExpired = (m: Pick<Message, "isDePIN" | "unixTimestamp" | "timestamp">) => {
+        if (!m.isDePIN) return false;
+        if (!messageExpiryHours || messageExpiryHours <= 0) return false;
+
+        const ts = typeof m.unixTimestamp === "number"
+          ? m.unixTimestamp
+          : Math.floor(m.timestamp.getTime() / 1000);
+
+        const expiresAt = ts + messageExpiryHours * 60 * 60;
+        return Math.floor(Date.now() / 1000) >= expiresAt;
+      };
+
       // Sort messages by timestamp (oldest first)
       const sortedMessages = [...depinMessages].sort((a, b) => a.timestamp - b.timestamp);
       
@@ -508,7 +520,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           .filter(([key]) => !poolKeys.has(key))
           .map(([, m]) => m);
 
-        const merged = [...poolWithDelivery, ...remainingPending];
+        const merged = [...poolWithDelivery, ...remainingPending].filter((m) => !isDepinExpired(m));
         merged.sort((a, b) => {
           const ta = (a.unixTimestamp ?? Math.floor(a.timestamp.getTime() / 1000)) * 1000;
           const tb = (b.unixTimestamp ?? Math.floor(b.timestamp.getTime() / 1000)) * 1000;
@@ -767,7 +779,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
       setMessages([{
         id: 1,
-        text: `Connected to ${assetTypeLabel} messaging network\nAsset: ${assetName}\nAddress: ${address.substring(0, 15)}...\n\nFetching messages from RPC server...`,
+        text: `You're connected.\nToken: ${assetName}\nDePIN address: ${address.substring(0, 15)}...\n\nNo messages yet — new messages will appear here automatically.`,
         sender: "bot",
         timestamp: new Date(),
       }]);
@@ -781,7 +793,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
       setMessages([{
         id: 1,
-        text: `Connected to ${assetTypeLabel} messaging network (unverified)\nAsset: ${assetName}\nAddress: ${address.substring(0, 15)}...\n\nWarning: Cannot verify pubkey status.\nTrying to fetch messages...`,
+        text: `You're connected.\nToken: ${assetName}\nDePIN address: ${address.substring(0, 15)}...\n\nIf you don't see messages, activate your DePIN address by tapping the flame icon and trying again.`,
         sender: "bot",
         timestamp: new Date(),
       }]);
@@ -1085,6 +1097,21 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         )}
       </h3>
 
+      {depinChatIdentity?.path && (
+        <div
+          style={{
+            marginTop: "-0.85rem",
+            marginBottom: "0",
+            fontSize: "0.8rem",
+            fontWeight: "normal",
+            wordBreak: "break-all",
+          }}
+        >
+          <span style={{ fontWeight: "bold" }}>Derivation:</span>{" "}
+          <span>{depinChatIdentity.path}</span>
+        </div>
+      )}
+
       {/* Messaging Connection Controls - available for all asset types */}
       {selectedAsset && isValidMessagingAsset(selectedAsset) && (
         <div className="depin-control-panel" style={{
@@ -1163,7 +1190,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
               fontSize: "0.8rem",
             }}>
               {validityStatus.valid === 1 && !validityStatus.blocked
-                ? `✓ Valid DePIN asset (Amount: ${validityStatus.amount})`
+                ? `✓ Valid DePIN asset${typeof msgInfo?.cipher === "string" && msgInfo.cipher.trim() ? ` | Cipher: ${msgInfo.cipher.trim()}` : ""}`
                 : `✗ Invalid or blocked DePIN asset`}
             </div>
           )}
@@ -1173,7 +1200,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       {/* Chat container */}
       <div
         style={{
-          marginTop: "1.5rem",
+          marginTop: "0.5rem",
           display: "flex",
           flexDirection: "column",
           height: "600px",
