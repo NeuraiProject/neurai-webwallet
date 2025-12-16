@@ -784,7 +784,8 @@ body > main {
  padding-right: var(--pico-spacing);
   padding-left: var(--pico-spacing);
 }
-@media (min-width: 576px) {
+
+@media (min-width: 400px) {
   .container {
     max-width: 100%;
     padding-right: 0;
