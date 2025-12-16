@@ -1,9 +1,16 @@
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "./Types";
 
+// @ts-ignore - Parcel handles this correctly
+const CryptoJS = require("crypto-js");
+
 const SEPARATOR = "|||";
 const STORAGE_KEY = "mnemonic";
 const SESSION_KEY = "mnemonic_session";
+
+// Legacy (pre-PIN) storage encryption used a static, hardcoded passphrase.
+// Keep read-only support to auto-migrate old wallets into pin-v2.
+const LEGACY_STATIC_KEY = "U2FsdGVkX1/UYDOP/PD64YU3tbCAeJBR";
 
 const PIN_PREFIX = "pin-v2:";
 const PBKDF2_ITERATIONS = 600_000;
@@ -41,6 +48,16 @@ export function getStoredMnemonicRaw(): { location: StoredSecretLocation; value:
 function isProbablyCiphertext(value: string): boolean {
   // A mnemonic will contain spaces; ciphertext typically won't.
   return value.indexOf(" ") === -1;
+}
+
+function decryptLegacyStaticAes(ciphertext: string): string {
+  try {
+    const decryptedBytes = CryptoJS.AES.decrypt(ciphertext, LEGACY_STATIC_KEY);
+    const plaintext = decryptedBytes.toString(CryptoJS.enc.Utf8);
+    return (plaintext || "").trim();
+  } catch {
+    return "";
+  }
 }
 
 function getSubtleOrThrow() {
@@ -185,7 +202,10 @@ export async function decryptStoredMnemonicDataWithPin(pin: string): Promise<str
 
   // If it looks like a plaintext mnemonic/passphrase string, allow migrating it into pin-v2.
   // Any other encrypted format is not supported.
-  if (isProbablyCiphertext(raw)) return "";
+  if (isProbablyCiphertext(raw)) {
+    // Attempt legacy (pre-PIN) decrypt so we can migrate into pin-v2.
+    return decryptLegacyStaticAes(raw);
+  }
 
   return raw;
 }
