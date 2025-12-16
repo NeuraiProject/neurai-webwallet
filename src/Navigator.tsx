@@ -15,7 +15,6 @@ import {
 } from "./icons";
 import { FaAnglesDown, FaAnglesUp } from "react-icons/fa6";
 import networkInfo, { INetworks } from "./networkInfo";
-import { getMnemonicAndPassphrase } from "./utils";
 
 const neuraiLogo = new URL("../neurai-xna-logo.png", import.meta.url);
 
@@ -25,16 +24,16 @@ export function Navigator({
   currentRoute,
   setRoute,
   navLocked = false,
+  hasPassphrase = false,
 }: {
   balance: ReactNode;
   currentRoute: Routes;
   wallet: Wallet | null;
   setRoute: (route: Routes) => void;
   navLocked?: boolean;
+  hasPassphrase?: boolean;
 }) {
   // const networkDisplayName = networkInfo[wallet.network].displayName; // unused for now
-  const { passphrase } = getMnemonicAndPassphrase();
-  const hasPassphrase = passphrase !== "";
   const isFromESP32 = localStorage.getItem("loginFromESP32") === "true";
 
   type SyncHealth = "unknown" | "offline" | "syncing" | "ok";

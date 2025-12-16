@@ -24,6 +24,60 @@ body {
   background-color: #050505;
 }
 
+/* PIN dialog: reset button should always be red (dark + light mode) */
+.rebel-pin-reset-button,
+.rebel-pin-reset-button:hover,
+.rebel-pin-reset-button:active,
+.rebel-pin-reset-button:focus,
+.rebel-pin-reset-button:focus-visible {
+  background-color: #ef4444 !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+.rebel-pin-reset-button:hover {
+  filter: brightness(0.95);
+}
+
+/* PIN dialog banner */
+.rebel-pin-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.rebel-pin-divider {
+  width: 100%;
+  margin: 0.25rem 0 0.75rem;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+[data-theme="light"] .rebel-pin-divider {
+  border-top-color: rgba(0, 0, 0, 0.18);
+}
+
+.rebel-pin-title {
+  margin: 0 0 0.5rem;
+}
+
+.rebel-pin-banner__logo {
+  width: 40px;
+  height: 40px;
+}
+
+.rebel-pin-banner__text {
+  margin: 0;
+  font-weight: 700;
+}
+
+/* When the title is rendered as a span (unlock mode), keep it readable like a heading */
+span.rebel-pin-title {
+  display: block;
+  font-weight: 700;
+}
+
 /* Modern dark mode colors for Neurai */
 [data-theme="dark"] {
   --pico-background-color: #050505;

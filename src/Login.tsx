@@ -1,7 +1,6 @@
 import NeuraiKey from "@neuraiproject/neurai-key";
 import React, { FormEvent } from "react";
 import { LightModeToggle } from "./components/LightModeToggle";
-import { setMnemonic } from "./utils";
 import ESP32Storage from "./ESP32Storage";
 import { Settings } from "./Settings";
 import { IconSettings } from "./icons";
@@ -16,8 +15,11 @@ import("bip39").then((m) => (bip39 = m)).catch(() => (bip39 = null));
 console.log("NeuraiKey", !!NeuraiKey);
 
 const neuraiLogo = new URL("../neurai-xna-logo.png", import.meta.url);
-
-export function Login() {
+export function Login({
+  onLogin,
+}: {
+  onLogin: (data: { mnemonicData: string; persist: boolean; isFromESP32?: boolean }) => void;
+}) {
   const [showWords, setShowWords] = React.useState(false);
   const [showPassphrase, setShowPassphrase] = React.useState(false);
   const [wordCount, setWordCount] = React.useState<12 | 24>(12);
@@ -135,8 +137,7 @@ export function Login() {
     if (isValid === false) {
       const wordCountInInput = value.split(" ").filter((w: string) => w.length > 0).length;
       alert(`Given input does not seem to be valid words for a Neurai wallet. You entered ${wordCountInInput} words.`);
-      setMnemonic(value);
-      window.location.reload();
+      return false;
     } else {
       // Get passphrase if enabled
       let passphrase = "";
@@ -149,8 +150,7 @@ export function Login() {
       
       // Store mnemonic with passphrase indicator
       const mnemonicData = passphrase ? `${value}|||${passphrase}` : value;
-      setMnemonic(mnemonicData);
-      window.location.reload();
+      onLogin({ mnemonicData, persist: true, isFromESP32: false });
     }
 
     return false;
@@ -469,16 +469,12 @@ export function Login() {
 
     // No additional validation needed; mnemonic reconstructed from entropy
 
-    // Mark that this login is from ESP32
-    localStorage.setItem("loginFromESP32", "true");
-
     // Use the passphrase from the input field (may be modified by user)
     const finalPassphrase = quickPassphraseInput.trim();
     
     // Store mnemonic with passphrase if exists
     const mnemonicData = finalPassphrase ? `${loadedMnemonic}|||${finalPassphrase}` : loadedMnemonic;
-    setMnemonic(mnemonicData, { persist: false });
-    window.location.reload();
+    onLogin({ mnemonicData, persist: false, isFromESP32: true });
   }
 
   // If showing settings, render only the settings component
