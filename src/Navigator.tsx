@@ -271,7 +271,7 @@ export function Navigator({
             </div>
           </div>
 
-          <h5>Rebel Wallet 1.0.9 - 16/12/2025</h5>
+          <h5>Rebel Wallet 1.0.9 - 17/12/2025</h5>
 
           {renderStatusItems("full")}
 
