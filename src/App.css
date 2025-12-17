@@ -1,0 +1,39 @@
+.rebel-app__rpc-banner {
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  background-color: #ef4444;
+  color: #ffffff;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.25;
+}
+
+.rebel-app__chat {
+  display: block;
+}
+
+.rebel-app__chat--hidden {
+  display: none;
+}
+
+.rebel-pin__hint {
+  margin-bottom: 0.75rem;
+}
+
+.rebel-pin__inline-status {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.rebel-pin__footer {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.rebel-pin__note {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+

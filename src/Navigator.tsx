@@ -4,6 +4,7 @@ import { LightModeToggle } from "./components/LightModeToggle";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { useNodeStatus } from "./hooks/useNodeStatus";
 import { usePersistentState } from "./hooks/usePersistentState";
+import "./Navigator.css";
 import {
   IconChat,
   IconHistory,
@@ -138,23 +139,11 @@ export function Navigator({
   const renderStatusItems = (variant: "compact" | "full") => {
     const baseClass =
       "rebel-navigator__status-list" +
-      (variant === "compact" ? " rebel-navigator__status-list--singleline" : "");
+      (variant === "compact" ? " rebel-navigator__status-list--singleline" : "") +
+      (variant === "full" ? " rebel-navigator__status-list--stacked" : "");
 
     return (
-      <div
-        className={baseClass}
-        style={
-          variant === "full"
-            ? {
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: "0.75rem",
-                marginTop: "0.5rem",
-                marginBottom: "0.5rem",
-              }
-            : undefined
-        }
-      >
+      <div className={baseClass}>
         {statusEntries.map(({ key, props }) => (
           <StatusItem key={key} {...props} />
         ))}
@@ -345,23 +334,21 @@ function NavItem({ currentRoute, route, setRoute, title, variant, disabled }: Na
     "rebel-navigator__list-item" +
     (variant === "icon" ? " rebel-navigator__list-item--icononly" : "") +
     (variant === "full" && isCurrent ? " rebel-navigator__list-item--active" : "");
-
-  const style = disabled
-    ? { display: "block", opacity: 0.45, cursor: "not-allowed", pointerEvents: "none" }
-    : { display: "block" };
+  const linkClassName =
+    "primary rebel-navigator__list-item-link" +
+    (disabled ? " rebel-navigator__list-item-link--disabled" : "");
 
   return (
     <li className={classes}>
       <a
         href="#"
-        className="primary rebel-navigator__list-item-link"
+        className={linkClassName}
         onClick={(event) => {
           event.preventDefault();
           if (disabled) return false;
           setRoute(route);
           return false;
         }}
-        style={style}
         aria-disabled={disabled || undefined}
         title={variant === "icon" ? title : undefined}
         aria-label={variant === "icon" ? title : undefined}
@@ -388,13 +375,7 @@ function PlaceholderNavItem({
   return (
     <li className={classes}>
       <div
-        className="primary rebel-navigator__list-item-link"
-        style={{
-          display: "block",
-          opacity: 0.55,
-          cursor: "default",
-          pointerEvents: "none",
-        }}
+        className="primary rebel-navigator__list-item-link rebel-navigator__list-item-link--placeholder"
         title={variant === "icon" ? title : undefined}
         aria-label={variant === "icon" ? title : undefined}
       >
@@ -420,6 +401,12 @@ function StatusItem({
   labelColor?: string;
   live?: boolean;
 }) {
+  const style = {
+    ["--rebel-status-dot-color" as any]: dotColor,
+    ["--rebel-status-dot-shadow" as any]: dotShadow,
+    ["--rebel-status-label-color" as any]: labelColor ?? "var(--muted-color)",
+  } as React.CSSProperties;
+
   return (
     <div
       className="rebel-navigator__status-item"
@@ -427,17 +414,10 @@ function StatusItem({
       role={live ? "status" : undefined}
       aria-live={live ? "polite" : undefined}
       aria-label={`${label}: ${title}`}
+      style={style}
     >
-      <span
-        className="rebel-navigator__status-dot"
-        style={{ backgroundColor: dotColor, boxShadow: dotShadow }}
-      />
-      <span
-        className="rebel-navigator__status-label"
-        style={{ color: labelColor ?? "var(--muted-color)" }}
-      >
-        {label}
-      </span>
+      <span className="rebel-navigator__status-dot" />
+      <span className="rebel-navigator__status-label">{label}</span>
     </div>
   );
 }

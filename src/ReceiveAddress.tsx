@@ -1,4 +1,5 @@
 import React from "react";
+import "./ReceiveAddress.css";
 
 export function ReceiveAddress({ receiveAddress }: { receiveAddress: string }) {
   const [confirm, setConfirm] = React.useState(false);
@@ -10,31 +11,10 @@ export function ReceiveAddress({ receiveAddress }: { receiveAddress: string }) {
   return (
     <article>
       <h5>Receive address</h5>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          width: "100%",
-        }}
-      >
-        <label
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            width: "100%",
-          }}
-        >
+      <div className="rebel-receive__container">
+        <label className="rebel-receive__label">
           <img
-            style={{
-              width: "90%",
-              maxWidth: "400px",
-              marginBottom: 20,
-              padding: "10px",
-              background: "white",
-              borderRadius: "10px",
-            }}
+            className="rebel-receive__qr"
             src={
               receiveAddress
                 ? "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=" +
@@ -42,7 +22,7 @@ export function ReceiveAddress({ receiveAddress }: { receiveAddress: string }) {
                 : ""
             }
           />
-          <small style={{ textAlign: "center", wordBreak: "break-all", fontSize: "calc(1em + 2pt)" }}>
+          <small className="rebel-receive__address">
             {receiveAddress}
           </small>
         </label>

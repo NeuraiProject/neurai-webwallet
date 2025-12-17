@@ -11,6 +11,7 @@ import {
   splitMnemonicAndPassphrase,
 } from "./utils";
 import { createRoot } from "react-dom/client";
+import "./App.css";
 
 import { History } from "./history/History";
 import { Assets } from "./Assets";
@@ -492,23 +493,14 @@ function App() {
   if (!wallet) {
     return (
       <>
-        {rpcError && (
-          <div
-            role="status"
-            style={{
-              position: "sticky",
-              top: 0,
-              zIndex: 999,
-              backgroundColor: "#ef4444",
-              color: "#ffffff",
-              padding: "0.45rem 0.75rem",
-              fontSize: "0.85rem",
-              lineHeight: 1.25,
-            }}
-          >
-            {rpcError}
-          </div>
-        )}
+	        {rpcError && (
+	          <div
+	            role="status"
+	            className="rebel-app__rpc-banner"
+	          >
+	            {rpcError}
+	          </div>
+	        )}
 
         <Navigator
           balance={<></>}
@@ -537,23 +529,14 @@ function App() {
   const hasMempool = mempool.length > 0;
   return (
     <>
-      {rpcError && (
-        <div
-          role="status"
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 999,
-            backgroundColor: "#ef4444",
-            color: "#ffffff",
-            padding: "0.45rem 0.75rem",
-            fontSize: "0.85rem",
-            lineHeight: 1.25,
-          }}
-        >
-          {rpcError}
-        </div>
-      )}
+	      {rpcError && (
+	        <div
+	          role="status"
+	          className="rebel-app__rpc-banner"
+	        >
+	          {rpcError}
+	        </div>
+	      )}
       <Navigator
         balance={navLocked ? <></> : <Balance balance={balance} mempool={mempool} wallet={wallet} />}
         currentRoute={currentRoute}
@@ -597,12 +580,14 @@ function App() {
             <Sign assets={assets} wallet={wallet} />
           )}
 
-          <div
-            style={{ display: currentRoute === Routes.CHAT ? "block" : "none" }}
-            aria-hidden={currentRoute !== Routes.CHAT}
-          >
-            <Chat wallet={wallet} assets={assets} mempool={mempool} depinChatIdentity={depinChatIdentity} />
-          </div>
+	          <div
+	            className={
+	              currentRoute === Routes.CHAT ? "rebel-app__chat" : "rebel-app__chat rebel-app__chat--hidden"
+	            }
+	            aria-hidden={currentRoute !== Routes.CHAT}
+	          >
+	            <Chat wallet={wallet} assets={assets} mempool={mempool} depinChatIdentity={depinChatIdentity} />
+	          </div>
 
           {currentRoute === Routes.SETTINGS && (
             <Settings />
@@ -700,11 +685,11 @@ function PinDialog({
           ) : (
             <h3 className="rebel-pin-title">{title}</h3>
           )}
-          <p style={{ marginBottom: "0.75rem" }}>
-            {mode === "setup"
-              ? `Create a PIN (${minLen} to ${maxLen} characters) to protect your wallet on this device.`
-              : `Enter your PIN to unlock the wallet (${minLen} to ${maxLen} characters).`}
-          </p>
+	          <p className="rebel-pin__hint">
+	            {mode === "setup"
+	              ? `Create a PIN (${minLen} to ${maxLen} characters) to protect your wallet on this device.`
+	              : `Enter your PIN to unlock the wallet (${minLen} to ${maxLen} characters).`}
+	          </p>
 
           <label>
             PIN
@@ -731,26 +716,26 @@ function PinDialog({
             </label>
           )}
 
-          {caps && (
-            <p style={{ marginTop: "0.25rem", marginBottom: "0.25rem" }}>
-              Caps Lock is ON
-            </p>
-          )}
+	          {caps && (
+	            <p className="rebel-pin__inline-status">
+	              Caps Lock is ON
+	            </p>
+	          )}
 
-          {mode === "setup" && pin1 && pin2 && pin1 !== pin2 && (
-            <p style={{ marginTop: "0.25rem", marginBottom: "0.25rem" }}>
-              PINs do not match
-            </p>
-          )}
+	          {mode === "setup" && pin1 && pin2 && pin1 !== pin2 && (
+	            <p className="rebel-pin__inline-status">
+	              PINs do not match
+	            </p>
+	          )}
 
-          {error && (
-            <p style={{ marginTop: "0.25rem", marginBottom: "0.25rem" }}>{error}</p>
-          )}
+	          {error && (
+	            <p className="rebel-pin__inline-status">{error}</p>
+	          )}
 
-          <footer style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-            <button className="rebel-pin-reset-button" onClick={onReset} type="button">
-              Reset wallet
-            </button>
+	          <footer className="rebel-pin__footer">
+	            <button className="rebel-pin-reset-button" onClick={onReset} type="button">
+	              Reset wallet
+	            </button>
             <button className="secondary" onClick={onCancel} type="button">
               Cancel
             </button>
@@ -761,11 +746,11 @@ function PinDialog({
               onClick={() => onSubmit(pin1)}
             >
               OK
-            </button>
-          </footer>
-          <p style={{ marginTop: "0.75rem", fontSize: "0.85rem" }}>
-            If you forget your PIN, you will need to clear this site's stored data in your browser.
-          </p>
+	            </button>
+	          </footer>
+	          <p className="rebel-pin__note">
+	            If you forget your PIN, you will need to clear this site's stored data in your browser.
+	          </p>
         </article>
       </dialog>
     </article>

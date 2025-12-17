@@ -1,4 +1,5 @@
 import React from "react";
+import "./Settings.css";
 
 interface RPCConfig {
   url: string;
@@ -85,13 +86,13 @@ export function Settings() {
     <article>
       <h3>RPC Server Configuration</h3>
 
-      <div style={{ marginBottom: "1.5rem" }}>
+      <div className="rebel-settings__toggle-row">
         <label>
           <input
             type="checkbox"
             checked={useCustomRPC}
             onChange={(e) => setUseCustomRPC(e.target.checked)}
-            style={{ marginRight: "0.5rem" }}
+            className="rebel-settings__toggle-checkbox"
           />
           Use custom RPC server
         </label>
@@ -99,7 +100,7 @@ export function Settings() {
 
       {useCustomRPC ? (
         <>
-          <div style={{ marginBottom: "1rem" }}>
+          <div className="rebel-settings__field">
             <label htmlFor="rpcUrl">
               RPC URL
               <input
@@ -111,12 +112,12 @@ export function Settings() {
                 required
               />
             </label>
-            <small style={{ color: "var(--muted-color)" }}>
+            <small className="rebel-settings__hint">
               Enter the full URL of your custom RPC server (including /rpc path)
             </small>
           </div>
 
-          <div style={{ marginBottom: "1rem" }}>
+          <div className="rebel-settings__field">
             <label htmlFor="rpcUsername">
               RPC Username (optional)
               <input
@@ -129,7 +130,7 @@ export function Settings() {
             </label>
           </div>
 
-          <div style={{ marginBottom: "1rem" }}>
+          <div className="rebel-settings__field">
             <label htmlFor="rpcPassword">
               RPC Password (optional)
               <input
@@ -143,19 +144,14 @@ export function Settings() {
           </div>
         </>
       ) : (
-        <div style={{
-          padding: "1rem",
-          backgroundColor: "var(--card-background-color)",
-          borderRadius: "4px",
-          marginBottom: "1rem"
-        }}>
+        <div className="rebel-settings__card">
           <p><strong>Default RPC Servers:</strong></p>
-          <p style={{ margin: "0.5rem 0" }}>Mainnet: {DEFAULT_RPC_MAINNET}</p>
-          <p style={{ margin: "0.5rem 0" }}>Testnet: {DEFAULT_RPC_TESTNET}</p>
+          <p>Mainnet: {DEFAULT_RPC_MAINNET}</p>
+          <p>Testnet: {DEFAULT_RPC_TESTNET}</p>
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "1rem", marginTop: "1.5rem" }}>
+      <div className="rebel-settings__actions">
         <button onClick={handleSave}>
           Save Configuration
         </button>
@@ -165,25 +161,14 @@ export function Settings() {
       </div>
 
       {saveSuccess && (
-        <div style={{
-          marginTop: "1rem",
-          padding: "0.75rem",
-          backgroundColor: "#22c55e20",
-          color: "#22c55e",
-          borderRadius: "4px"
-        }}>
+        <div className="rebel-settings__success">
           Configuration saved successfully!
         </div>
       )}
 
-      <div style={{
-        marginTop: "2rem",
-        padding: "1rem",
-        backgroundColor: "var(--card-background-color)",
-        borderRadius: "4px"
-      }}>
+      <div className="rebel-settings__notes">
         <h4>Important Notes:</h4>
-        <ul style={{ marginLeft: "1.5rem" }}>
+        <ul>
           <li>Make sure your custom RPC server is compatible with Neurai</li>
           <li>The wallet will need to reload after changing RPC settings</li>
           <li>If you cannot connect, reset to default settings</li>

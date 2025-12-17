@@ -1,0 +1,9 @@
+.rebel-send__max-link {
+  display: inline-block;
+  float: right;
+}
+
+.rebel-send__scan-qr-button {
+  max-width: 200px;
+}
+

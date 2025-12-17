@@ -2,6 +2,7 @@ import React from "react";
 
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { getAssetBalanceFromMempool } from "./utils";
+import "./Balance.css";
 
 export function Balance({
   balance,

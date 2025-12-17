@@ -1,0 +1,480 @@
+.rebel-login__settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.rebel-login__back-button {
+  margin-bottom: 0;
+}
+
+.rebel-login__topbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.rebel-login__icon-button {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  outline: none;
+}
+
+.rebel-login__icon-button:hover {
+  opacity: 1;
+}
+
+.rebel-login__hero {
+  text-align: center;
+  margin-bottom: 3rem;
+  margin-top: 1rem;
+}
+
+.rebel-login__hero-title {
+  margin-bottom: 1rem;
+  font-size: 2.5rem;
+}
+
+.rebel-login__hero-subtitle {
+  font-size: 1.2rem;
+  color: var(--muted-color);
+  max-width: 600px;
+  margin: 0 auto 2rem;
+}
+
+/* Features grid responsive layout (Login only) */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.rebel-login__features {
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.rebel-login__feature-card {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  text-align: center;
+  background-color: var(--rebel-login-feature-bg);
+  border: 1px solid var(--rebel-login-feature-border);
+}
+
+.rebel-login__feature-card--orange {
+  --rebel-login-feature-bg: rgba(255, 87, 34, 0.08);
+  --rebel-login-feature-border: rgba(255, 87, 34, 0.2);
+}
+
+.rebel-login__feature-card--blue {
+  --rebel-login-feature-bg: rgba(59, 130, 246, 0.08);
+  --rebel-login-feature-border: rgba(59, 130, 246, 0.2);
+}
+
+.rebel-login__feature-card--green {
+  --rebel-login-feature-bg: rgba(34, 197, 94, 0.08);
+  --rebel-login-feature-border: rgba(34, 197, 94, 0.2);
+}
+
+.rebel-login__feature-card--purple {
+  --rebel-login-feature-bg: rgba(168, 85, 247, 0.08);
+  --rebel-login-feature-border: rgba(168, 85, 247, 0.2);
+}
+
+.rebel-login__feature-icon {
+  font-size: 2rem;
+  margin-bottom: 0.4rem;
+}
+
+.rebel-login__feature-icon--logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.rebel-login__feature-logo {
+  height: 48px;
+  width: auto;
+}
+
+.rebel-login__feature-title {
+  margin-bottom: 0.4rem;
+  font-size: 1rem;
+}
+
+.rebel-login__feature-text {
+  font-size: 0.85rem;
+  color: var(--muted-color);
+  margin: 0;
+}
+
+.rebel-login__how-details {
+  margin-bottom: 2rem;
+}
+
+.rebel-login__how-summary {
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.rebel-login__how-content {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: var(--code-background-color);
+  border-radius: 0.5rem;
+  border-left: 3px solid var(--primary);
+}
+
+.rebel-login__how-list {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.rebel-login__how-list-item {
+  margin-bottom: 0.75rem;
+}
+
+.rebel-login__how-list-item:last-child {
+  margin-bottom: 0;
+}
+
+.rebel-login__how-warning {
+  margin-top: 1rem;
+  margin-bottom: 0;
+  padding: 0.75rem;
+  background-color: var(--card-background-color);
+  border-radius: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.rebel-login__divider {
+  margin-bottom: 2rem;
+}
+
+.rebel-login__section-title {
+  margin-bottom: 1rem;
+}
+
+.rebel-login__privacy {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: var(--code-background-color);
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.rebel-login__recovery-card {
+  padding: 2rem;
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.rebel-login__recovery-title {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+
+.rebel-login__field {
+  margin-bottom: 1.5rem;
+}
+
+.rebel-login__label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-weight: bold;
+}
+
+.rebel-login__word-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.rebel-login__word-count {
+  font-weight: normal;
+  color: var(--muted-color);
+}
+
+.rebel-login__word-count.is-active {
+  font-weight: bold;
+  color: var(--primary);
+}
+
+.rebel-login__switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+  cursor: pointer;
+}
+
+.rebel-login__switch-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.rebel-login__switch-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--pico-switch-background-color);
+  border-radius: 34px;
+  transition: 0.4s;
+}
+
+.rebel-login__switch-thumb {
+  position: absolute;
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: var(--pico-switch-color);
+  border-radius: 50%;
+  transition: 0.4s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.rebel-login__switch.is-on .rebel-login__switch-track {
+  background-color: var(--pico-primary-background);
+}
+
+.rebel-login__switch.is-on .rebel-login__switch-thumb {
+  left: 30px;
+}
+
+.rebel-login__mnemonic-label {
+  font-weight: bold;
+  display: block;
+  margin-top: 1.5rem;
+}
+
+.rebel-login__field-with-icon {
+  position: relative;
+}
+
+.rebel-login__mnemonic-textarea {
+  padding-right: 3rem;
+  min-height: auto;
+  max-height: none;
+  height: auto;
+  resize: none;
+  overflow: auto;
+  overflow-y: hidden;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+
+.rebel-login__visibility-toggle {
+  position: absolute;
+  right: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-color);
+}
+
+.rebel-login__visibility-toggle--textarea {
+  top: 0.5rem;
+}
+
+.rebel-login__visibility-toggle--input {
+  top: 0;
+  bottom: 0;
+}
+
+/* Password field for textarea (Login only) */
+.password-field {
+  -webkit-text-security: disc;
+  font-family: text-security-disc;
+}
+
+.rebel-login__passphrase-toggle {
+  margin-top: 1rem;
+}
+
+.rebel-login__card-muted {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: var(--code-background-color);
+  border-radius: 0.5rem;
+  border: 1px solid var(--muted-border-color);
+}
+
+.rebel-login__muted {
+  font-size: 0.9rem;
+  color: var(--muted-color);
+}
+
+.rebel-login__muted--tight {
+  margin-bottom: 0.75rem;
+  margin-top: 0;
+}
+
+.rebel-login__passphrase-label {
+  font-weight: bold;
+}
+
+.rebel-login__input-with-icon {
+  padding-right: 3rem;
+}
+
+.rebel-login__esp32-card {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: var(--code-background-color);
+  border-radius: 0.5rem;
+  border: 1px solid var(--muted-border-color);
+}
+
+.rebel-login__esp32-title {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rebel-login__button-full {
+  width: 100%;
+}
+
+.rebel-login__full-width {
+  width: 100%;
+}
+
+.rebel-login__button-grid {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.rebel-login__button-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.rebel-login__danger-button {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.rebel-login__refresh-button {
+  width: 100%;
+  font-size: 0.85rem;
+  padding: 0.5rem;
+}
+
+.rebel-login__status {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: var(--card-background-color);
+  border-radius: 0.25rem;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.rebel-login__form-actions {
+  margin-top: 40px;
+}
+
+.rebel-login__quick-card {
+  margin-top: 3rem;
+  padding: 2rem;
+  background-color: rgba(34, 197, 94, 0.1);
+  border-radius: 0.75rem;
+  border: 2px solid rgba(34, 197, 94, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.rebel-login__quick-title {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rebel-login__quick-desc {
+  font-size: 0.95rem;
+  color: var(--muted-color);
+  margin-bottom: 1.5rem;
+}
+
+.rebel-login__select-row {
+  margin-bottom: 1rem;
+}
+
+.rebel-login__bold-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.rebel-login__wallet-info {
+  padding: 1.5rem;
+  background-color: var(--card-background-color);
+  border-radius: 0.5rem;
+  border: 1px solid var(--muted-border-color);
+  margin-bottom: 1rem;
+}
+
+.rebel-login__wallet-info-title {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.rebel-login__wallet-info-row {
+  margin-bottom: 0.75rem;
+}
+
+.rebel-login__primary-text {
+  color: var(--primary);
+}
+
+.rebel-login__help {
+  color: var(--muted-color);
+  display: block;
+  margin-top: 0.5rem;
+}
+
+.rebel-login__mb-1 {
+  margin-bottom: 1rem;
+}
+
+.rebel-login__quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}

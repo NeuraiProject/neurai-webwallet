@@ -2,6 +2,7 @@ import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "./Types";
 import { QrReader } from "react-qr-reader";
+import "./Send.css";
 import {
   getAssetBalanceFromMempool,
   getAssetBalanceIncludingMempool,
@@ -93,7 +94,7 @@ export function Send({
     return (
       <a
         href="#"
-        style={{ display: "inline-block", float: "right" }}
+        className="rebel-send__max-link"
         onClick={maxButtonEventHandler}
       >
         Max
@@ -109,7 +110,7 @@ export function Send({
       {showQRCode === false && (
         <button
           className="secondary"
-          style={{ maxWidth: 200 }}
+          className="secondary rebel-send__scan-qr-button"
           onClick={() => setShowQRCode(true)}
         >
           Scan QR code

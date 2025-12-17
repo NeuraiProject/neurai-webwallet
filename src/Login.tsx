@@ -4,6 +4,7 @@ import { LightModeToggle } from "./components/LightModeToggle";
 import ESP32Storage from "./ESP32Storage";
 import { Settings } from "./Settings";
 import { IconSettings } from "./icons";
+import "./Login.css";
 
 // @ts-ignore - Parcel handles this correctly
 const CryptoJS = require("crypto-js");
@@ -481,11 +482,10 @@ export function Login({
   if (showSettings) {
     return (
       <article>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <div className="rebel-login__settings-header">
           <button
             onClick={() => setShowSettings(false)}
-            className="secondary"
-            style={{ marginBottom: 0 }}
+            className="secondary rebel-login__back-button"
           >
             ← Back to Login
           </button>
@@ -498,287 +498,154 @@ export function Login({
 
   return (
     <article>
-      <div style={{
-        display: 'flex',
-        gap: '0.5rem',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        marginBottom: '1rem'
-      }}>
-        <div
+      <div className="rebel-login__topbar">
+        <button
+          type="button"
           onClick={() => setShowSettings(true)}
-          style={{
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: 0.8,
-            transition: 'opacity 0.2s',
-            background: 'none',
-            backgroundColor: 'transparent',
-            border: 'none',
-            padding: 0,
-            margin: 0,
-            outline: 'none'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
+          className="rebel-login__icon-button"
           title="RPC Server Settings"
+          aria-label="RPC Server Settings"
         >
           <IconSettings />
-        </div>
+        </button>
         <LightModeToggle />
       </div>
       {dialog}
       
       {/* Hero Section */}
-      <header style={{ textAlign: 'center', marginBottom: '3rem', marginTop: '1rem' }}>
-        <h1 className="rebel-headline" style={{ marginBottom: '1rem', fontSize: '2.5rem' }}>
+      <header className="rebel-login__hero">
+        <h1 className="rebel-headline rebel-login__hero-title">
           Neurai Web Wallet
         </h1>
-        <p style={{ 
-          fontSize: '1.2rem', 
-          color: 'var(--muted-color)', 
-          marginBottom: '2rem',
-          maxWidth: '600px',
-          margin: '0 auto 2rem'
-        }}>
+        <p className="rebel-login__hero-subtitle">
           A secure, client-side wallet for managing your Neurai assets
         </p>
       </header>
 
       {/* Features Grid */}
       <div 
-        className="features-grid"
-        style={{
-          gap: '1rem',
-          marginBottom: '2.5rem'
-        }}
+        className="features-grid rebel-login__features"
       >
-        <div style={{
-          padding: '1rem',
-          backgroundColor: 'rgba(255, 87, 34, 0.08)',
-          borderRadius: '0.5rem',
-          border: '1px solid rgba(255, 87, 34, 0.2)',
-          textAlign: 'center'
-        }}>
-          <div style={{ 
-            fontSize: '2rem',
-            marginBottom: '0.4rem',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center'
-          }}>
+        <div className="rebel-login__feature-card rebel-login__feature-card--orange">
+          <div className="rebel-login__feature-icon rebel-login__feature-icon--logo">
             <img 
               src={neuraiLogo.href} 
               alt="Neurai" 
-              style={{ height: '48px', width: 'auto' }}
+              className="rebel-login__feature-logo"
             />
           </div>
-          <h3 style={{ marginBottom: '0.4rem', fontSize: '1rem' }}>Neurai</h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted-color)', margin: 0 }}>
+          <h3 className="rebel-login__feature-title">Neurai</h3>
+          <p className="rebel-login__feature-text">
             Wallet for managing XNA, IoT, NFT, RWA, and more.
           </p>
         </div>
         
-        <div style={{
-          padding: '1rem',
-          backgroundColor: 'rgba(59, 130, 246, 0.08)',
-          borderRadius: '0.5rem',
-          border: '1px solid rgba(59, 130, 246, 0.2)',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.4rem' }}>🔒</div>
-          <h3 style={{ marginBottom: '0.4rem', fontSize: '1rem' }}>Secure</h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted-color)', margin: 0 }}>
+        <div className="rebel-login__feature-card rebel-login__feature-card--blue">
+          <div className="rebel-login__feature-icon">🔒</div>
+          <h3 className="rebel-login__feature-title">Secure</h3>
+          <p className="rebel-login__feature-text">
             Your keys never leave your browser. Everything runs locally.
           </p>
         </div>
         
-        <div style={{
-          padding: '1rem',
-          backgroundColor: 'rgba(34, 197, 94, 0.08)',
-          borderRadius: '0.5rem',
-          border: '1px solid rgba(34, 197, 94, 0.2)',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.4rem' }}>⚡</div>
-          <h3 style={{ marginBottom: '0.4rem', fontSize: '1rem' }}>Fast</h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted-color)', margin: 0 }}>
+        <div className="rebel-login__feature-card rebel-login__feature-card--green">
+          <div className="rebel-login__feature-icon">⚡</div>
+          <h3 className="rebel-login__feature-title">Fast</h3>
+          <p className="rebel-login__feature-text">
             Send and receive Neurai and assets instantly.
           </p>
         </div>
         
-        <div style={{
-          padding: '1rem',
-          backgroundColor: 'rgba(168, 85, 247, 0.08)',
-          borderRadius: '0.5rem',
-          border: '1px solid rgba(168, 85, 247, 0.2)',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.4rem' }}>🌐</div>
-          <h3 style={{ marginBottom: '0.4rem', fontSize: '1rem' }}>Web-Based</h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--muted-color)', margin: 0 }}>
+        <div className="rebel-login__feature-card rebel-login__feature-card--purple">
+          <div className="rebel-login__feature-icon">🌐</div>
+          <h3 className="rebel-login__feature-title">Web-Based</h3>
+          <p className="rebel-login__feature-text">
             Access your wallet from any device with a browser.
           </p>
         </div>
       </div>
 
       {/* How it works */}
-      <details style={{ marginBottom: '2rem' }}>
-        <summary style={{ cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>
+      <details className="rebel-login__how-details">
+        <summary className="rebel-login__how-summary">
           How does it work?
         </summary>
-        <div style={{ 
-          marginTop: '1rem', 
-          padding: '1rem', 
-          backgroundColor: 'var(--code-background-color)',
-          borderRadius: '0.5rem',
-          borderLeft: '3px solid var(--primary)'
-        }}>
-          <ol style={{ margin: 0, paddingLeft: '1.5rem' }}>
-            <li style={{ marginBottom: '0.75rem' }}>
+        <div className="rebel-login__how-content">
+          <ol className="rebel-login__how-list">
+            <li className="rebel-login__how-list-item">
               <strong>Create or import a wallet</strong> using 12 or 24 recovery words
             </li>
-            <li style={{ marginBottom: '0.75rem' }}>
+            <li className="rebel-login__how-list-item">
               <strong>Optional passphrase</strong> - add an extra layer of security with a BIP39 passphrase (acts as a "13th/25th word")
             </li>
-            <li style={{ marginBottom: '0.75rem' }}>
+            <li className="rebel-login__how-list-item">
               <strong>Your keys stay private</strong> - they're encrypted and stored locally in your browser
             </li>
-            <li style={{ marginBottom: '0.75rem' }}>
+            <li className="rebel-login__how-list-item">
               <strong>Manage your assets</strong> - send, receive, and view your Neurai tokens
             </li>
-            <li style={{ marginBottom: '0' }}>
+            <li className="rebel-login__how-list-item">
               <strong>Sign out</strong> - your session data is cleared when you leave
             </li>
           </ol>
-          <p style={{ 
-            marginTop: '1rem', 
-            marginBottom: 0, 
-            padding: '0.75rem', 
-            backgroundColor: 'var(--card-background-color)',
-            borderRadius: '0.25rem',
-            fontSize: '0.9rem'
-          }}>
+          <p className="rebel-login__how-warning">
             ⚠️ <strong>Important:</strong> Always backup your recovery words. They cannot be recovered if lost!
           </p>
         </div>
       </details>
 
-      <hr style={{ marginBottom: '2rem' }} />
+      <hr className="rebel-login__divider" />
 
       {/* Login Form */}
-      <h2 style={{ marginBottom: '1rem' }}>Sign in to your wallet</h2>
-      <p style={{ 
-        marginBottom: '1.5rem',
-        padding: '1rem',
-        backgroundColor: 'var(--code-background-color)',
-        borderRadius: '0.5rem',
-        fontSize: '0.95rem'
-      }}>
+      <h2 className="rebel-login__section-title">Sign in to your wallet</h2>
+      <p className="rebel-login__privacy">
         <strong>📌 Privacy notice:</strong> Your recovery words are encrypted and stored temporarily in your browser's local storage. 
         They will be cleared when you sign out or clear your browser cache. 
         <strong> Make sure to backup your words securely.</strong>
       </p>
       
       {/* Card for recovery words input */}
-      <div style={{
-        padding: '2rem',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        borderRadius: '0.75rem',
-        border: '1px solid rgba(59, 130, 246, 0.3)',
-        marginBottom: '2rem',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-      }}>
-        <h2 style={{ marginTop: 0, marginBottom: '1.5rem' }}>Enter your recovery words</h2>
+      <div className="rebel-login__recovery-card">
+        <h2 className="rebel-login__recovery-title">Enter your recovery words</h2>
         <form onSubmit={onSubmit}>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 'bold' }}>
+          <div className="rebel-login__field">
+            <label className="rebel-login__label">
               Number of words for new wallet:
             </label>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            justifyContent: 'center'
-          }}>
-            <span style={{ 
-              fontWeight: wordCount === 12 ? 'bold' : 'normal',
-              color: wordCount === 12 ? 'var(--primary)' : 'var(--muted-color)'
-            }}>
+          <div className="rebel-login__word-toggle-row">
+            <span className={"rebel-login__word-count" + (wordCount === 12 ? " is-active" : "")}>
               12 words
             </span>
-            <label style={{
-              position: 'relative',
-              display: 'inline-block',
-              width: '60px',
-              height: '34px',
-              cursor: 'pointer'
-            }}>
+            <label className={"rebel-login__switch" + (wordCount === 24 ? " is-on" : "")}>
               <input
                 type="checkbox"
                 checked={wordCount === 24}
                 onChange={() => setWordCount(wordCount === 12 ? 24 : 12)}
-                style={{ opacity: 0, width: 0, height: 0 }}
+                className="rebel-login__switch-input"
               />
-              <span style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: wordCount === 24 ? 'var(--pico-primary-background)' : 'var(--pico-switch-background-color)',
-                borderRadius: '34px',
-                transition: '0.4s'
-              }}>
-                <span style={{
-                  position: 'absolute',
-                  content: '""',
-                  height: '26px',
-                  width: '26px',
-                  left: wordCount === 24 ? '30px' : '4px',
-                  bottom: '4px',
-                  backgroundColor: 'var(--pico-switch-color)',
-                  borderRadius: '50%',
-                  transition: '0.4s',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }} />
+              <span className="rebel-login__switch-track">
+                <span className="rebel-login__switch-thumb" />
               </span>
             </label>
-            <span style={{ 
-              fontWeight: wordCount === 24 ? 'bold' : 'normal',
-              color: wordCount === 24 ? 'var(--primary)' : 'var(--muted-color)'
-            }}>
+            <span className={"rebel-login__word-count" + (wordCount === 24 ? " is-active" : "")}>
               24 words
             </span>
           </div>
         </div>
         
-        <label htmlFor="mnemonic" style={{ fontWeight: 'bold', display: 'block', marginTop: '1.5rem' }}>
+        <label htmlFor="mnemonic" className="rebel-login__mnemonic-label">
           Recovery words:
         </label>
-        <div style={{ position: 'relative' }}>
+        <div className="rebel-login__field-with-icon">
           <textarea
             ref={textareaRef}
             id="mnemonic"
             autoComplete="off"
             placeholder="Enter your 12 or 24 words"
-            className={showWords ? '' : 'password-field'}
+            className={`${showWords ? "" : "password-field"} rebel-login__mnemonic-textarea`.trim()}
             onChange={handleTextareaChange}
             onInput={handleTextareaInput}
             onFocus={(e) => autoResizeTextarea(e.currentTarget)}
-            style={{ 
-              paddingRight: '3rem',
-              minHeight: 'auto',
-              maxHeight: 'none',
-              height: 'auto',
-              resize: 'none',
-              overflow: 'auto',
-              overflowY: 'hidden',
-              boxSizing: 'border-box',
-              lineHeight: '1.5'
-            }}
             rows={1}
           />
           <button
@@ -792,19 +659,7 @@ export function Login({
                 }
               }, 0);
             }}
-            style={{
-              position: 'absolute',
-              right: '0.5rem',
-              top: '0.5rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '0.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--muted-color)'
-            }}
+            className="rebel-login__visibility-toggle rebel-login__visibility-toggle--textarea"
             aria-label={showWords ? "Hide words" : "Show words"}
           >
             {showWords ? (
@@ -825,7 +680,7 @@ export function Login({
 
         {/* Removed BIP39 Seed/Entropy previews */}
         
-        <label htmlFor="use-passphrase" style={{ marginTop: '1rem' }}>
+        <label htmlFor="use-passphrase" className="rebel-login__passphrase-toggle">
           <input
             type="checkbox"
             id="use-passphrase"
@@ -839,51 +694,27 @@ export function Login({
 
         {/* Passphrase Section */}
         {usePassphrase && (
-          <div style={{ 
-            marginTop: '1rem',
-            padding: '1rem',
-            backgroundColor: 'var(--code-background-color)',
-            borderRadius: '0.5rem',
-            border: '1px solid var(--muted-border-color)'
-          }}>
-            <p style={{ 
-              fontSize: '0.9rem', 
-              color: 'var(--muted-color)',
-              marginBottom: '0.75rem',
-              marginTop: 0
-            }}>
+          <div className="rebel-login__card-muted">
+            <p className="rebel-login__muted rebel-login__muted--tight">
               💡 A passphrase adds an extra layer of security. It acts as a "13 or 25th word" that generates a different wallet.
               <strong> Without the exact passphrase, you cannot access this wallet!</strong>
             </p>
-            <label htmlFor="passphrase" style={{ fontWeight: 'bold' }}>
+            <label htmlFor="passphrase" className="rebel-login__passphrase-label">
               Passphrase:
             </label>
-            <div style={{ position: 'relative' }}>
+            <div className="rebel-login__field-with-icon">
                 <input
                   type={showPassphrase ? "text" : "password"}
                   id="passphrase"
                   autoComplete="off"
                   placeholder="Enter your passphrase"
                   // seed/entropy preview removed
-                  style={{ paddingRight: '3rem' }}
+                  className="rebel-login__input-with-icon"
                 />
               <button
                 type="button"
                 onClick={() => setShowPassphrase(!showPassphrase)}
-                style={{
-                  position: 'absolute',
-                  right: '0.5rem',
-                  top: '0',
-                  bottom: '0',
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '0.5rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--muted-color)'
-                }}
+                className="rebel-login__visibility-toggle rebel-login__visibility-toggle--input"
                 aria-label={showPassphrase ? "Hide passphrase" : "Show passphrase"}
               >
                 {showPassphrase ? (
@@ -905,22 +736,12 @@ export function Login({
         )}
 
         {/* ESP32 Storage Section */}
-        <div style={{
-          marginTop: '2rem',
-          padding: '1.5rem',
-          backgroundColor: 'var(--code-background-color)',
-          borderRadius: '0.5rem',
-          border: '1px solid var(--muted-border-color)'
-        }}>
-          <h3 style={{ marginTop: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="rebel-login__esp32-card">
+          <h3 className="rebel-login__esp32-title">
             🔌 ESP32 Hardware Storage
           </h3>
           
-          <p style={{ 
-            fontSize: '0.9rem', 
-            color: 'var(--muted-color)',
-            marginBottom: '1rem'
-          }}>
+          <p className="rebel-login__muted">
             Store your recovery words securely on an ESP32 device. Connect via USB to save or load wallets.
           </p>
 
@@ -928,22 +749,17 @@ export function Login({
             <button
               type="button"
               onClick={connectESP32}
-              style={{ width: '100%' }}
+              className="rebel-login__full-width"
             >
               📱 Connect ESP32
             </button>
           ) : (
             <>
-              <div style={{ 
-                display: 'grid', 
-                gap: '1rem',
-                marginBottom: '1rem'
-              }}>
+              <div className="rebel-login__button-grid">
                 <button
                   type="button"
                   onClick={saveToESP32}
-                  className="secondary"
-                  style={{ width: '100%' }}
+                  className="secondary rebel-login__full-width"
                 >
                   💾 Save to ESP32
                 </button>
@@ -951,14 +767,14 @@ export function Login({
                 {esp32Keys.length > 0 && (
                   <>
                     <div>
-                      <label htmlFor="esp32-key-select" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                      <label htmlFor="esp32-key-select" className="rebel-login__bold-label">
                         Select wallet to load:
                       </label>
                       <select
                         id="esp32-key-select"
                         value={selectedKey}
                         onChange={(e) => setSelectedKey(e.target.value)}
-                        style={{ width: '100%' }}
+                        className="rebel-login__full-width"
                       >
                         <option value="">-- Select a wallet --</option>
                         {esp32Keys.map((key) => (
@@ -967,28 +783,23 @@ export function Login({
                       </select>
                     </div>
                     
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <div className="rebel-login__button-grid-2">
                       <button
                         type="button"
                         onClick={loadFromESP32}
                         disabled={!selectedKey}
-                        style={{ width: '100%' }}
+                        className="rebel-login__full-width"
                       >
                         📖 Load
                       </button>
-                      <button
-                        type="button"
-                        onClick={deleteFromESP32}
-                        disabled={!selectedKey}
-                        className="secondary"
-                        style={{ 
-                          width: '100%',
-                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                          borderColor: 'rgba(239, 68, 68, 0.3)'
-                        }}
-                      >
-                        🗑️ Delete
-                      </button>
+	                      <button
+	                        type="button"
+	                        onClick={deleteFromESP32}
+	                        disabled={!selectedKey}
+	                        className="secondary rebel-login__full-width rebel-login__danger-button"
+	                      >
+	                        🗑️ Delete
+	                      </button>
                     </div>
                   </>
                 )}
@@ -996,8 +807,7 @@ export function Login({
                 <button
                   type="button"
                   onClick={disconnectESP32}
-                  className="secondary"
-                  style={{ width: '100%' }}
+                  className="secondary rebel-login__full-width"
                 >
                   🔌 Disconnect ESP32
                 </button>
@@ -1006,12 +816,7 @@ export function Login({
               <button
                 type="button"
                 onClick={loadESP32Keys}
-                className="secondary"
-                style={{ 
-                  width: '100%',
-                  fontSize: '0.85rem',
-                  padding: '0.5rem'
-                }}
+                className="secondary rebel-login__refresh-button"
               >
                 🔄 Refresh List
               </button>
@@ -1019,20 +824,13 @@ export function Login({
           )}
 
           {esp32Status && (
-            <div style={{
-              marginTop: '1rem',
-              padding: '0.75rem',
-              backgroundColor: 'var(--card-background-color)',
-              borderRadius: '0.25rem',
-              fontSize: '0.9rem',
-              wordBreak: 'break-word'
-            }}>
+            <div className="rebel-login__status">
               {esp32Status}
             </div>
           )}
         </div>
 
-        <div className="grid" style={{ marginTop: 40 }}>
+        <div className="grid rebel-login__form-actions">
           <input type="submit" value="Sign in" />{" "}
           <button
             id="newWalletButton"
@@ -1046,23 +844,12 @@ export function Login({
       </div>
 
       {/* ESP32 Quick Login Section */}
-      <div style={{
-        marginTop: '3rem',
-        padding: '2rem',
-        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-        borderRadius: '0.75rem',
-        border: '2px solid rgba(34, 197, 94, 0.3)',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-      }}>
-        <h2 style={{ marginTop: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div className="rebel-login__quick-card">
+        <h2 className="rebel-login__quick-title">
           ⚡ Quick Login with ESP32
         </h2>
         
-        <p style={{ 
-          fontSize: '0.95rem', 
-          color: 'var(--muted-color)',
-          marginBottom: '1.5rem'
-        }}>
+        <p className="rebel-login__quick-desc">
           Connect your ESP32 device and log in directly using a saved wallet.
         </p>
 
@@ -1070,7 +857,7 @@ export function Login({
           <button
             type="button"
             onClick={connectESP32Quick}
-            style={{ width: '100%' }}
+            className="rebel-login__full-width"
           >
             🔌 Connect ESP32
           </button>
@@ -1078,8 +865,8 @@ export function Login({
           <>
             {esp32QuickKeys.length > 0 && (
               <>
-                <div style={{ marginBottom: '1rem' }}>
-                  <label htmlFor="esp32-quick-key-select" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                <div className="rebel-login__select-row">
+                  <label htmlFor="esp32-quick-key-select" className="rebel-login__bold-label">
                     Select wallet:
                   </label>
                   <select
@@ -1152,7 +939,7 @@ export function Login({
                         setShowQuickPassphrase(false);
                       }
                     }}
-                    style={{ width: '100%' }}
+                    className="rebel-login__full-width"
                   >
                     <option value="">-- Select a wallet --</option>
                     {esp32QuickKeys.map((key) => (
@@ -1162,31 +949,23 @@ export function Login({
                 </div>
 
                 {loadedMnemonic && (
-                  <div style={{
-                    padding: '1.5rem',
-                    backgroundColor: 'var(--card-background-color)',
-                    borderRadius: '0.5rem',
-                    border: '1px solid var(--muted-border-color)',
-                    marginBottom: '1rem'
-                  }}>
-                    <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>
+                  <div className="rebel-login__wallet-info">
+                    <h3 className="rebel-login__wallet-info-title">
                       Wallet Information
                     </h3>
                     
-                    <div style={{ marginBottom: '0.75rem' }}>
+                    <div className="rebel-login__wallet-info-row">
                       <strong>Word Count:</strong>{' '}
-                      <span style={{ 
-                        color: 'var(--primary)'
-                      }}>
+                      <span className="rebel-login__primary-text">
                         {mnemonicWordCount} words
                       </span>
                     </div>
                     
                     <div>
-                      <label htmlFor="quick-passphrase" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem' }}>
+                      <label htmlFor="quick-passphrase" className="rebel-login__bold-label">
                         Passphrase (optional):
                       </label>
-                      <div style={{ position: 'relative' }}>
+                      <div className="rebel-login__field-with-icon">
                         <input
                           type={showQuickPassphraseText ? "text" : "password"}
                           id="quick-passphrase"
@@ -1194,25 +973,12 @@ export function Login({
                           onChange={(e) => setQuickPassphraseInput(e.target.value)}
                           placeholder="Enter passphrase if needed"
                           autoComplete="off"
-                          style={{ paddingRight: '3rem' }}
+                          className="rebel-login__input-with-icon"
                         />
                         <button
                           type="button"
                           onClick={() => setShowQuickPassphraseText(!showQuickPassphraseText)}
-                          style={{
-                            position: 'absolute',
-                            right: '0.5rem',
-                            top: '0',
-                            bottom: '0',
-                            background: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: '0.5rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'var(--muted-color)'
-                          }}
+                          className="rebel-login__visibility-toggle rebel-login__visibility-toggle--input"
                           aria-label={showQuickPassphraseText ? "Hide passphrase" : "Show passphrase"}
                         >
                           {showQuickPassphraseText ? (
@@ -1228,7 +994,7 @@ export function Login({
                           )}
                         </button>
                       </div>
-                      <small style={{ color: 'var(--muted-color)', display: 'block', marginTop: '0.5rem' }}>
+                      <small className="rebel-login__help">
                         {showQuickPassphrase ? '💡 Passphrase loaded from ESP32. You can modify it if needed.' : '💡 No passphrase stored. You can add one here if required.'}
                       </small>
                     </div>
@@ -1239,10 +1005,7 @@ export function Login({
                   <button
                     type="button"
                     onClick={loginWithESP32Wallet}
-                    style={{ 
-                      width: '100%',
-                      marginBottom: '1rem'
-                    }}
+                    className="rebel-login__full-width rebel-login__mb-1"
                   >
                     🚀 Sign In with this Wallet
                   </button>
@@ -1250,36 +1013,27 @@ export function Login({
               </>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-              <button
-                type="button"
-                onClick={loadESP32QuickKeys}
-                className="secondary"
-                style={{ width: '100%' }}
-              >
-                🔄 Refresh
-              </button>
-              <button
-                type="button"
-                onClick={disconnectESP32Quick}
-                className="secondary"
-                style={{ width: '100%' }}
-              >
-                🔌 Disconnect
-              </button>
+            <div className="rebel-login__quick-actions">
+	              <button
+	                type="button"
+	                onClick={loadESP32QuickKeys}
+	                className="secondary rebel-login__full-width"
+	              >
+	                🔄 Refresh
+	              </button>
+	              <button
+	                type="button"
+	                onClick={disconnectESP32Quick}
+	                className="secondary rebel-login__full-width"
+	              >
+	                🔌 Disconnect
+	              </button>
             </div>
           </>
         )}
 
         {esp32QuickStatus && (
-          <div style={{
-            marginTop: '1rem',
-            padding: '0.75rem',
-            backgroundColor: 'var(--card-background-color)',
-            borderRadius: '0.25rem',
-            fontSize: '0.9rem',
-            wordBreak: 'break-word'
-          }}>
+          <div className="rebel-login__status">
             {esp32QuickStatus}
           </div>
         )}
