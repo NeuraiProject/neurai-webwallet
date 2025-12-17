@@ -8,6 +8,8 @@ import { FaBomb, FaFireFlameCurved, FaQrcode, FaRegClock, FaRegCircleCheck, FaRe
 import { betterAlert, betterToast } from "./betterDialog";
 import type { DepinChatIdentity } from "./utils/depinChatIdentity";
 
+const decorativeIconProps = { "aria-hidden": true, focusable: false } as const;
+
 interface Message {
   id: number;
   text: string;
@@ -834,7 +836,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           <FaUserGroup
             size={16}
             style={{ verticalAlign: "-0.15em" }}
-            aria-label="Chat"
+            {...decorativeIconProps}
           />
         );
     }
@@ -1009,6 +1011,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                     : "depin-flame depin-flame-done"
                 }
                 style={{ width: "100%", height: "100%", display: "block" }}
+                {...decorativeIconProps}
               />
             </button>
           </span>
@@ -1033,7 +1036,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
               opacity: depinAddressText ? 0.9 : 0.35,
             }}
           >
-            <FaQrcode style={{ fontSize: "1em" }} />
+            <FaQrcode style={{ fontSize: "1em" }} {...decorativeIconProps} />
           </button>
           <span
             style={{
@@ -1063,7 +1066,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                   opacity: chatAddress ? 0.9 : 0.35,
                 }}
               >
-                <FaRegCopy style={{ fontSize: "1em", lineHeight: 1 }} />
+                <FaRegCopy style={{ fontSize: "1em", lineHeight: 1 }} {...decorativeIconProps} />
               </button>
               <span>{depinAddressText || "-"}</span>
             </span>
@@ -1289,7 +1292,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                             gap: "0.3rem",
                           }}
                         >
-                          <FaBomb style={{ color: "#000", fontSize: "1em", lineHeight: 1 }} />
+                          <FaBomb style={{ color: "#000", fontSize: "1em", lineHeight: 1 }} {...decorativeIconProps} />
                           <span style={{ fontStyle: "italic" }}>{message.expiresDate}</span>
                         </span>
                       )}
@@ -1307,6 +1310,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                         <FaRobot
                           size={14}
                           style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                          {...decorativeIconProps}
                         />
                         {extractBotModel(message.text).model}
                       </p>
@@ -1356,6 +1360,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                       size={15}
                       color="#835608ff"
                       style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                      {...decorativeIconProps}
                     />
                   )}
                   {message.sender === "user" && message.delivery === "confirmed" && (
@@ -1363,6 +1368,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                       size={15}
                       color="#22c55e"
                       style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                      {...decorativeIconProps}
                     />
                   )}
                   {message.isDePIN && message.sendDate
