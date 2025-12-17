@@ -8,6 +8,7 @@ import { CopyButton } from "../components/CopyButton";
 import { useTransaction } from "../useTransaction";
 
 import networkInfo from "../networkInfo";
+import "./History.css";
 interface IProps {
   blockCount: number | null;
   wallet: Wallet;
@@ -17,13 +18,18 @@ export function History({ blockCount, wallet }: IProps) {
 
   React.useEffect(() => {
     wallet.getHistory().then(setHistory);
-  }, [blockCount]);
+  }, [blockCount, wallet]);
 
-  history.map(
-    (h: { value: number; satoshis: number }) => (h.value = h.satoshis / 1e8)
+  const normalizedHistory = React.useMemo(
+    () =>
+      history.map((h: { satoshis?: number }) => ({
+        ...h,
+        value: typeof h.satoshis === "number" ? h.satoshis / 1e8 : h.value,
+      })),
+    [history]
   );
 
-  const items = getHistory(history);
+  const items = getHistory(normalizedHistory);
   items.sort((item1, item2) => item2.blockHeight - item1.blockHeight);
 
   const listItems = items.map((item: any, index: number) => {
@@ -35,12 +41,8 @@ export function History({ blockCount, wallet }: IProps) {
       item.transactionId
     );
 
-    const style2 = {
-      background: "var(--pico-background-color)",
-    };
-
     return (
-      <article key={item.transactionId} style={style2}>
+      <article key={item.transactionId} className="rebel-history__item">
         <h3>
           <BlockTime
             transactionId={item.transactionId}
@@ -52,18 +54,18 @@ export function History({ blockCount, wallet }: IProps) {
           {item.assets[0].value.toLocaleString()}{" "}
           <AssetName name={item.assets[0].assetName} />
         </LabeledContent>
-        <Spacer y={0.5} />
+        <Spacer size="xs" />
         <LabeledContent label="Fee">
           <Fee wallet={wallet} transactionId={item.transactionId} />
         </LabeledContent>
 
-        <details style={{ marginTop: "calc(2 * var(--pico-spacing))" }}>
-          <summary style={{ fontWeight: "bold" }}>More info</summary>
+        <details className="rebel-history__details">
+          <summary className="rebel-history__summary">More info</summary>
 
-          <div style={{ marginTop: "calc(2 * var(--pico-spacing))" }}>
-            <Spacer y={2} />
+          <div className="rebel-history__more">
+            <Spacer size="lg" />
             <ToAddress wallet={wallet} transactionId={item.transactionId} />
-            <Spacer y={2} />
+            <Spacer size="lg" />
             <fieldset>
               <label>
                 Transaction id
@@ -72,7 +74,7 @@ export function History({ blockCount, wallet }: IProps) {
 
               <CopyButton value={item.transactionId} title="Copy" />
             </fieldset>
-            <Spacer y={2} />
+            <Spacer size="lg" />
             <p>
               <a href={URL} target="_blank">
                 View in block explorer
@@ -83,7 +85,7 @@ export function History({ blockCount, wallet }: IProps) {
       </article>
     );
   });
-  return <article>{listItems}</article>;
+  return <article className="rebel-history">{listItems}</article>;
 }
 
 export interface ITransaction {
@@ -92,7 +94,13 @@ export interface ITransaction {
   time: number;
 }
 
-function BlockTime({ transactionId, wallet }) {
+function BlockTime({
+  transactionId,
+  wallet,
+}: {
+  transactionId: string;
+  wallet: Wallet;
+}) {
   const transaction = useTransaction(wallet, transactionId);
 
   if (!transaction) {
@@ -105,7 +113,13 @@ function BlockTime({ transactionId, wallet }) {
   return null;
 }
 
-function Fee({ wallet, transactionId }) {
+function Fee({
+  wallet,
+  transactionId,
+}: {
+  wallet: Wallet;
+  transactionId: string;
+}) {
   const transaction = useTransaction(wallet, transactionId);
 
   if (!transaction) {
@@ -141,8 +155,6 @@ function truncateToFourDecimals(num) {
   return Math.floor(num * 10000) / 10000;
 }
 
-function Spacer({ y }: { y: 0.5 | 1 | 2 }) {
-  return (
-    <div style={{ marginTop: "calc(" + y + "*var(--pico-spacing))" }}></div>
-  );
+function Spacer({ size }: { size: "xs" | "sm" | "lg" }) {
+  return <div className={`rebel-history__spacer--${size}`} />;
 }

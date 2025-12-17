@@ -1,4 +1,5 @@
 import React from "react";
+import "./Footer.css";
 
 export function Footer({
   signOut,
@@ -23,7 +24,7 @@ export function Footer({
         {/* If logged in from ESP32, only show Sign out button (full width) */}
         {/* Otherwise, show both buttons in a grid */}
         {isFromESP32 ? (
-          <button onClick={signOut} style={{ width: '100%' }}>
+          <button onClick={signOut} className="rebel-footer__signout-full">
             Sign out
           </button>
         ) : (
@@ -44,7 +45,7 @@ export function Footer({
           </div>
         )}
       </footer>
-      <div style={{ textAlign: "center", marginTop: "4rem", fontSize: "1rem" }}>
+      <div className="rebel-footer__meta">
         <p>
           Original version create by{" "}
           <a href="https://twitter.com/RavenRebels" target="_blank">

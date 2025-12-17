@@ -1,0 +1,27 @@
+.rebel-history__item {
+  background: var(--pico-background-color);
+}
+
+.rebel-history__details {
+  margin-top: calc(2 * var(--pico-spacing));
+}
+
+.rebel-history__summary {
+  font-weight: bold;
+}
+
+.rebel-history__more {
+  margin-top: calc(2 * var(--pico-spacing));
+}
+
+.rebel-history__spacer--xs {
+  margin-top: calc(0.5 * var(--pico-spacing));
+}
+
+.rebel-history__spacer--sm {
+  margin-top: calc(1 * var(--pico-spacing));
+}
+
+.rebel-history__spacer--lg {
+  margin-top: calc(2 * var(--pico-spacing));
+}
