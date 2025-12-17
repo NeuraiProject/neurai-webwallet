@@ -2,6 +2,8 @@ import React, { ReactNode } from "react";
 import { Routes } from "./Routes";
 import { LightModeToggle } from "./components/LightModeToggle";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
+import { useNodeStatus } from "./hooks/useNodeStatus";
+import { usePersistentState } from "./hooks/usePersistentState";
 import {
   IconChat,
   IconHistory,
@@ -15,6 +17,34 @@ import {
 } from "./icons";
 import { FaAnglesDown, FaAnglesUp } from "react-icons/fa6";
 import networkInfo, { INetworks } from "./networkInfo";
+
+type RouteNavItemConfig = {
+  type: "route";
+  route: Routes;
+  title: string;
+  lockable?: boolean;
+};
+
+type PlaceholderNavItemConfig = {
+  type: "placeholder";
+  key: string;
+  title: string;
+  icon?: ReactNode;
+};
+
+type NavItemConfig = RouteNavItemConfig | PlaceholderNavItemConfig;
+
+const NAV_ITEMS: NavItemConfig[] = [
+  { type: "route", route: Routes.HOME, title: "Home" },
+  { type: "route", route: Routes.SEND, title: "Send" },
+  { type: "route", route: Routes.RECEIVE, title: "Receive" },
+  { type: "route", route: Routes.SWEEP, title: "Sweep" },
+  { type: "route", route: Routes.HISTORY, title: "History" },
+  { type: "route", route: Routes.SIGN, title: "Sign" },
+  { type: "route", route: Routes.CHAT, title: "Chat" },
+  { type: "placeholder", key: "iot", title: "IoT", icon: <IconIoT /> },
+  { type: "route", route: Routes.SETTINGS, title: "Settings", lockable: false },
+];
 
 const neuraiLogo = new URL("../neurai-xna-logo.png", import.meta.url);
 
@@ -35,91 +65,7 @@ export function Navigator({
 }) {
   // const networkDisplayName = networkInfo[wallet.network].displayName; // unused for now
   const isFromESP32 = localStorage.getItem("loginFromESP32") === "true";
-
-  type SyncHealth = "unknown" | "offline" | "syncing" | "ok";
-  const [syncHealth, setSyncHealth] = React.useState<SyncHealth>("unknown");
-  const [syncHint, setSyncHint] = React.useState<string>(
-    "Checking RPC connectivity and node sync status…"
-  );
-
-  React.useEffect(() => {
-    if (!wallet) {
-      setSyncHealth("offline");
-      setSyncHint("No RPC connectivity");
-      return;
-    }
-
-    let cancelled = false;
-
-    const withTimeout = async <T,>(promise: Promise<T>, ms: number): Promise<T> => {
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      const timeoutPromise = new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("timeout")), ms);
-      });
-
-      try {
-        return (await Promise.race([promise, timeoutPromise])) as T;
-      } finally {
-        if (timeoutId) clearTimeout(timeoutId);
-      }
-    };
-
-    const checkSync = async () => {
-      try {
-        const info: any = await withTimeout(wallet.rpc("getblockchaininfo", []), 4500);
-
-        if (cancelled) return;
-
-        const blocks = typeof info?.blocks === "number" ? info.blocks : null;
-        const headers = typeof info?.headers === "number" ? info.headers : null;
-        const ibd = !!info?.initialblockdownload;
-        const verificationProgress =
-          typeof info?.verificationprogress === "number" ? info.verificationprogress : null;
-
-        const isLikelySynced =
-          !ibd &&
-          (blocks === null || headers === null || Math.abs(headers - blocks) <= 2) &&
-          (verificationProgress === null || verificationProgress >= 0.999);
-
-        if (isLikelySynced) {
-          setSyncHealth("ok");
-          setSyncHint("RPC connected • Node synced");
-          return;
-        }
-
-        setSyncHealth("syncing");
-        if (ibd) {
-          setSyncHint("RPC connected • Node syncing (IBD)");
-        } else if (blocks !== null && headers !== null && headers > blocks) {
-          setSyncHint(`RPC connected • Node syncing (${blocks}/${headers})`);
-        } else {
-          setSyncHint("RPC connected • Node not ready / not synced");
-        }
-      } catch (e: any) {
-        if (cancelled) return;
-
-        const message = String(e?.message || e || "");
-
-        // If the RPC server is reachable but disallows the method, treat as "connected" but unknown sync.
-        if (message.toLowerCase().includes("whitelist") || message.toLowerCase().includes("not in whitelist")) {
-          setSyncHealth("syncing");
-          setSyncHint("RPC connected • Sync status unavailable");
-          return;
-        }
-
-        setSyncHealth("offline");
-        setSyncHint("No RPC connectivity");
-      }
-    };
-
-    checkSync();
-    const intervalId = setInterval(checkSync, 30000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(intervalId);
-    };
-  }, [wallet]);
+  const { syncHealth, syncHint } = useNodeStatus(wallet);
 
   const syncColor =
     syncHealth === "ok"
@@ -139,14 +85,7 @@ export function Navigator({
           ? "0 0 4px rgba(239, 68, 68, 0.6)"
           : "0 0 4px rgba(156, 163, 175, 0.4)";
 
-  const [isCompact, setIsCompact] = React.useState<boolean>(() => {
-    const saved = localStorage.getItem("rebelNavigatorCompact");
-    return saved === "true";
-  });
-
-  React.useEffect(() => {
-    localStorage.setItem("rebelNavigatorCompact", String(isCompact));
-  }, [isCompact]);
+  const [isCompact, setIsCompact] = usePersistentState<boolean>("rebelNavigatorCompact", false);
 
   const passphraseColor = hasPassphrase ? "#22c55e" : "#ef4444";
   const passphraseShadow = hasPassphrase
@@ -164,49 +103,105 @@ export function Navigator({
     return false;
   };
 
-  const renderCompactIconMenu = () => (
-    <ul className="rebel-navigator__list rebel-navigator__list--icononly rebel-navigator__list--icononly-singleline">
-      {navLocked ? (
-        <DisabledIconOnlyLink title="Home" newRoute={Routes.HOME} />
-      ) : (
-        <IconOnlyLink setRoute={setRoute} title="Home" newRoute={Routes.HOME} />
-      )}
-      {navLocked ? (
-        <DisabledIconOnlyLink title="Send" newRoute={Routes.SEND} />
-      ) : (
-        <IconOnlyLink setRoute={setRoute} title="Send" newRoute={Routes.SEND} />
-      )}
-      {navLocked ? (
-        <DisabledIconOnlyLink title="Receive" newRoute={Routes.RECEIVE} />
-      ) : (
-        <IconOnlyLink setRoute={setRoute} title="Receive" newRoute={Routes.RECEIVE} />
-      )}
-      {navLocked ? (
-        <DisabledIconOnlyLink title="Sweep" newRoute={Routes.SWEEP} />
-      ) : (
-        <IconOnlyLink setRoute={setRoute} title="Sweep" newRoute={Routes.SWEEP} />
-      )}
-      {navLocked ? (
-        <DisabledIconOnlyLink title="History" newRoute={Routes.HISTORY} />
-      ) : (
-        <IconOnlyLink setRoute={setRoute} title="History" newRoute={Routes.HISTORY} />
-      )}
-      {navLocked ? (
-        <DisabledIconOnlyLink title="Sign" newRoute={Routes.SIGN} />
-      ) : (
-        <IconOnlyLink setRoute={setRoute} title="Sign" newRoute={Routes.SIGN} />
-      )}
-      {navLocked ? (
-        <DisabledIconOnlyLink title="Chat" newRoute={Routes.CHAT} />
-      ) : (
-        <IconOnlyLink setRoute={setRoute} title="Chat" newRoute={Routes.CHAT} />
-      )}
+  const statusEntries = [
+    {
+      key: "sync",
+      props: {
+        title: syncHint,
+        label: "Syncr",
+        dotColor: syncColor,
+        dotShadow: syncShadow,
+        labelColor: syncHealth === "offline" ? "#ef4444" : "var(--muted-color)",
+        live: true,
+      },
+    },
+    {
+      key: "passphrase",
+      props: {
+        title: hasPassphrase ? "Passphrase set" : "No passphrase",
+        label: "Passphrase",
+        dotColor: passphraseColor,
+        dotShadow: passphraseShadow,
+      },
+    },
+    {
+      key: "hardware",
+      props: {
+        title: isFromESP32 ? "Hardware wallet" : "Not hardware",
+        label: "HW",
+        dotColor: hwColor,
+        dotShadow: hwShadow,
+      },
+    },
+  ];
 
-      <PlaceholderIconOnlyItem title="IoT" icon={<IconIoT />} />
+  const renderStatusItems = (variant: "compact" | "full") => {
+    const baseClass =
+      "rebel-navigator__status-list" +
+      (variant === "compact" ? " rebel-navigator__status-list--singleline" : "");
 
-      <IconOnlyLink setRoute={setRoute} title="Settings" newRoute={Routes.SETTINGS} />
-    </ul>
-  );
+    return (
+      <div
+        className={baseClass}
+        style={
+          variant === "full"
+            ? {
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: "0.75rem",
+                marginTop: "0.5rem",
+                marginBottom: "0.5rem",
+              }
+            : undefined
+        }
+      >
+        {statusEntries.map(({ key, props }) => (
+          <StatusItem key={key} {...props} />
+        ))}
+      </div>
+    );
+  };
+
+  const renderNavList = (variant: "full" | "icon", extraClassName = "") => {
+    const baseClass =
+      "rebel-navigator__list" +
+      (variant === "icon" ? " rebel-navigator__list--icononly" : "") +
+      (extraClassName ? ` ${extraClassName}` : "");
+
+    return (
+      <ul className={baseClass}>
+        {NAV_ITEMS.map((item) => {
+          if (item.type === "placeholder") {
+            return (
+              <PlaceholderNavItem
+                key={item.key}
+                title={item.title}
+                icon={item.icon}
+                variant={variant}
+              />
+            );
+          }
+
+          const disabled = navLocked && (item.lockable ?? true);
+
+          return (
+            <NavItem
+              key={item.route}
+              title={item.title}
+              route={item.route}
+              variant={variant}
+              currentRoute={currentRoute}
+              setRoute={setRoute}
+              disabled={disabled}
+            />
+          );
+        })}
+      </ul>
+    );
+  };
+
+  const renderCompactIconMenu = () =>
+    renderNavList("icon", "rebel-navigator__list--icononly-singleline");
 
   return (
     <article
@@ -229,27 +224,7 @@ export function Navigator({
               </h2>
             </a>
 
-            <div className="rebel-navigator__status-list rebel-navigator__status-list--singleline">
-              <StatusItem
-                title={syncHint}
-                label="Syncr"
-                dotColor={syncColor}
-                dotShadow={syncShadow}
-                labelColor={syncHealth === "offline" ? "#ef4444" : "var(--muted-color)"}
-              />
-              <StatusItem
-                title={hasPassphrase ? "Passphrase set" : "No passphrase"}
-                label="Passphrase"
-                dotColor={passphraseColor}
-                dotShadow={passphraseShadow}
-              />
-              <StatusItem
-                title={isFromESP32 ? "Hardware wallet" : "Not hardware"}
-                label="HW"
-                dotColor={hwColor}
-                dotShadow={hwShadow}
-              />
-            </div>
+            {renderStatusItems("compact")}
           </div>
 
           <nav className="rebel-navigator rebel-navigator--icononly rebel-navigator__compact-center">
@@ -309,138 +284,11 @@ export function Navigator({
 
           <h5>Rebel Wallet 1.0.9 - 16/12/2025</h5>
 
-          {/* Syncr indicator */}
-          <div
-            title={syncHint}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              marginTop: "0.5rem",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <div
-              style={{
-                width: "12px",
-                height: "12px",
-                borderRadius: "50%",
-                backgroundColor: syncColor,
-                boxShadow: syncShadow,
-              }}
-            />
-            <span
-              style={{
-                fontSize: "0.85rem",
-                color: syncHealth === "offline" ? "#ef4444" : "var(--muted-color)",
-              }}
-            >
-              Syncr
-            </span>
-          </div>
-
-          {/* Passphrase indicator */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              marginTop: "0.5rem",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <div
-              style={{
-                width: "12px",
-                height: "12px",
-                borderRadius: "50%",
-                backgroundColor: passphraseColor,
-                boxShadow: passphraseShadow,
-              }}
-            />
-            <span
-              style={{
-                fontSize: "0.85rem",
-                color: "var(--muted-color)",
-              }}
-            >
-              Passphrase
-            </span>
-          </div>
-
-          {/* Hardware (ESP32) indicator */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <div
-              style={{
-                width: "12px",
-                height: "12px",
-                borderRadius: "50%",
-                backgroundColor: hwColor,
-                boxShadow: hwShadow,
-              }}
-            />
-            <span
-              style={{
-                fontSize: "0.85rem",
-                color: "var(--muted-color)",
-              }}
-            >
-              HW
-            </span>
-          </div>
+          {renderStatusItems("full")}
 
           {balance}
 
-          <nav className="rebel-navigator">
-            <ul className="rebel-navigator__list">
-              {navLocked ? (
-                <DisabledLink title="Home" newRoute={Routes.HOME} />
-              ) : (
-                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.HOME} title="Home" />
-              )}
-              {navLocked ? (
-                <DisabledLink title="Send" newRoute={Routes.SEND} />
-              ) : (
-                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SEND} title="Send" />
-              )}
-              {navLocked ? (
-                <DisabledLink title="Receive" newRoute={Routes.RECEIVE} />
-              ) : (
-                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.RECEIVE} title="Receive" />
-              )}
-              {navLocked ? (
-                <DisabledLink title="Sweep" newRoute={Routes.SWEEP} />
-              ) : (
-                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SWEEP} title="Sweep" />
-              )}
-              {navLocked ? (
-                <DisabledLink title="History" newRoute={Routes.HISTORY} />
-              ) : (
-                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.HISTORY} title="History" />
-              )}
-              {navLocked ? (
-                <DisabledLink title="Sign" newRoute={Routes.SIGN} />
-              ) : (
-                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SIGN} title="Sign" />
-              )}
-              {navLocked ? (
-                <DisabledLink title="Chat" newRoute={Routes.CHAT} />
-              ) : (
-                <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.CHAT} title="Chat" />
-              )}
-
-              <PlaceholderItem title="IoT" icon={<IconIoT />} />
-
-              <Link currentRoute={currentRoute} setRoute={setRoute} newRoute={Routes.SETTINGS} title="Settings" />
-            </ul>
-          </nav>
+          <nav className="rebel-navigator">{renderNavList("full")}</nav>
         </>
       )}
       {/* <small>
@@ -448,13 +296,6 @@ export function Navigator({
       </small> */}
     </article>
   );
-}
-
-interface ILinkProps {
-  currentRoute: Routes;
-  newRoute: Routes;
-  setRoute: (route: Routes) => void;
-  title: string;
 }
 
 type NetworkInfoProps = {
@@ -487,76 +328,79 @@ function NetworkSelect({ wallet, networks }: NetworkInfoProps) {
   );
 }
 
-function Link({ currentRoute, newRoute, setRoute, title }: ILinkProps) {
-  const isCurrent = currentRoute === newRoute;
+type NavItemVariant = "full" | "icon";
+
+interface NavItemProps {
+  currentRoute: Routes;
+  route: Routes;
+  setRoute: (route: Routes) => void;
+  title: string;
+  variant: NavItemVariant;
+  disabled?: boolean;
+}
+
+function NavItem({ currentRoute, route, setRoute, title, variant, disabled }: NavItemProps) {
+  const isCurrent = currentRoute === route;
   const classes =
     "rebel-navigator__list-item" +
-    (isCurrent ? " rebel-navigator__list-item--active" : "");
+    (variant === "icon" ? " rebel-navigator__list-item--icononly" : "") +
+    (variant === "full" && isCurrent ? " rebel-navigator__list-item--active" : "");
+
+  const style = disabled
+    ? { display: "block", opacity: 0.45, cursor: "not-allowed", pointerEvents: "none" }
+    : { display: "block" };
+
   return (
     <li className={classes}>
       <a
         href="#"
         className="primary rebel-navigator__list-item-link"
         onClick={(event) => {
-          setRoute(newRoute);
           event.preventDefault();
+          if (disabled) return false;
+          setRoute(route);
           return false;
         }}
-        style={{ display: "block" }}
+        style={style}
+        aria-disabled={disabled || undefined}
+        title={variant === "icon" ? title : undefined}
+        aria-label={variant === "icon" ? title : undefined}
       >
-        <Icon route={newRoute} />
-        {title}
+        <Icon route={route} />
+        {variant === "full" ? title : null}
       </a>
     </li>
   );
 }
 
-function DisabledLink({ title, newRoute }: { title: string; newRoute: Routes }) {
+function PlaceholderNavItem({
+  title,
+  icon,
+  variant,
+}: {
+  title: string;
+  icon?: ReactNode;
+  variant: NavItemVariant;
+}) {
+  const classes =
+    "rebel-navigator__list-item" +
+    (variant === "icon" ? " rebel-navigator__list-item--icononly" : "");
   return (
-    <li className={"rebel-navigator__list-item"}>
-      <a
-        href="#"
+    <li className={classes}>
+      <div
         className="primary rebel-navigator__list-item-link"
-        aria-disabled="true"
-        onClick={(event) => {
-          event.preventDefault();
-          return false;
-        }}
-        style={{
-          display: "block",
-          opacity: 0.45,
-          cursor: "not-allowed",
-          pointerEvents: "none",
-        }}
-      >
-        <Icon route={newRoute} />
-        {title}
-      </a>
-    </li>
-  );
-}
-
-function PlaceholderItem({ title, icon }: { title: string; icon?: ReactNode }) {
-  return (
-    <li className={"rebel-navigator__list-item"}>
-      <a
-        href="#"
-        className="primary rebel-navigator__list-item-link"
-        aria-disabled="true"
-        onClick={(event) => {
-          event.preventDefault();
-          return false;
-        }}
         style={{
           display: "block",
           opacity: 0.55,
           cursor: "default",
           pointerEvents: "none",
         }}
+        title={variant === "icon" ? title : undefined}
+        aria-label={variant === "icon" ? title : undefined}
       >
         {icon ? <div>{icon}</div> : null}
-        {title}
-      </a>
+        {variant === "full" ? title : null}
+      </div>
     </li>
   );
 }
@@ -567,15 +411,23 @@ function StatusItem({
   dotColor,
   dotShadow,
   labelColor,
+  live = false,
 }: {
   title: string;
   label: string;
   dotColor: string;
   dotShadow: string;
   labelColor?: string;
+  live?: boolean;
 }) {
   return (
-    <div className="rebel-navigator__status-item" title={title}>
+    <div
+      className="rebel-navigator__status-item"
+      title={title}
+      role={live ? "status" : undefined}
+      aria-live={live ? "polite" : undefined}
+      aria-label={`${label}: ${title}`}
+    >
       <span
         className="rebel-navigator__status-dot"
         style={{ backgroundColor: dotColor, boxShadow: dotShadow }}
@@ -590,86 +442,6 @@ function StatusItem({
   );
 }
 
-function IconOnlyLink({
-  setRoute,
-  title,
-  newRoute,
-}: {
-  setRoute: (route: Routes) => void;
-  title: string;
-  newRoute: Routes;
-}) {
-  return (
-    <li className="rebel-navigator__list-item rebel-navigator__list-item--icononly">
-      <a
-        href="#"
-        className="primary rebel-navigator__list-item-link"
-        title={title}
-        aria-label={title}
-        onClick={(event) => {
-          setRoute(newRoute);
-          event.preventDefault();
-          return false;
-        }}
-        style={{ display: "block" }}
-      >
-        <Icon route={newRoute} />
-      </a>
-    </li>
-  );
-}
-
-function DisabledIconOnlyLink({ title, newRoute }: { title: string; newRoute: Routes }) {
-  return (
-    <li className="rebel-navigator__list-item rebel-navigator__list-item--icononly">
-      <a
-        href="#"
-        className="primary rebel-navigator__list-item-link"
-        title={title}
-        aria-label={title}
-        aria-disabled="true"
-        onClick={(event) => {
-          event.preventDefault();
-          return false;
-        }}
-        style={{
-          display: "block",
-          opacity: 0.45,
-          cursor: "not-allowed",
-          pointerEvents: "none",
-        }}
-      >
-        <Icon route={newRoute} />
-      </a>
-    </li>
-  );
-}
-
-function PlaceholderIconOnlyItem({ title, icon }: { title: string; icon: ReactNode }) {
-  return (
-    <li className="rebel-navigator__list-item rebel-navigator__list-item--icononly">
-      <a
-        href="#"
-        className="primary rebel-navigator__list-item-link"
-        title={title}
-        aria-label={title}
-        aria-disabled="true"
-        onClick={(event) => {
-          event.preventDefault();
-          return false;
-        }}
-        style={{
-          display: "block",
-          opacity: 0.55,
-          cursor: "default",
-          pointerEvents: "none",
-        }}
-      >
-        <div>{icon}</div>
-      </a>
-    </li>
-  );
-}
 //Icons from https://feathericons.com/
 const iconMapper: Record<Routes, JSX.Element> = {
   [Routes.HOME]: <IconHome />,
