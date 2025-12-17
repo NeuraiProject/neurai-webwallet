@@ -1,12 +1,12 @@
 import React from "react";
 
 import { CopyIcon } from "../icons";
+import "./CopyButton.css";
 export function CopyButton({ value, title }: { value: string; title: string }) {
   return (
     <button
-      className="outline"
+      className="outline rebel-copy-button"
       title={title}
-      style={{ zoom: 0.7 }}
       onClick={(event) => {
         navigator.clipboard.writeText(value);
       }}

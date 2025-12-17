@@ -4,6 +4,7 @@ import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { AssetLink } from "./AssetLink";
 import { AssetName } from "./AssetName";
 import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
+import "./Mempool.css";
 export interface IMempoolProps {
   mempool: IDelta[];
   wallet: Wallet;
@@ -24,13 +25,7 @@ export function Mempool({ mempool, wallet }: IMempoolProps) {
             const amount = Math.abs(asset.satoshis) / 1e8;
             return (
               <li key={index}>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                  }}
-                >
+                <div className="rebel-mempool__row">
                   <div>
                     {item.isSent === true ? "sending" : "receiving"}{" "}
                     {formatNumberWith8Decimals(amount)} <AssetName name={name} />

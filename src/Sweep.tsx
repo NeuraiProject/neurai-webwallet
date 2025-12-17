@@ -2,6 +2,7 @@
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import React, { SyntheticEvent } from "react";
 import { QRCameraContainer } from "./QRCameraContainer";
+import "./Sweep.css";
 
 export function Sweep({ wallet }: { wallet: Wallet }) {
   const [privateKey, setPrivateKey] = React.useState("");
@@ -31,7 +32,7 @@ export function Sweep({ wallet }: { wallet: Wallet }) {
       <p>Transfer the entire balance of a private key to your wallet</p>
       <QRCameraContainer onChange={setPrivateKey} />
       <form onSubmit={onSubmit}>
-        <label style={{ marginTop: "calc(var(--spacing) * 2)" }}>
+        <label className="rebel-sweep__label">
           Private Key (not address)
           <input
             type="text"

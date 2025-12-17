@@ -6,6 +6,7 @@ import { useUniqueAssets } from "./useUniqueAssets";
 import { useSignature } from "./useSignature";
 import { useAddressObject } from "./useAddressObject";
 import { CopyIcon } from "../icons";
+import "./Sign.css";
 export function Sign({ assets, wallet }: { assets: IAsset[]; wallet: Wallet }) {
   const [text, setText] = React.useState("");
   const [selectedAsset, setSelectedAsset] = React.useState<string>("");
@@ -87,7 +88,7 @@ export function Sign({ assets, wallet }: { assets: IAsset[]; wallet: Wallet }) {
       </label>
 
       <button
-        style={{ zoom: 0.7 }}
+        className="rebel-sign__copy-signature"
         onClick={(event) => navigator.clipboard.writeText(signature)}
       >
         <CopyIcon />

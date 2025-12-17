@@ -5,15 +5,8 @@ import { AssetName } from "./AssetName";
 
 import networkInfo from "./networkInfo";
 import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
+import "./Assets.css";
 
-const imageStyle = {
-  maxWidth: "80px",
-  maxHeight: "80px",
-  borderRadius: "10px",
-  marginRight: "10px",
-  marginBottom: "5px",
-  background: "white",
-};
 interface IAsset {
   assetName: string;
   balance: number;
@@ -40,17 +33,14 @@ export function Assets({ wallet, assets, mempool }) {
             if (balance === 0) {
               return null;
             }
-            const tdStyle = {
-              paddingBottom: 20,
-              paddingTop: 20,
-              paddingLeft:0
-            };
             return (
               <tr key={assetName || Math.random()}>
-                <td style={tdStyle}>
+                <td className="rebel-assets__cell">
                   <LinkToIPFS wallet={wallet} assetName={assetName} />
                 </td>
-                <td style={tdStyle}>{formatNumberWith8Decimals(balance)}</td>
+                <td className="rebel-assets__cell">
+                  {formatNumberWith8Decimals(balance)}
+                </td>
               </tr>
             );
           })}
@@ -82,19 +72,15 @@ function LinkToIPFS({ wallet, assetName }: LinkToIPFSProps) {
 
     return (
       <div>
-        <a
-          href={url}
-          target="asset"
-          style={{ textDecoration: "none", color: "var(--pico-contrast)" }}
-        >
+        <a href={url} target="asset" className="rebel-assets__link">
           <img
             src={imageURL}
-            style={imageStyle}
+            className="rebel-assets__thumb"
             onError={(event) => {
               const target = event.target as HTMLImageElement;
               target.style.display = "none";
             }}
-          ></img>
+          />
           <AssetName name={assetName} />
         </a>
       </div>
@@ -103,9 +89,9 @@ function LinkToIPFS({ wallet, assetName }: LinkToIPFSProps) {
   return (
     <span>
       <img
-        style={imageStyle}
+        className="rebel-assets__thumb"
         src="https://socialistmodernism.com/wp-content/uploads/2017/07/placeholder-image.png"
-      ></img>
+      />
       <AssetName name={assetName} />
     </span>
   );
