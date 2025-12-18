@@ -42,7 +42,7 @@ export function IoT({ wallet }: { wallet: Wallet }) {
                   style={{ textDecoration: 'none', color: 'inherit' }}
                 >
                   {device.bgridLocation}
-                  <LiaMapMarkerAltSolid style={{ fontSize: '16px', marginLeft: '5px' }} />
+                  <LiaMapMarkerAltSolid className="rebel-iot__bgrid-icon" />
                 </a>
               </td>
               <td className="rebel-iot__cell" data-label="Actions">

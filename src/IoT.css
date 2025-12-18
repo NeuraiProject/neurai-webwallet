@@ -14,10 +14,6 @@
 }
 
 @media (max-width: 1024px) {
-  .rebel-iot__table {
-   
-  }
-
   .rebel-iot__table thead {
     display: none;
   }
@@ -56,4 +52,11 @@
 
 html[data-theme="dark"] .rebel-iot__cell button.outline {
   background: transparent !important;
+}
+
+.rebel-iot__bgrid-icon {
+  font-size: 20px;
+  margin-left: 5px;
+  margin-bottom: 4px;
+  color: rgb(45, 128, 206);
 }
