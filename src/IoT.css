@@ -1,0 +1,59 @@
+.rebel-iot__cell {
+  padding-top: 20px;
+  padding-bottom: 20px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.rebel-iot__cell button {
+  margin-right: 5px;
+}
+
+.rebel-iot__title {
+  text-align: center;
+}
+
+@media (max-width: 1024px) {
+  .rebel-iot__table {
+   
+  }
+
+  .rebel-iot__table thead {
+    display: none;
+  }
+
+  .rebel-iot__row {
+    display: block;
+    border: 1px solid var(--pico-border-color);
+    border-radius: 5px;
+    margin-bottom: 15px;
+    padding: 15px;
+    background: var(--pico-background-color);
+  }
+
+  .rebel-iot__cell {
+    display: block;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--pico-border-color);
+  }
+
+  .rebel-iot__cell:last-child {
+    border-bottom: none;
+  }
+
+  .rebel-iot__cell:before {
+    content: attr(data-label) ": ";
+    font-weight: bold;
+    color: var(--pico-muted-color);
+  }
+
+  .rebel-iot__cell button {
+    display: inline-block;
+    margin-right: 10px;
+    margin-bottom: 5px;
+  }
+}
+
+html[data-theme="dark"] .rebel-iot__cell button.outline {
+  background: transparent !important;
+}

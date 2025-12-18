@@ -43,7 +43,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   { type: "route", route: Routes.HISTORY, title: "History" },
   { type: "route", route: Routes.SIGN, title: "Sign" },
   { type: "route", route: Routes.CHAT, title: "Chat" },
-  { type: "placeholder", key: "iot", title: "IoT", icon: <IconIoT /> },
+  { type: "route", route: Routes.IOT, title: "IoT" },
   { type: "route", route: Routes.SETTINGS, title: "Settings", lockable: false },
 ];
 
@@ -426,6 +426,7 @@ function StatusItem({
 const iconMapper: Record<Routes, JSX.Element> = {
   [Routes.HOME]: <IconHome />,
   [Routes.HISTORY]: <IconHistory />,
+  [Routes.IOT]: <IconIoT />,
   [Routes.RECEIVE]: <IconReceive />,
   [Routes.SEND]: <IconSend />,
   [Routes.CHAT]: <IconChat />,

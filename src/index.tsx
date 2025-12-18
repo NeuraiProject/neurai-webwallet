@@ -27,6 +27,7 @@ import { Routes } from "./Routes";
 import { Footer } from "./Footer";
 import { Sign } from "./sign/Sign";
 import { Settings } from "./Settings";
+import { IoT } from "./IoT";
 
 const DEFAULT_RPC_MAINNET = "https://rpc-depin.neurai.org/rpc";
 const DEFAULT_RPC_TESTNET = "https://rpc-testnet.neurai.org/rpc";
@@ -588,6 +589,8 @@ function App() {
 	          >
 	            <Chat wallet={wallet} assets={assets} mempool={mempool} depinChatIdentity={depinChatIdentity} />
 	          </div>
+
+          {currentRoute === Routes.IOT && <IoT wallet={wallet} />}
 
           {currentRoute === Routes.SETTINGS && (
             <Settings
