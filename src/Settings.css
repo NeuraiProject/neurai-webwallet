@@ -49,3 +49,11 @@
 .rebel-settings__notes ul {
   margin-left: 1.5rem;
 }
+
+.rebel-settings__divider {
+  margin: 2rem 0;
+}
+
+.rebel-settings__signout-full {
+  width: 100%;
+}

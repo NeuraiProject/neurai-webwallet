@@ -513,15 +513,15 @@ function App() {
 
         <div className="rebel-content-container">
           <div className="rebel-content-container__content">
-            <Settings />
+            <Settings
+              signOut={signOut}
+              mnemonic={mnemonic}
+              isFromESP32={localStorage.getItem("loginFromESP32") === "true"}
+            />
           </div>
         </div>
 
-        <Footer
-          signOut={signOut}
-          mnemonic={mnemonic}
-          isFromESP32={localStorage.getItem("loginFromESP32") === "true"}
-        />
+        <Footer />
       </>
     );
   }
@@ -590,12 +590,16 @@ function App() {
 	          </div>
 
           {currentRoute === Routes.SETTINGS && (
-            <Settings />
+            <Settings
+              signOut={signOut}
+              mnemonic={mnemonic}
+              isFromESP32={localStorage.getItem("loginFromESP32") === "true"}
+            />
           )}
         </div>
       </div>
 
-      <Footer signOut={signOut} mnemonic={mnemonic} isFromESP32={localStorage.getItem("loginFromESP32") === "true"} />
+      <Footer />
     </>
   );
 }

@@ -1,62 +1,83 @@
 import React from "react";
 import "./Footer.css";
+import {
+  LiaDiscord,
+  LiaGithub,
+  LiaNpm,
+  LiaReddit,
+  LiaTelegramPlane,
+} from "react-icons/lia";
+import { FaSquareXTwitter } from "react-icons/fa6";
 
-export function Footer({
-  signOut,
-  mnemonic,
-  isFromESP32 = false
-}: {
-  signOut: () => void;
-  mnemonic: string;
-  isFromESP32?: boolean;
-}) {
-  // Extract just the mnemonic part (without passphrase) for word count
-  const mnemonicOnly = mnemonic.includes("|||") ? mnemonic.split("|||")[0] : mnemonic;
-  const hasPassphrase = mnemonic.includes("|||");
-  
-  // Detect if mnemonic has 12 or 24 words
-  const wordCount = mnemonicOnly ? mnemonicOnly.trim().split(/\s+/).filter((w: string) => w.length > 0).length : 12;
-  const wordsText = wordCount === 24 ? "24 words" : "12 words";
-  
+export function Footer() {
   return (
-    <article>
-      <footer>
-        {/* If logged in from ESP32, only show Sign out button (full width) */}
-        {/* Otherwise, show both buttons in a grid */}
-        {isFromESP32 ? (
-          <button onClick={signOut} className="rebel-footer__signout-full">
-            Sign out
-          </button>
-        ) : (
-          <div className="grid">
-            <button onClick={signOut}>Sign out</button>
-            <button
-              className="secondary"
-              onClick={(event) => {
-                const target = event.target as HTMLButtonElement;
-                // Copy the full mnemonic (including passphrase if present)
-                navigator.clipboard.writeText(mnemonic);
-                target.disabled = true;
-                setInterval(() => (target.disabled = false), 2000);
-              }}
-            >
-              Copy your secret {wordsText}{hasPassphrase ? " + passphrase" : ""} to memory
-            </button>
-          </div>
-        )}
-      </footer>
+    <footer className="rebel-footer">
       <div className="rebel-footer__meta">
-        <p>
-          Original version create by{" "}
-          <a href="https://twitter.com/RavenRebels" target="_blank">
-            Raven Rebels
+        <p className="rebel-footer__title">Neurai Webwallet &copy; 2025</p>
+
+        <nav className="rebel-footer__social" aria-label="Neurai social links">
+          <a
+            className="rebel-footer__social-link"
+            href="https://twitter.com/neuraiproject"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Neurai on X (Twitter)"
+            title="X (Twitter)"
+          >
+            <FaSquareXTwitter />
           </a>
-        </p>
-        Neurai version  {" "}
-        <a href="https://github.com/neuraiproject/neurai-webwallet">
-          GitHub
-        </a> - 2025
+          <a
+            className="rebel-footer__social-link"
+            href="https://t.me/neuraiproject"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Neurai on Telegram"
+            title="Telegram"
+          >
+            <LiaTelegramPlane />
+          </a>
+          <a
+            className="rebel-footer__social-link"
+            href="https://discord.gg/neurai-project-1062678996208336896"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Neurai on Discord"
+            title="Discord"
+          >
+            <LiaDiscord />
+          </a>
+          <a
+            className="rebel-footer__social-link"
+            href="https://www.reddit.com/r/neuraiproject"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Neurai on Reddit"
+            title="Reddit"
+          >
+            <LiaReddit />
+          </a>
+          <a
+            className="rebel-footer__social-link"
+            href="https://github.com/neuraiproject"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Neurai on GitHub"
+            title="GitHub"
+          >
+            <LiaGithub />
+          </a>
+          <a
+            className="rebel-footer__social-link"
+            href="https://www.npmjs.com/~neuraiproject"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Neurai on npm"
+            title="npm"
+          >
+            <LiaNpm />
+          </a>
+        </nav>
       </div>
-    </article>
+    </footer>
   );
 }

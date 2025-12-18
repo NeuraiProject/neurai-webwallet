@@ -10,12 +10,21 @@ interface RPCConfig {
 const DEFAULT_RPC_MAINNET = "https://rpc-depin.neurai.org/rpc";
 const DEFAULT_RPC_TESTNET = "https://rpc-testnet.neurai.org/rpc";
 
-export function Settings() {
+export function Settings({
+  signOut,
+  mnemonic,
+  isFromESP32 = false,
+}: {
+  signOut?: () => void;
+  mnemonic?: string;
+  isFromESP32?: boolean;
+}) {
   const [rpcUrl, setRpcUrl] = React.useState("");
   const [rpcUsername, setRpcUsername] = React.useState("");
   const [rpcPassword, setRpcPassword] = React.useState("");
   const [useCustomRPC, setUseCustomRPC] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
 
   // Load saved settings on mount
   React.useEffect(() => {
@@ -81,6 +90,21 @@ export function Settings() {
       }
     }
   };
+
+  const safeMnemonic = mnemonic ?? "";
+  const mnemonicOnly = safeMnemonic.includes("|||") ? safeMnemonic.split("|||")[0] : safeMnemonic;
+  const hasPassphrase = safeMnemonic.includes("|||");
+  const wordCount = mnemonicOnly
+    ? mnemonicOnly
+        .trim()
+        .split(/\s+/)
+        .filter((word: string) => word.length > 0).length
+    : 0;
+  const wordsText = wordCount === 24 ? "24 words" : "12 words";
+
+  const canSignOut = typeof signOut === "function";
+  const canCopyMnemonic = !isFromESP32 && !!safeMnemonic;
+  const showWalletSection = canSignOut || canCopyMnemonic;
 
   return (
     <article>
@@ -164,6 +188,40 @@ export function Settings() {
         <div className="rebel-settings__success">
           Configuration saved successfully!
         </div>
+      )}
+
+      {showWalletSection && (
+        <>
+          <hr className="rebel-settings__divider" />
+
+          <h3>Wallet</h3>
+          <div className={isFromESP32 ? "" : "grid"}>
+            {canSignOut && (
+              <button
+                className={isFromESP32 ? "rebel-settings__signout-full" : undefined}
+                onClick={signOut}
+              >
+                Sign out
+              </button>
+            )}
+
+            {canCopyMnemonic && (
+              <button
+                className="secondary"
+                onClick={() => {
+                  navigator.clipboard.writeText(safeMnemonic);
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 2000);
+                }}
+                disabled={copied}
+              >
+                {copied
+                  ? "Copied!"
+                  : `Copy your secret ${wordsText}${hasPassphrase ? " + passphrase" : ""} to memory`}
+              </button>
+            )}
+          </div>
+        </>
       )}
 
       <div className="rebel-settings__notes">
