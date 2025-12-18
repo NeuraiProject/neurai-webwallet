@@ -78,6 +78,11 @@ export function IoT({ wallet }: { wallet: Wallet }) {
                   <LiaMapMarkerAltSolid className="rebel-iot__bgrid-icon" />
                 </a>
               </div>
+
+              <div className="rebel-iot__data-item">
+                <small className="rebel-iot__label">Derivation</small>
+                <p className="rebel-iot__value">{device.derivation}</p>
+              </div>
             </div>
 
             <footer className="rebel-iot__card-footer">
