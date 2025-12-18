@@ -1,7 +1,7 @@
 import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { useIoTDevices, IIoTDevice } from "./hooks/useIoTDevices";
-import { LiaMapMarkerAltSolid } from "react-icons/lia";
+import { LiaMapMarkerAltSolid, LiaSyncSolid, LiaCheckCircleSolid, LiaPauseCircleSolid } from "react-icons/lia";
 import "./IoT.css";
 
 export function IoT({ wallet }: { wallet: Wallet }) {
@@ -12,63 +12,82 @@ export function IoT({ wallet }: { wallet: Wallet }) {
     alert(`Action ${action} on device ${deviceId}`);
   };
 
+  const getStatusColor = (lastHeartbeat: Date) => {
+    const diff = Date.now() - lastHeartbeat.getTime();
+    if (diff < 2 * 60 * 1000) return "#22c55e"; // Green (2 min)
+    if (diff < 10 * 60 * 1000) return "#f59e0b"; // Orange (10 min)
+    return "#ef4444"; // Red
+  };
+
   return (
-    <article>
+    <article className="rebel-iot">
       <h2 className="rebel-iot__title">IoT Device Management (TEST)</h2>
-      <table role="grid" className="rebel-iot__table">
-        <thead>
-          <tr>
-            <th>Device</th>
-            <th>Last Heartbeat</th>
-            <th>Info</th>
-            <th>BGrid Location</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {devices.map((device) => (
-            <tr key={device.id} className="rebel-iot__row">
-              <td className="rebel-iot__cell" data-label="Device">{device.name}</td>
-              <td className="rebel-iot__cell" data-label="Last Heartbeat">
-                {device.lastHeartbeat.toLocaleString()}
-              </td>
-              <td className="rebel-iot__cell" data-label="Info">{device.info}</td>
-              <td className="rebel-iot__cell" data-label="BGrid Location">
+      
+      <div className="rebel-iot__grid">
+        {devices.map((device) => (
+          <div key={device.id} className="rebel-iot__card">
+            <header className="rebel-iot__card-header">
+              <div className="rebel-iot__device-info">
+                <span 
+                  className="rebel-iot__status-dot" 
+                  style={{ backgroundColor: getStatusColor(device.lastHeartbeat) }}
+                  title={`Last heartbeat: ${device.lastHeartbeat.toLocaleString()}`}
+                />
+                <h4 className="rebel-iot__device-name">{device.name}</h4>
+              </div>
+              <div className="rebel-iot__actions">
+                <button
+                  className="outline contrast rebel-iot__action-btn"
+                  onClick={() => handleAction(device.id, "restart")}
+                  title="Restart Device"
+                >
+                  <LiaSyncSolid />
+                </button>
+                <button
+                  className="outline contrast rebel-iot__action-btn"
+                  onClick={() => handleAction(device.id, "check")}
+                  title="Check Status"
+                >
+                  <LiaCheckCircleSolid />
+                </button>
+                <button
+                  className="outline contrast rebel-iot__action-btn"
+                  onClick={() => handleAction(device.id, "suspend")}
+                  title="Suspend 1h"
+                >
+                  <LiaPauseCircleSolid />
+                </button>
+              </div>
+            </header>
+
+            <div className="rebel-iot__card-body">
+              <div className="rebel-iot__data-item">
+                <small className="rebel-iot__label">Information</small>
+                <p className="rebel-iot__value">{device.info}</p>
+              </div>
+              
+              <div className="rebel-iot__data-item">
+                <small className="rebel-iot__label">BGrid Location</small>
                 <a
                   href={`https://maps.bgrid.org/?en=${device.bgridLocation.replace(/ /g, ',')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  title="View on BGrid Map"
-                  style={{ textDecoration: 'none', color: 'inherit' }}
+                  className="rebel-iot__bgrid-link"
                 >
                   {device.bgridLocation}
                   <LiaMapMarkerAltSolid className="rebel-iot__bgrid-icon" />
                 </a>
-              </td>
-              <td className="rebel-iot__cell" data-label="Actions">
-                <button
-                  className="outline"
-                  onClick={() => handleAction(device.id, "restart")}
-                >
-                  Restart
-                </button>
-                <button
-                  className="outline"
-                  onClick={() => handleAction(device.id, "check")}
-                >
-                  Check
-                </button>
-                <button
-                  className="outline"
-                  onClick={() => handleAction(device.id, "suspend")}
-                >
-                  Suspend 1h
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+            </div>
+
+            <footer className="rebel-iot__card-footer">
+              <small className="rebel-iot__heartbeat">
+                Last seen: {device.lastHeartbeat.toLocaleTimeString()}
+              </small>
+            </footer>
+          </div>
+        ))}
+      </div>
     </article>
   );
 }
