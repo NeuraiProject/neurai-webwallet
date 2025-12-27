@@ -45,10 +45,10 @@
   resolved "https://registry.npmjs.org/@msgpackr-extract/msgpackr-extract-linux-x64/-/msgpackr-extract-linux-x64-3.0.3.tgz"
   integrity sha512-cvwNfbP07pKUfq1uH+S6KJ7dT9K8WOE4ZiAcsrSes+UY55E/0jLYc+vq+DO7jlmqRb5zAggExKm0H7O/CBaesg==
 
-"@neuraiproject/neurai-depin-msg@^2.0.0":
-  version "2.0.0"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-depin-msg/-/neurai-depin-msg-2.0.0.tgz"
-  integrity sha512-uVg/qVQlfXhM6Is0h/hk+cHjK2qZVp8XSSRxcu+8t75Miju+Ue22KPghrcBnUOr+0Q+LtHeFsGICPOppFLRWXw==
+"@neuraiproject/neurai-depin-msg@^2.1.1":
+  version "2.1.1"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-depin-msg/-/neurai-depin-msg-2.1.1.tgz"
+  integrity sha512-A5hOFn7AoKj0l0wVAga0EaIKqswlg/6ZLDwHOAMS1B7EsQ1zv+H9lsUJKR4OLtZFEPZ5BYc818pXU+pQnCNWYQ==
   dependencies:
     "@bitcoinerlab/secp256k1" "1.2.0"
 
@@ -949,10 +949,10 @@ base64-js@^1.3.1:
   resolved "https://registry.npmjs.org/base64-js/-/base64-js-1.5.1.tgz"
   integrity sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==
 
-baseline-browser-mapping@^2.8.19:
-  version "2.8.20"
-  resolved "https://registry.npmjs.org/baseline-browser-mapping/-/baseline-browser-mapping-2.8.20.tgz"
-  integrity sha512-JMWsdF+O8Orq3EMukbUN1QfbLK9mX2CkUmQBcW2T0s8OmdAUL5LLM/6wFwSrqXzlXB13yhyK9gTKS1rIizOduQ==
+baseline-browser-mapping@^2.8.19, baseline-browser-mapping@^2.9.11:
+  version "2.9.11"
+  resolved "https://registry.npmjs.org/baseline-browser-mapping/-/baseline-browser-mapping-2.9.11.tgz"
+  integrity sha512-Sg0xJUNDU1sJNGdfGWhVHX0kkZ+HWcvmVymJbj6NSgZZmW/8S9Y2HQ5euytnIgakgxN6papOAWiwDo1ctFDcoQ==
 
 bech32@^1.1.3:
   version "1.1.4"

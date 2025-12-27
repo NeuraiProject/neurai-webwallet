@@ -102,10 +102,10 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   const [messageExpiryHours, setMessageExpiryHours] = React.useState<number | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const chatInputRef = React.useRef<HTMLTextAreaElement>(null);
-  
+
   // Estado para el listado de direcciones con pubkeys
   const [showAddressList, setShowAddressList] = React.useState(false);
-  const [addressList, setAddressList] = React.useState<Array<{address: string, amount: number, pubkey: string | null}>>([]);
+  const [addressList, setAddressList] = React.useState<Array<{ address: string, amount: number, pubkey: string | null }>>([]);
   const [loadingAddressList, setLoadingAddressList] = React.useState(false);
   const [showDepinAddressQr, setShowDepinAddressQr] = React.useState(false);
   const [depinChatPubkeyRevealed, setDepinChatPubkeyRevealed] = React.useState<boolean | null>(null);
@@ -463,7 +463,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
       // Sort messages by timestamp (oldest first)
       const sortedMessages = [...depinMessages].sort((a, b) => a.timestamp - b.timestamp);
-      
+
       const makeDeliveryKey = (
         token: string | null,
         senderAddress: string | undefined,
@@ -647,7 +647,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         console.log('🔄 Refreshing messages after send...');
         await refreshMessages();
       }, 1000);
-      
+
     } catch (error: any) {
       console.error("Error sending message:", error);
       // Rollback optimistic message if send fails
@@ -739,7 +739,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     setSelectedAsset(assetName);
     const address = assetAddresses[assetName] || null;
     console.log('Address for asset from assetAddresses:', address);
-    
+
     // Verificar que tenemos una dirección válida
     if (!address || address === "Not found in wallet" || address === "Error loading" || address === "Loading...") {
       console.error('ERROR: No valid address found for asset in assetAddresses');
@@ -753,7 +753,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       }]);
       return;
     }
-    
+
     setSelectedAddress(address);
     console.log('Set selectedAddress to:', address);
 
@@ -766,7 +766,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     // La dirección ya fue validada arriba, proceder a conectar
     console.log('Asset has valid address, attempting to connect...');
     console.log('Asset type:', getAssetType(assetName));
-    
+
     const hasPubKey = depinChatPubkeyRevealed;
     const assetTypeLabel = getAssetTypeLabel(assetName);
 
@@ -855,23 +855,23 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   // Internal function that accepts asset parameter for auto-loading
   const loadAddressesWithPubkeysInternal = async (assetName: string) => {
     if (!assetName) return;
-    
+
     setLoadingAddressList(true);
     setShowAddressList(true);
-    
+
     try {
       console.log(`🔵 RPC CALL: listaddressesbyasset`);
       console.log(`📤 Parameters: ["${assetName}"]`);
-      
+
       // Obtener todas las direcciones que tienen este asset
       const addressesData: Record<string, unknown> = await wallet.rpc("listaddressesbyasset", [assetName]) as Record<string, unknown>;
-      
+
       console.log(`✅ RPC SUCCESS: listaddressesbyasset`);
       console.log(`📥 Response:`, addressesData);
-      
+
       const addresses = Object.keys(addressesData);
-      const results: Array<{address: string, amount: number, pubkey: string | null}> = [];
-      
+      const results: Array<{ address: string, amount: number, pubkey: string | null }> = [];
+
       // Para cada dirección, obtener su pubkey (on-chain) usando getpubkey.
       for (const address of addresses) {
         const amount = normalizeAssetAmountMaybe(addressesData[address]);
@@ -897,17 +897,17 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           console.warn('Error:', error);
           // pubkey se queda en null
         }
-        
+
         results.push({
           address,
           amount,
           pubkey
         });
       }
-      
+
       setAddressList(results);
       console.log('📋 Address list loaded:', results);
-      
+
     } catch (error: any) {
       console.error("Error loading addresses with pubkeys:", error);
       alert(`Failed to load addresses: ${error.message}`);
@@ -1131,6 +1131,18 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
               <span style={{ color: isConnected ? "#22c55e" : "#6b7280" }}>
                 {isConnected ? "● Connected" : "○ Disconnected"}
               </span>
+            </div>
+            <div>
+              <strong>Privacy:</strong>{" "}
+              {msgInfo?.depinpoolpkey && msgInfo.depinpoolpkey !== "0" ? (
+                <span style={{ color: "#22c55e", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+                  ● Active <span style={{ fontSize: "0.7em", fontFamily: "monospace", color: "#6b7280" }}>({msgInfo.depinpoolpkey.substring(0, 6)}...{msgInfo.depinpoolpkey.substring(60)})</span>
+                </span>
+              ) : (
+                <span style={{ color: "#ef4444" }}>
+                  ● Inactive
+                </span>
+              )}
             </div>
             {stats && (
               <>
@@ -1356,7 +1368,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                   }}
                 >
                   {message.sender === "user" && message.delivery === "pending" && (
-                    <FaRegClock 
+                    <FaRegClock
                       size={15}
                       color="#835608ff"
                       style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
@@ -1364,7 +1376,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                     />
                   )}
                   {message.sender === "user" && message.delivery === "confirmed" && (
-                    <FaRegCircleCheck 
+                    <FaRegCircleCheck
                       size={15}
                       color="#22c55e"
                       style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
@@ -1485,7 +1497,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         </button>
         {selectedAsset && (
           <>
-            <button 
+            <button
               onClick={handleDisconnect}
               style={{
                 backgroundColor: "#ef4444",
@@ -1495,7 +1507,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
             >
               Disconnect
             </button>
-            <button 
+            <button
               onClick={loadAddressesWithPubkeys}
               disabled={loadingAddressList}
               style={{
