@@ -18,6 +18,7 @@ import {
 } from "./icons";
 import { FaAnglesDown, FaAnglesUp } from "react-icons/fa6";
 import networkInfo, { INetworks } from "./networkInfo";
+import { BUILD_DATE } from "./buildDate";
 
 type RouteNavItemConfig = {
   type: "route";
@@ -200,49 +201,49 @@ export function Navigator({
     >
       {isCompact ? (
         <>
-        <div className="rebel-navigator__compact-grid">
-          <div className="rebel-navigator__compact-left">
-            <a href="#" className="primary" onClick={onClickHome}>
-              <h2 className="rebel-headline rebel-navigator__brand">
-                <img
-                  src={neuraiLogo.href}
-                  alt="Neurai logo"
-                  className="rebel-navigator__brand-logo"
-                />
-                Neurai
-              </h2>
-            </a>
+          <div className="rebel-navigator__compact-grid">
+            <div className="rebel-navigator__compact-left">
+              <a href="#" className="primary" onClick={onClickHome}>
+                <h2 className="rebel-headline rebel-navigator__brand">
+                  <img
+                    src={neuraiLogo.href}
+                    alt="Neurai logo"
+                    className="rebel-navigator__brand-logo"
+                  />
+                  Neurai
+                </h2>
+              </a>
 
-            {renderStatusItems("compact")}
+              {renderStatusItems("compact")}
+            </div>
+
+            <nav className="rebel-navigator rebel-navigator--icononly rebel-navigator__compact-center">
+              {renderCompactIconMenu()}
+            </nav>
+
+            <div className="rebel-navigator__controls rebel-navigator__compact-right">
+              <div className="rebel-navigator__controls rebel-navigator__compact-right-controls">
+                <button
+                  className="outline rebel-navigator__compact-toggle"
+                  title="Expand menu"
+                  aria-label="Expand menu"
+                  onClick={() => setIsCompact(false)}
+                >
+                  <FaAnglesDown />
+                </button>
+                <LightModeToggle />
+              </div>
+              <div className="rebel-navigator__compact-balance">
+                {balance}
+              </div>
+            </div>
           </div>
 
-          <nav className="rebel-navigator rebel-navigator--icononly rebel-navigator__compact-center">
-            {renderCompactIconMenu()}
-          </nav>
-
-          <div className="rebel-navigator__controls rebel-navigator__compact-right">
-            <div className="rebel-navigator__controls rebel-navigator__compact-right-controls">
-              <button
-                className="outline rebel-navigator__compact-toggle"
-                title="Expand menu"
-                aria-label="Expand menu"
-                onClick={() => setIsCompact(false)}
-              >
-                <FaAnglesDown />
-              </button>
-              <LightModeToggle />
-            </div>
-            <div className="rebel-navigator__compact-balance">
-              {balance}
-            </div>
+          <div className="rebel-navigator__compact-mobile-icons" aria-label="Compact menu">
+            <nav className="rebel-navigator rebel-navigator--icononly">
+              {renderCompactIconMenu()}
+            </nav>
           </div>
-        </div>
-
-        <div className="rebel-navigator__compact-mobile-icons" aria-label="Compact menu">
-          <nav className="rebel-navigator rebel-navigator--icononly">
-            {renderCompactIconMenu()}
-          </nav>
-        </div>
         </>
       ) : (
         <>
@@ -271,7 +272,7 @@ export function Navigator({
             </div>
           </div>
 
-          <h5>Rebel Wallet 1.0.9 - 17/12/2025</h5>
+          <h5>Rebel Wallet 1.0.9 - {BUILD_DATE}</h5>
 
           {renderStatusItems("full")}
 
