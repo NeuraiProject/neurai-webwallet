@@ -192,7 +192,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
   // Tab state for private conversations
   const [activeTab, setActiveTab] = React.useState<string>("group");
-  const [closedTabs, setClosedTabs] = React.useState<Set<string>>(new Set());
+  const [closedTabs, setClosedTabs] = React.useState<Map<string, number>>(new Map()); // Map<address, closeTimestamp>
 
   // Hook DePIN para mensajería
   const {
@@ -489,6 +489,33 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
     console.log('[CACHE] ✅ Cache updated. Total tabs:', newCache.size);
     setMessagesByTab(newCache);
+
+    // Reabrir pestañas cerradas si hay mensajes nuevos posteriores al cierre
+    setClosedTabs(prevClosed => {
+      if (prevClosed.size === 0) return prevClosed;
+      
+      const updatedClosed = new Map(prevClosed);
+      let hasChanges = false;
+      
+      for (const [address, closeTimestamp] of prevClosed.entries()) {
+        const tabMessages = newCache.get(address) || [];
+        if (tabMessages.length === 0) continue;
+        
+        // Verificar si hay algún mensaje posterior al cierre
+        const hasNewMessage = tabMessages.some(msg => {
+          const msgTimestamp = msg.unixTimestamp ?? Math.floor(msg.timestamp.getTime() / 1000);
+          return msgTimestamp > closeTimestamp;
+        });
+        
+        if (hasNewMessage) {
+          console.log(`[CACHE] 🔓 Reopening tab ${address} - new message after close`);
+          updatedClosed.delete(address);
+          hasChanges = true;
+        }
+      }
+      
+      return hasChanges ? updatedClosed : prevClosed;
+    });
   }, [groupMessages, privateConversations, selectedAddress, selectedAsset, pendingMessagesByTab, messageExpiryHours, formatUnixTimestampNoSeconds, computeExpiresDate]);
 
   // Calcular unreadCount para cada conversación privada
@@ -1440,7 +1467,8 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setClosedTabs(prev => new Set([...prev, address]));
+                      const closeTimestamp = Math.floor(Date.now() / 1000);
+                      setClosedTabs(prev => new Map(prev).set(address, closeTimestamp));
                       if (activeTab === address) {
                         setActiveTab("group");
                       }
@@ -1638,7 +1666,9 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           </div>
 
           {/* Pestañas Privadas */}
-          {Array.from(privateConversations.keys()).map((address) => (
+          {Array.from(privateConversations.keys())
+            .filter((address) => !closedTabs.has(address))
+            .map((address) => (
             <div
               key={address}
               style={{
