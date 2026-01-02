@@ -100,7 +100,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   const [validityStatus, setValidityStatus] = React.useState<any>(null);
   const [msgInfo, setMsgInfo] = React.useState<any>(null);
   const [messageExpiryHours, setMessageExpiryHours] = React.useState<number | null>(null);
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const messagesEndRef = React.useRef<Map<string, HTMLDivElement | null>>(new Map());
   const chatInputRef = React.useRef<HTMLTextAreaElement>(null);
 
   // Estado para el listado de direcciones con pubkeys
@@ -440,7 +440,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
     const groupPending = pendingMessagesByTab.get("group") || [];
     const groupConfirmedKeys = new Set(groupDepinMessages.map(m => m.deliveryKey));
-    const groupStillPending = groupPending.filter(m => !groupConfirmedKeys.has(m.deliveryKey));
+    const groupStillPending = groupPending.filter(m => m.deliveryKey && !groupConfirmedKeys.has(m.deliveryKey));
     const allGroupMessages = [...groupDepinMessages, ...groupStillPending].filter(m => !isDepinExpired(m));
     allGroupMessages.sort((a, b) => {
       const ta = (a.unixTimestamp ?? Math.floor(a.timestamp.getTime() / 1000)) * 1000;
@@ -476,7 +476,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
       const privatePending = pendingMessagesByTab.get(address) || [];
       const privateConfirmedKeys = new Set(privateDepinMessages.map(m => m.deliveryKey));
-      const privateStillPending = privatePending.filter(m => !privateConfirmedKeys.has(m.deliveryKey));
+      const privateStillPending = privatePending.filter(m => m.deliveryKey && !privateConfirmedKeys.has(m.deliveryKey));
       const allPrivateMessages = [...privateDepinMessages, ...privateStillPending].filter(m => !isDepinExpired(m));
       allPrivateMessages.sort((a, b) => {
         const ta = (a.unixTimestamp ?? Math.floor(a.timestamp.getTime() / 1000)) * 1000;
@@ -550,8 +550,9 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     
     if (!lastReadId || tabMessages.length === 0) {
       // No hay último leído, ir al final
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      const endRef = messagesEndRef.current.get(tabKey);
+      if (endRef) {
+        endRef.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
       return;
     }
@@ -560,8 +561,9 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     const lastReadIndex = tabMessages.findIndex(m => m.deliveryKey === lastReadId);
     if (lastReadIndex === -1 || lastReadIndex === tabMessages.length - 1) {
       // No encontrado o es el último, ir al final
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      const endRef = messagesEndRef.current.get(tabKey);
+      if (endRef) {
+        endRef.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
       return;
     }
@@ -613,8 +615,11 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       isConnected
     );
     
-    if (shouldScroll && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (shouldScroll) {
+      const endRef = messagesEndRef.current.get(activeTab);
+      if (endRef) {
+        endRef.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
     }
     
     // Marcar todos los mensajes de esta pestaña como leídos
@@ -1458,24 +1463,30 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           </div>
         )}
 
-        {/* Messages area */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "1.5rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1rem",
-            backgroundColor: "#f9fafb",
-            backgroundImage: "linear-gradient(to bottom, #f9fafb 0%, #f3f4f6 100%)",
-          }}
-          className="chat-messages"
-        >
-          {messages.map((message) => (
-            <div key={message.id} id={`message-${message.id}`}>
-            <div
-              key={message.id}
+        {/* Messages area - todas las pestañas siempre renderizadas */}
+        <div style={{ flex: 1, position: "relative", backgroundColor: "#f9fafb" }}>
+          {/* Pestaña General */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              overflowY: "auto",
+              padding: "1.5rem",
+              display: activeTab === "group" ? "flex" : "none",
+              flexDirection: "column",
+              gap: "1rem",
+              backgroundColor: "#f9fafb",
+              backgroundImage: "linear-gradient(to bottom, #f9fafb 0%, #f3f4f6 100%)",
+            }}
+            className="chat-messages"
+          >
+            {(messagesByTab.get("group") || []).map((message) => (
+              <div key={message.id} id={`message-${message.id}`}>
+              <div
+                key={message.id}
               style={{
                 display: "flex",
                 justifyContent:
@@ -1622,8 +1633,184 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
               </div>
             </div>
             </div>
+            ))}
+            <div ref={(el) => messagesEndRef.current.set("group", el)} />
+          </div>
+
+          {/* Pestañas Privadas */}
+          {Array.from(privateConversations.keys()).map((address) => (
+            <div
+              key={address}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                overflowY: "auto",
+                padding: "1.5rem",
+                display: activeTab === address ? "flex" : "none",
+                flexDirection: "column",
+                gap: "1rem",
+                backgroundColor: "#f9fafb",
+                backgroundImage: "linear-gradient(to bottom, #f9fafb 0%, #f3f4f6 100%)",
+              }}
+              className="chat-messages"
+            >
+              {(messagesByTab.get(address) || []).map((message) => (
+                <div key={message.id} id={`message-${message.id}`}>
+                <div
+                  key={message.id}
+                  style={{
+                    display: "flex",
+                    justifyContent:
+                      message.sender === "user" ? "flex-end" : "flex-start",
+                    animation: "slideIn 0.3s ease-out",
+                  }}
+                >
+                  <div
+                    className={message.sender === "user" ? "chat-message-user" : "chat-message-bot"}
+                    style={{
+                      maxWidth: "90%",
+                      padding: "0.5rem 0.5rem",
+                      borderRadius: message.sender === "user"
+                        ? "16px 16px 4px 16px"
+                        : "16px 16px 16px 4px",
+                      backgroundColor:
+                        message.sender === "user"
+                          ? "rgb(247 232 209)"
+                          : "rgb(239 239 239)",
+                      color:
+                        message.sender === "user"
+                          ? "rgb(63 54 54)"
+                          : "#1f2937",
+                      boxShadow: message.sender === "user"
+                        ? "rgb(42 47 55 / 74%) 0px 2px 8px"
+                        : "rgb(42 47 55 / 74%) 0px 2px 8px",
+                      border: message.sender === "user"
+                        ? "none"
+                        : "1px solid #e5e7eb",
+                    }}
+                  >
+                    {/* DePIN Message Format */}
+                    {message.isDePIN && (
+                      <>
+                        {/* Sender (left) + Expires (right) */}
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "baseline",
+                            gap: "0.75rem",
+                            margin: "0",
+                            opacity: message.sender === "user" ? 0.95 : 0.8,
+                          }}
+                        >
+                          <span style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
+                            {shortenAddress(message.senderAddress)}
+                          </span>
+                          {message.expiresDate && (
+                            <span
+                              style={{
+                                fontSize: "0.75rem",
+                                textAlign: "right",
+                                whiteSpace: "nowrap",
+                                color: "#000",
+                                display: "inline-flex",
+                                alignItems: "baseline",
+                                gap: "0.3rem",
+                              }}
+                            >
+                              <FaBomb style={{ color: "#000", fontSize: "1em", lineHeight: 1 }} {...decorativeIconProps} />
+                              <span style={{ fontStyle: "italic" }}>{message.expiresDate}</span>
+                            </span>
+                          )}
+                        </div>
+                        {/* BOT model (if present in prefix) */}
+                        {message.sender === "bot" && extractBotModel(message.text).model && (
+                          <p
+                            style={{
+                              margin: "0 0 0.75rem 0",
+                              fontSize: "0.75rem",
+                              fontWeight: "bold",
+                              opacity: 0.6,
+                            }}
+                          >
+                            <FaRobot
+                              size={14}
+                              style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                              {...decorativeIconProps}
+                            />
+                            {extractBotModel(message.text).model}
+                          </p>
+                        )}
+                        {/* Message Content */}
+                        <div
+                          style={{
+                            margin: 0,
+                            wordWrap: "break-word",
+                            lineHeight: "1.5",
+                            fontSize: "0.95rem",
+                            padding: "0.5rem",
+                            whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
+                            backgroundColor: "transparent",
+                            borderRadius: "8px",
+                          }}
+                        >
+                          {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
+                        </div>
+                      </>
+                    )}
+                    {/* Regular Message Format */}
+                    {!message.isDePIN && (
+                      <div
+                        style={{
+                          margin: 0,
+                          wordWrap: "break-word",
+                          lineHeight: "1.5",
+                          fontSize: "0.95rem",
+                          whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
+                        }}
+                      >
+                        {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
+                      </div>
+                    )}
+                    <small
+                      style={{
+                        display: "block",
+                        marginTop: "0.375rem",
+                        opacity: message.sender === "user" ? 0.9 : 0.6,
+                        fontSize: "0.7rem",
+                        textAlign: "right",
+                      }}
+                    >
+                      {message.sender === "user" && message.delivery === "pending" && (
+                        <FaRegClock
+                          size={15}
+                          color="#835608ff"
+                          style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                          {...decorativeIconProps}
+                        />
+                      )}
+                      {message.sender === "user" && message.delivery === "confirmed" && (
+                        <FaRegCircleCheck
+                          size={15}
+                          color="#22c55e"
+                          style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                          {...decorativeIconProps}
+                        />
+                      )}
+                      {message.isDePIN && message.sendDate
+                        ? message.sendDate
+                        : message.timestamp.toLocaleTimeString()}
+                    </small>
+                  </div>
+                </div>
+                </div>
+              ))}
+              <div ref={(el) => messagesEndRef.current.set(address, el)} />
+            </div>
           ))}
-          <div ref={messagesEndRef} />
         </div>
 
         {/* Input area */}
