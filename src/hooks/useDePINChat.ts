@@ -14,6 +14,17 @@ interface DePINMessage {
   timestamp: number;
   date: string;
   expires: string;
+  messageHash?: string;
+  messageType?: 'private' | 'group'; // From server
+  contactAddress?: string; // For private messages: the other party's address
+}
+
+interface PrivateConversation {
+  address: string;
+  displayName: string;
+  unreadCount: number;
+  lastMessageTime: number;
+  messages: DePINMessage[];
 }
 
 interface PoolStats {
@@ -48,11 +59,18 @@ interface RecipientInfo {
 
 interface DepinReceiveMsgItem {
   hash: string;
-  token: string;
+  token?: string; // May not be present in all responses
   sender: string;
   timestamp: number;
+  message_type?: 'private' | 'group'; // Added by server
+  date?: string; // Optional: formatted date
+  expires?: string; // Optional: expiry date
+  encryption_type?: string; // Optional: encryption method
+  encrypted_payload_size?: number; // Optional: size info
+  signature_size?: number; // Optional: size info
   encrypted_payload_hex: string;
   signature_hex: string;
+  total_size?: number; // Optional: total size
 }
 
 export function useDePINChat(
@@ -62,7 +80,8 @@ export function useDePINChat(
   recipientList?: RecipientInfo[],
   depinChatIdentity?: DepinChatIdentity | null
 ) {
-  const [messages, setMessages] = useState<DePINMessage[]>([]);
+  const [groupMessages, setGroupMessages] = useState<DePINMessage[]>([]);
+  const [privateConversations, setPrivateConversations] = useState<Map<string, PrivateConversation>>(new Map());
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<PoolStats | null>(null);
@@ -72,6 +91,7 @@ export function useDePINChat(
 
   const lastTimestampRef = useRef<number>(0);
   const seenMessageKeysRef = useRef<Set<string>>(new Set());
+  const privateConversationsRef = useRef<Map<string, PrivateConversation>>(new Map());
 
   // Cache sender pubkey per address to avoid repeated getpubkey calls
   const senderPubKeyCacheRef = useRef<{ address: string | null; pubkey: string | null }>({
@@ -115,6 +135,28 @@ export function useDePINChat(
     }
   }, [wallet]);
 
+  // Get contact address for private messages
+  const getContactAddress = useCallback((
+    messageHash: string,
+    sender: string,
+    myAddr: string,
+    messageType?: 'private' | 'group'
+  ): string | undefined => {
+    if (messageType !== 'private') return undefined;
+
+    // If I sent this message, get recipient from localStorage
+    if (sender === myAddr) {
+      const storedRecipient = localStorage.getItem(`private_msg_${messageHash}`);
+      if (!storedRecipient) {
+        console.warn('[DePIN] Private message sent by me but no recipient stored:', messageHash);
+      }
+      return storedRecipient || undefined;
+    }
+
+    // If I received this message, contact is the sender
+    return sender;
+  }, []);
+
   useEffect(() => {
     // Reset cache when effective address changes
     senderPubKeyCacheRef.current = {
@@ -123,11 +165,18 @@ export function useDePINChat(
     };
   }, [effectiveAddress, depinChatIdentity?.publicKey]);
 
+  // Update ref whenever privateConversations changes
+  useEffect(() => {
+    privateConversationsRef.current = privateConversations;
+  }, [privateConversations]);
+
   useEffect(() => {
     // Reset incremental polling + dedupe on token/address change
     lastTimestampRef.current = 0;
     seenMessageKeysRef.current = new Set();
-    setMessages([]);
+    setGroupMessages([]);
+    setPrivateConversations(new Map());
+    privateConversationsRef.current = new Map();
   }, [selectedAsset, effectiveAddress]);
 
   // Automatic message polling every 5 seconds
@@ -213,13 +262,21 @@ export function useDePINChat(
 
           seen.add(key);
           const ts = typeof item.timestamp === 'number' ? item.timestamp : Math.floor(Date.now() / 1000);
+          
+          const messageHash = String(item.hash ?? '');
+          const sender = String(item.sender ?? '');
+          const contactAddress = getContactAddress(messageHash, sender, effectiveAddress, item.message_type);
+          
           newDecrypted.push({
             recipient: effectiveAddress,
-            sender: String(item.sender ?? ''),
+            sender,
             message: plaintext,
             timestamp: ts,
             date: new Date(ts * 1000).toLocaleString(),
             expires: '',
+            messageHash,
+            messageType: item.message_type,
+            contactAddress,
           });
         }
 
@@ -227,11 +284,67 @@ export function useDePINChat(
 
         if (newDecrypted.length > 0) {
           console.log(`[DePIN] +${newDecrypted.length} mensaje(s) descifrado(s)`);
-          setMessages(prev => {
-            const merged = [...prev, ...newDecrypted];
-            merged.sort((a, b) => a.timestamp - b.timestamp);
-            return merged;
+
+          // Separate messages by type
+          const newGroupMessages: DePINMessage[] = [];
+          const privateUpdates = new Map<string, DePINMessage[]>();
+
+          for (const msg of newDecrypted) {
+            console.log(`[DePIN] 🔍 Classifying msg ${msg.messageHash?.substring(0, 8)}:`, {
+              messageType: msg.messageType,
+              contactAddress: msg.contactAddress,
+              sender: msg.sender,
+              decision: msg.messageType === 'private' && msg.contactAddress ? 'PRIVATE' : 'GROUP'
+            });
+
+            if (msg.messageType === 'private' && msg.contactAddress) {
+              if (!privateUpdates.has(msg.contactAddress)) {
+                privateUpdates.set(msg.contactAddress, []);
+              }
+              privateUpdates.get(msg.contactAddress)!.push(msg);
+            } else {
+              newGroupMessages.push(msg);
+            }
+          }
+
+          console.log(`[DePIN] 📊 Final separation:`, {
+            groupCount: newGroupMessages.length,
+            privateConversations: privateUpdates.size,
+            privateAddresses: Array.from(privateUpdates.keys())
           });
+
+          // Update both states atomically using React's batching
+          // This prevents race conditions between the two updates
+          if (newGroupMessages.length > 0) {
+            setGroupMessages(prev => {
+              const merged = [...prev, ...newGroupMessages];
+              merged.sort((a, b) => a.timestamp - b.timestamp);
+              return merged;
+            });
+          }
+
+          if (privateUpdates.size > 0) {
+            setPrivateConversations(prev => {
+              const updated = new Map(prev);
+
+              for (const [contactAddress, msgs] of privateUpdates.entries()) {
+                const existing = updated.get(contactAddress);
+                const allMessages = existing
+                  ? [...existing.messages, ...msgs].sort((a, b) => a.timestamp - b.timestamp)
+                  : msgs;
+
+                updated.set(contactAddress, {
+                  address: contactAddress,
+                  displayName: contactAddress.substring(0, 4) + '...' + contactAddress.substring(contactAddress.length - 4),
+                  unreadCount: (existing?.unreadCount || 0) + msgs.length,
+                  lastMessageTime: Math.max(...allMessages.map(m => m.timestamp)),
+                  messages: allMessages,
+                });
+              }
+
+              return updated;
+            });
+          }
         }
 
         setLastPoll(new Date());
@@ -348,23 +461,76 @@ export function useDePINChat(
         if (typeof plaintext !== 'string' || plaintext.length === 0) continue;
         seen.add(key);
         const ts = typeof item.timestamp === 'number' ? item.timestamp : Math.floor(Date.now() / 1000);
+        
+        const messageHash = String(item.hash ?? '');
+        const sender = String(item.sender ?? '');
+        const contactAddress = getContactAddress(messageHash, sender, effectiveAddress, item.message_type);
+        
         newDecrypted.push({
           recipient: effectiveAddress,
-          sender: String(item.sender ?? ''),
+          sender,
           message: plaintext,
           timestamp: ts,
           date: new Date(ts * 1000).toLocaleString(),
           expires: '',
+          messageHash,
+          messageType: item.message_type,
+          contactAddress,
         });
       }
 
       lastTimestampRef.current = maxTimestamp;
       if (newDecrypted.length > 0) {
-        setMessages(prev => {
-          const merged = [...prev, ...newDecrypted];
-          merged.sort((a, b) => a.timestamp - b.timestamp);
-          return merged;
-        });
+        // Separate messages by type
+        const newGroupMessages: DePINMessage[] = [];
+        const privateUpdates = new Map<string, DePINMessage[]>();
+
+        for (const msg of newDecrypted) {
+          if (msg.messageType === 'private' && msg.contactAddress) {
+            if (!privateUpdates.has(msg.contactAddress)) {
+              privateUpdates.set(msg.contactAddress, []);
+            }
+            privateUpdates.get(msg.contactAddress)!.push(msg);
+          } else {
+            newGroupMessages.push(msg);
+          }
+        }
+
+        // Update group messages
+        if (newGroupMessages.length > 0) {
+          setGroupMessages(prev => {
+            const merged = [...prev, ...newGroupMessages];
+            merged.sort((a, b) => a.timestamp - b.timestamp);
+            return merged;
+          });
+        }
+
+        // Update private conversations
+        if (privateUpdates.size > 0) {
+          console.log(`[DePIN] Updating ${privateUpdates.size} private conversation(s) (refresh)`, Array.from(privateUpdates.keys()));
+          setPrivateConversations(prev => {
+            const updated = new Map(prev);
+
+            for (const [contactAddress, msgs] of privateUpdates.entries()) {
+              const existing = updated.get(contactAddress);
+              const allMessages = existing
+                ? [...existing.messages, ...msgs].sort((a, b) => a.timestamp - b.timestamp)
+                : msgs;
+
+              console.log(`[DePIN]   → Creating/updating conversation with ${contactAddress}: ${msgs.length} new message(s), ${allMessages.length} total`);
+
+              updated.set(contactAddress, {
+                address: contactAddress,
+                displayName: contactAddress.substring(0, 4) + '...' + contactAddress.substring(contactAddress.length - 4),
+                unreadCount: (existing?.unreadCount || 0) + msgs.length,
+                lastMessageTime: Math.max(...allMessages.map(m => m.timestamp)),
+                messages: allMessages,
+              });
+            }
+
+            return updated;
+          });
+        }
       }
 
       setLastPoll(new Date());
@@ -420,7 +586,8 @@ export function useDePINChat(
     }
 
     // Detectar si es un mensaje privado (@dirección)
-    const privateMessageMatch = message.match(/^@(N[a-zA-Z0-9]{33,34})\s+(.*)$/);
+    // Flag 's' permite que . coincida con saltos de línea
+    const privateMessageMatch = message.match(/^@(N[a-zA-Z0-9]{33,34})\s+([\s\S]*)$/);
     const isPrivateMessage = !!privateMessageMatch;
     let targetRecipientAddress: string | null = null;
     let cleanedMessage = message;
@@ -564,6 +731,15 @@ export function useDePINChat(
       console.log('  ✓ Built HEX length:', hexMessage.length);
       console.log('  ✓ messageHash:', buildResult.messageHash);
 
+      // Store recipient for private messages (needed when we receive our own message back)
+      if (isPrivateMessage && targetRecipientAddress) {
+        localStorage.setItem(
+          `private_msg_${buildResult.messageHash}`,
+          targetRecipientAddress
+        );
+        console.log('  ✓ Private message recipient stored:', targetRecipientAddress);
+      }
+
       let submissionPayload: any = hexMessage;
 
       // Privacy Layer: check if server privacy is enabled
@@ -594,6 +770,7 @@ export function useDePINChat(
 
       console.log('✅ RPC SUCCESS: depinsubmitmsg');
       console.log('📥 Response:', JSON.stringify(result, null, 2));
+
       console.log('='.repeat(60));
       console.log('🚀 SEND MESSAGE - COMPLETE');
       console.log('='.repeat(60));
@@ -664,8 +841,29 @@ export function useDePINChat(
     }
   }, [wallet]);
 
+  // Create an empty private conversation
+  const createPrivateConversation = useCallback((address: string) => {
+    setPrivateConversations(prev => {
+      if (prev.has(address)) {
+        return prev; // Already exists
+      }
+
+      const updated = new Map(prev);
+      updated.set(address, {
+        address,
+        displayName: address.substring(0, 4) + '...' + address.substring(address.length - 4),
+        unreadCount: 0,
+        lastMessageTime: Date.now() / 1000,
+        messages: []
+      });
+      console.log('[DePIN] Created empty conversation for:', address);
+      return updated;
+    });
+  }, []);
+
   return {
-    messages,
+    groupMessages,
+    privateConversations,
     isPolling,
     setIsPolling,
     error,
@@ -676,6 +874,7 @@ export function useDePINChat(
     fetchStats,
     checkAssetValidity,
     getMsgInfo,
-    clearMessages
+    clearMessages,
+    createPrivateConversation
   };
 }

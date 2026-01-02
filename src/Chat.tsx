@@ -82,14 +82,14 @@ function parsePubkeyRevealedMaybe(pubkeyResult: any): boolean | null {
 }
 
 export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) {
-  const [messages, setMessages] = React.useState<Message[]>([
-    {
-      id: 1,
-      text: "Welcome to Chat DePIN",
-      sender: "bot",
-      timestamp: new Date(),
-    },
-  ]);
+  // Cache de mensajes por pestaña para evitar recalcular
+  const [messagesByTab, setMessagesByTab] = React.useState<Map<string, Message[]>>(new Map());
+  
+  // Mensajes pendientes por pestaña (optimistic UI)
+  const [pendingMessagesByTab, setPendingMessagesByTab] = React.useState<Map<string, Message[]>>(new Map());
+  
+  // Último mensaje leído por pestaña (para scroll y unreadCount)
+  const [lastReadMessageByTab, setLastReadMessageByTab] = React.useState<Map<string, string>>(new Map());
   const [inputText, setInputText] = React.useState("");
   const [showAssets, setShowAssets] = React.useState(false);
   const [assetAddresses, setAssetAddresses] = React.useState<Record<string, string>>({});
@@ -190,9 +190,14 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     }
   }, [chatAddress]);
 
+  // Tab state for private conversations
+  const [activeTab, setActiveTab] = React.useState<string>("group");
+  const [closedTabs, setClosedTabs] = React.useState<Set<string>>(new Set());
+
   // Hook DePIN para mensajería
   const {
-    messages: depinMessages,
+    groupMessages,
+    privateConversations,
     isPolling,
     setIsPolling,
     error: depinError,
@@ -202,6 +207,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     refreshMessages,
     fetchStats,
     getMsgInfo,
+    createPrivateConversation,
   } = useDePINChat(wallet, selectedAsset, selectedAddress, recipientInfoList, depinChatIdentity ?? null);
 
   const shortenAddress = React.useCallback((address?: string) => {
@@ -387,6 +393,126 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     [messageExpiryHours, formatUnixTimestampNoSecondsShortYear]
   );
 
+  // Update message cache when DePIN data changes
+  React.useEffect(() => {
+    console.log('[CACHE] 🔄 Updating message cache...', {
+      groupMessageCount: groupMessages.length,
+      privateConversationCount: privateConversations.size,
+      privateAddresses: Array.from(privateConversations.keys()),
+    });
+
+    const isDepinExpired = (m: Pick<Message, "isDePIN" | "unixTimestamp" | "timestamp">) => {
+      if (!m.isDePIN) return false;
+      if (!messageExpiryHours || messageExpiryHours <= 0) return false;
+
+      const ts = typeof m.unixTimestamp === "number"
+        ? m.unixTimestamp
+        : Math.floor(m.timestamp.getTime() / 1000);
+
+      const expiresAt = ts + messageExpiryHours * 60 * 60;
+      return Math.floor(Date.now() / 1000) >= expiresAt;
+    };
+
+    const newCache = new Map<string, Message[]>();
+
+    // Process group messages
+    const groupDepinMessages = groupMessages.map((msg) => {
+      const senderType: "user" | "bot" = msg.sender === selectedAddress ? "user" : "bot";
+      const unixTimestamp = msg.timestamp;
+      const messageHash = msg.messageHash || '';
+      const stableId = messageHash ? parseInt(messageHash.substring(0, 8), 16) : Date.now();
+
+      return {
+        id: stableId,
+        text: msg.message,
+        sender: senderType,
+        timestamp: new Date(unixTimestamp * 1000),
+        token: selectedAsset ?? undefined,
+        unixTimestamp,
+        deliveryKey: `${selectedAsset}|${msg.sender}|${unixTimestamp}|${msg.message}`,
+        senderAddress: msg.sender,
+        sendDate: formatUnixTimestampNoSeconds(unixTimestamp),
+        expiresDate: computeExpiresDate(unixTimestamp) ?? msg.expires,
+        isDePIN: true,
+        delivery: "confirmed" as const,
+      };
+    });
+
+    const groupPending = pendingMessagesByTab.get("group") || [];
+    const groupConfirmedKeys = new Set(groupDepinMessages.map(m => m.deliveryKey));
+    const groupStillPending = groupPending.filter(m => !groupConfirmedKeys.has(m.deliveryKey));
+    const allGroupMessages = [...groupDepinMessages, ...groupStillPending].filter(m => !isDepinExpired(m));
+    allGroupMessages.sort((a, b) => {
+      const ta = (a.unixTimestamp ?? Math.floor(a.timestamp.getTime() / 1000)) * 1000;
+      const tb = (b.unixTimestamp ?? Math.floor(b.timestamp.getTime() / 1000)) * 1000;
+      return ta - tb;
+    });
+    console.log(`[CACHE] 📊 Group tab: ${allGroupMessages.length} messages (${groupDepinMessages.length} confirmed + ${groupStillPending.length} pending)`);
+    newCache.set("group", allGroupMessages);
+
+    // Process private conversations
+    for (const [address, conversation] of privateConversations.entries()) {
+      const privateDepinMessages = conversation.messages.map((msg) => {
+        const senderType: "user" | "bot" = msg.sender === selectedAddress ? "user" : "bot";
+        const unixTimestamp = msg.timestamp;
+        const messageHash = msg.messageHash || '';
+        const stableId = messageHash ? parseInt(messageHash.substring(0, 8), 16) : Date.now();
+
+        return {
+          id: stableId,
+          text: msg.message,
+          sender: senderType,
+          timestamp: new Date(unixTimestamp * 1000),
+          token: selectedAsset ?? undefined,
+          unixTimestamp,
+          deliveryKey: `${selectedAsset}|${msg.sender}|${unixTimestamp}|${msg.message}`,
+          senderAddress: msg.sender,
+          sendDate: formatUnixTimestampNoSeconds(unixTimestamp),
+          expiresDate: computeExpiresDate(unixTimestamp) ?? msg.expires,
+          isDePIN: true,
+          delivery: "confirmed" as const,
+        };
+      });
+
+      const privatePending = pendingMessagesByTab.get(address) || [];
+      const privateConfirmedKeys = new Set(privateDepinMessages.map(m => m.deliveryKey));
+      const privateStillPending = privatePending.filter(m => !privateConfirmedKeys.has(m.deliveryKey));
+      const allPrivateMessages = [...privateDepinMessages, ...privateStillPending].filter(m => !isDepinExpired(m));
+      allPrivateMessages.sort((a, b) => {
+        const ta = (a.unixTimestamp ?? Math.floor(a.timestamp.getTime() / 1000)) * 1000;
+        const tb = (b.unixTimestamp ?? Math.floor(b.timestamp.getTime() / 1000)) * 1000;
+        return ta - tb;
+      });
+      console.log(`[CACHE] 📊 Private tab ${address}: ${allPrivateMessages.length} messages (${privateDepinMessages.length} confirmed + ${privateStillPending.length} pending)`);
+      newCache.set(address, allPrivateMessages);
+    }
+
+    console.log('[CACHE] ✅ Cache updated. Total tabs:', newCache.size);
+    setMessagesByTab(newCache);
+  }, [groupMessages, privateConversations, selectedAddress, selectedAsset, pendingMessagesByTab, messageExpiryHours, formatUnixTimestampNoSeconds, computeExpiresDate]);
+
+  // Calcular unreadCount para cada conversación privada
+  const getUnreadCount = React.useCallback((address: string): number => {
+    const lastRead = lastReadMessageByTab.get(address);
+    const tabMessages = messagesByTab.get(address) || [];
+    
+    if (!lastRead || tabMessages.length === 0) {
+      return tabMessages.length;
+    }
+    
+    const lastReadIndex = tabMessages.findIndex(m => m.deliveryKey === lastRead);
+    if (lastReadIndex === -1) {
+      return tabMessages.length;
+    }
+    
+    return Math.max(0, tabMessages.length - lastReadIndex - 1);
+  }, [lastReadMessageByTab, messagesByTab]);
+
+  // Get messages for current tab from cache
+  const messages = messagesByTab.get(activeTab) || [];
+  
+  console.log(`[RENDER] 📺 Rendering tab "${activeTab}" with ${messages.length} messages`);
+
   const extractBotModel = (text: string): { cleanText: string; model: string | null } => {
     // Expected formats (at the start):
     // [BOT]: [google/gemma-3-1b]
@@ -418,12 +544,37 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     return <div className="chat-md" dangerouslySetInnerHTML={{ __html: html }} />;
   };
 
-  const scrollToBottom = () => {
-    // Solo hacer scroll dentro del contenedor de mensajes, no de toda la página
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  const scrollToLastUnread = React.useCallback((tabKey: string) => {
+    const lastReadId = lastReadMessageByTab.get(tabKey);
+    const tabMessages = messagesByTab.get(tabKey) || [];
+    
+    if (!lastReadId || tabMessages.length === 0) {
+      // No hay último leído, ir al final
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      return;
     }
-  };
+    
+    // Buscar el primer mensaje no leído
+    const lastReadIndex = tabMessages.findIndex(m => m.deliveryKey === lastReadId);
+    if (lastReadIndex === -1 || lastReadIndex === tabMessages.length - 1) {
+      // No encontrado o es el último, ir al final
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      return;
+    }
+    
+    // Hacer scroll al primer mensaje no leído
+    const firstUnreadId = tabMessages[lastReadIndex + 1]?.id;
+    if (firstUnreadId) {
+      const element = document.getElementById(`message-${firstUnreadId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [lastReadMessageByTab, messagesByTab]);
 
   const autoResizeChatInput = React.useCallback((textarea: HTMLTextAreaElement) => {
     // Reset height to allow shrinking
@@ -439,100 +590,56 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     }
   }, [inputText, autoResizeChatInput]);
 
+  // Marcar mensajes como leídos y hacer scroll cuando cambia la pestaña o llegan mensajes
+  const prevMessagesStateRef = React.useRef<{tab: string, length: number, lastHash: string}>({
+    tab: activeTab, 
+    length: 0,
+    lastHash: ''
+  });
+  
   React.useEffect(() => {
-    // Solo hacer scroll si hay mensajes y estamos conectados
-    if (messages.length > 1 && isConnected) {
-      scrollToBottom();
+    const prev = prevMessagesStateRef.current;
+    const currentHash = messages.length > 0 ? messages[messages.length - 1].deliveryKey || '' : '';
+    
+    // Si cambiamos de pestaña, hacer scroll al último no leído
+    if (prev.tab !== activeTab && messages.length > 0) {
+      setTimeout(() => scrollToLastUnread(activeTab), 100);
     }
-  }, [messages, isConnected]);
-
-  // Sincronizar mensajes DePIN con la UI de mensajes local
-  React.useEffect(() => {
-    if (depinMessages && depinMessages.length > 0 && isConnected) {
-      const isDepinExpired = (m: Pick<Message, "isDePIN" | "unixTimestamp" | "timestamp">) => {
-        if (!m.isDePIN) return false;
-        if (!messageExpiryHours || messageExpiryHours <= 0) return false;
-
-        const ts = typeof m.unixTimestamp === "number"
-          ? m.unixTimestamp
-          : Math.floor(m.timestamp.getTime() / 1000);
-
-        const expiresAt = ts + messageExpiryHours * 60 * 60;
-        return Math.floor(Date.now() / 1000) >= expiresAt;
-      };
-
-      // Sort messages by timestamp (oldest first)
-      const sortedMessages = [...depinMessages].sort((a, b) => a.timestamp - b.timestamp);
-
-      const makeDeliveryKey = (
-        token: string | null,
-        senderAddress: string | undefined,
-        unixTimestamp: number | undefined,
-        text: string
-      ) => {
-        if (!token || !senderAddress || !unixTimestamp) return null;
-        return `${token}|${senderAddress}|${unixTimestamp}|${text}`;
-      };
-
-      const poolMessages: Message[] = sortedMessages.map((msg, idx) => {
-        const senderType: "user" | "bot" = msg.sender === selectedAddress ? "user" : "bot";
-        const unixTimestamp = msg.timestamp;
-        const deliveryKey = makeDeliveryKey(selectedAsset, msg.sender, unixTimestamp, msg.message) ?? undefined;
-
-        return {
-          id: idx + 100, // Offset to avoid conflicts with local messages
-          text: msg.message,
-          sender: senderType,
-          timestamp: new Date(unixTimestamp * 1000),
-          token: selectedAsset ?? undefined,
-          unixTimestamp,
-          deliveryKey,
-          // DePIN specific fields
-          senderAddress: msg.sender,
-          sendDate: formatUnixTimestampNoSeconds(unixTimestamp),
-          expiresDate: computeExpiresDate(unixTimestamp) ?? msg.expires,
-          isDePIN: true,
-        };
-      });
-
-      setMessages((prev) => {
-        const prevConfirmedKeys = new Set(
-          prev
-            .filter((m) => m.delivery === "confirmed" && m.deliveryKey)
-            .map((m) => m.deliveryKey as string)
-        );
-
-        const prevPendingByKey = new Map(
-          prev
-            .filter((m) => m.delivery === "pending" && m.deliveryKey)
-            .map((m) => [m.deliveryKey as string, m] as const)
-        );
-
-        const poolKeys = new Set(poolMessages.map((m) => m.deliveryKey).filter(Boolean) as string[]);
-
-        const poolWithDelivery = poolMessages.map((m) => {
-          if (!m.deliveryKey) return m;
-          if (prevConfirmedKeys.has(m.deliveryKey) || prevPendingByKey.has(m.deliveryKey)) {
-            return { ...m, delivery: "confirmed" as const };
+    
+    // Si llegan nuevos mensajes en la pestaña actual, scroll al final
+    const shouldScroll = (
+      prev.tab === activeTab && 
+      (messages.length > prev.length || (messages.length > 0 && currentHash !== prev.lastHash)) &&
+      isConnected
+    );
+    
+    if (shouldScroll && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    
+    // Marcar todos los mensajes de esta pestaña como leídos
+    if (messages.length > 0 && isConnected) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.deliveryKey) {
+        setLastReadMessageByTab(prev => {
+          // Solo actualizar si el valor cambió
+          const currentLastRead = prev.get(activeTab);
+          if (currentLastRead !== lastMsg.deliveryKey) {
+            const updated = new Map(prev);
+            updated.set(activeTab, lastMsg.deliveryKey!);
+            return updated;
           }
-          return m;
+          return prev; // No cambiar el estado si el valor es el mismo
         });
-
-        const remainingPending = Array.from(prevPendingByKey.entries())
-          .filter(([key]) => !poolKeys.has(key))
-          .map(([, m]) => m);
-
-        const merged = [...poolWithDelivery, ...remainingPending].filter((m) => !isDepinExpired(m));
-        merged.sort((a, b) => {
-          const ta = (a.unixTimestamp ?? Math.floor(a.timestamp.getTime() / 1000)) * 1000;
-          const tb = (b.unixTimestamp ?? Math.floor(b.timestamp.getTime() / 1000)) * 1000;
-          return ta - tb;
-        });
-
-        return merged;
-      });
+      }
     }
-  }, [depinMessages, isConnected, selectedAddress, selectedAsset, computeExpiresDate]);
+    
+    prevMessagesStateRef.current = {
+      tab: activeTab, 
+      length: messages.length,
+      lastHash: currentHash
+    };
+  }, [messages, activeTab, isConnected, scrollToLastUnread]);
 
   // Obtener stats periódicamente si está conectado
   React.useEffect(() => {
@@ -596,6 +703,28 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
     console.log('All validations passed, attempting to send message...');
 
+    // Check for /private command
+    const privateCommandMatch = inputText.trim().match(/^\/private\s+(N[a-zA-Z0-9]{33,34})$/);
+    if (privateCommandMatch) {
+      const targetAddress = privateCommandMatch[1];
+      console.log('🔒 /private command detected, opening tab for:', targetAddress);
+
+      // Verify the address is in the recipient list
+      if (!addressList.find(r => r.address === targetAddress)) {
+        alert(`Address ${targetAddress} is not a holder of ${selectedAsset}. Cannot open private conversation.`);
+        setInputText("");
+        return;
+      }
+
+      // Create empty conversation if it doesn't exist
+      createPrivateConversation(targetAddress);
+
+      // Switch to private tab
+      setActiveTab(targetAddress);
+      setInputText("");
+      return;
+    }
+
     const makeDeliveryKey = (
       token: string | null,
       senderAddress: string | null,
@@ -606,31 +735,53 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       return `${token}|${senderAddress}|${unixTimestamp}|${text}`;
     };
 
-    const messageText = inputText;
-    const unixTimestamp = Math.floor(Date.now() / 1000);
-    const deliveryKey = makeDeliveryKey(selectedAsset, selectedAddress, unixTimestamp, messageText);
+    // Determine message text for sending and display
+    let messageToSend = inputText;
+    let messageToDisplay = inputText;
 
-    // Optimistic UI: add message immediately as pending
+    if (activeTab !== "group") {
+      // In private tab: send with @address prefix, but display without it
+      messageToSend = `@${activeTab} ${inputText}`;
+      messageToDisplay = inputText; // Clean text for display
+    }
+
+    const unixTimestamp = Math.floor(Date.now() / 1000);
+    const deliveryKey = makeDeliveryKey(selectedAsset, selectedAddress, unixTimestamp, messageToDisplay);
+
+    // Optimistic UI: add message immediately as pending to the specific tab
     if (deliveryKey) {
       const sendDate = formatUnixTimestampNoSeconds(unixTimestamp);
       const expiresDate = computeExpiresDate(unixTimestamp);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          text: messageText,
-          sender: "user",
-          timestamp: new Date(unixTimestamp * 1000),
-          token: selectedAsset ?? undefined,
-          unixTimestamp,
-          delivery: "pending",
-          deliveryKey,
-          isDePIN: true,
-          senderAddress: selectedAddress ?? undefined,
-          sendDate,
-          expiresDate,
-        },
-      ]);
+      const targetTab = activeTab; // The current tab where message is being sent
+      
+      console.log(`[SEND] 📤 Adding pending message to tab "${targetTab}"`, {
+        messageToDisplay,
+        messageToSend,
+        activeTab,
+        targetTab
+      });
+      
+      const pendingMsg: Message = {
+        id: Date.now(),
+        text: messageToDisplay, // Display clean text
+        sender: "user",
+        timestamp: new Date(unixTimestamp * 1000),
+        token: selectedAsset ?? undefined,
+        unixTimestamp,
+        delivery: "pending",
+        deliveryKey,
+        isDePIN: true,
+        senderAddress: selectedAddress ?? undefined,
+        sendDate,
+        expiresDate,
+      };
+      
+      setPendingMessagesByTab((prev) => {
+        const updated = new Map(prev);
+        const tabPending = updated.get(targetTab) || [];
+        updated.set(targetTab, [...tabPending, pendingMsg]);
+        return updated;
+      });
     }
 
     // Clear input immediately
@@ -639,7 +790,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     try {
       // Enviar mensaje a través de DePIN usando el servidor RPC configurado
       console.log('📤 Sending message via DePIN...');
-      const result = await sendDePINMessage(messageText);
+      const result = await sendDePINMessage(messageToSend);
       console.log('✅ Message sent successfully:', result);
 
       // Refrescar mensajes después de un breve delay para dar tiempo al servidor
@@ -652,7 +803,13 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       console.error("Error sending message:", error);
       // Rollback optimistic message if send fails
       if (deliveryKey) {
-        setMessages((prev) => prev.filter((m) => m.deliveryKey !== deliveryKey));
+        setPendingMessagesByTab((prev) => {
+          const updated = new Map(prev);
+          const targetTab = activeTab;
+          const tabPending = updated.get(targetTab) || [];
+          updated.set(targetTab, tabPending.filter((m) => m.deliveryKey !== deliveryKey));
+          return updated;
+        });
       }
       alert(`Failed to send message: ${error.message}`);
     }
@@ -663,12 +820,8 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     setIsPolling(false);
     setSelectedAsset(null);
     setSelectedAddress(null);
-    setMessages([{
-      id: 1,
-      text: "Welcome to Chat DePIN",
-      sender: "bot",
-      timestamp: new Date(),
-    }]);
+    setPendingMessagesByTab(new Map());
+    setActiveTab("group");
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -684,12 +837,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
     if (!showAssets && Object.keys(assetAddresses).length === 0) {
       if (!chatAddress || !depinChatIdentity) {
-        setMessages([{
-          id: 1,
-          text: "DePIN Chat identity is not available. Please log in/unlock your mnemonic and reload.",
-          sender: "bot",
-          timestamp: new Date(),
-        }]);
+        alert("DePIN Chat identity is not available. Please log in/unlock your mnemonic and reload.");
         return;
       }
 
@@ -705,12 +853,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       } catch (e: any) {
         console.error('❌ RPC ERROR: listassetbalancesbyaddress failed for chat address');
         console.error(e);
-        setMessages([{
-          id: 1,
-          text: `Failed to load chat assets for ${chatAddress}.\n\nMake sure your RPC supports listassetbalancesbyaddress and try again.`,
-          sender: 'bot',
-          timestamp: new Date(),
-        }]);
+        alert(`Failed to load chat assets for ${chatAddress}.\n\nMake sure your RPC supports listassetbalancesbyaddress and try again.`);
         return;
       }
 
@@ -745,12 +888,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       console.error('ERROR: No valid address found for asset in assetAddresses');
       console.log('assetAddresses keys:', Object.keys(assetAddresses));
       setSelectedAddress(null);
-      setMessages([{
-        id: 1,
-        text: `Could not find a valid address for asset ${assetName}.\n\nPlease wait for the asset list to load completely and try again.`,
-        sender: "bot",
-        timestamp: new Date(),
-      }]);
+      alert(`Could not find a valid address for asset ${assetName}.\n\nPlease wait for the asset list to load completely and try again.`);
       return;
     }
 
@@ -778,13 +916,6 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       setIsConnected(true);
       setIsPolling(true);
       console.log('States set: isConnected=true, isPolling=true');
-
-      setMessages([{
-        id: 1,
-        text: `You're connected.\nToken: ${assetName}\nDePIN address: ${address.substring(0, 15)}...\n\nNo messages yet — new messages will appear here automatically.`,
-        sender: "bot",
-        timestamp: new Date(),
-      }]);
       console.log('=== handleAssetSelection END (success) ===');
     } else if (hasPubKey === null) {
       console.log('Cannot verify pubkey, connecting anyway...');
@@ -792,23 +923,11 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       setValidityStatus({ has_asset: true, valid: 1, blocked: false, amount: chatAssets[assetName] });
       setIsConnected(true);
       setIsPolling(true);
-
-      setMessages([{
-        id: 1,
-        text: `You're connected.\nToken: ${assetName}\nDePIN address: ${address.substring(0, 15)}...\n\nIf you don't see messages, activate your DePIN address by tapping the flame icon and trying again.`,
-        sender: "bot",
-        timestamp: new Date(),
-      }]);
       console.log('=== handleAssetSelection END (unverified) ===');
     } else {
       // No hay pubkey - no podemos descifrar mensajes
       console.log('No pubkey available, cannot connect');
-      setMessages([{
-        id: 1,
-        text: `Cannot connect: Asset ${assetName} doesn't have a public key.\n\nTo use messaging, you need to reveal the public key for this address by sending a transaction from it.`,
-        sender: "bot",
-        timestamp: new Date(),
-      }]);
+      alert(`Cannot connect: Asset ${assetName} doesn't have a public key.\n\nTo use messaging, you need to reveal the public key for this address by sending a transaction from it.`);
       console.log('=== handleAssetSelection END (no pubkey) ===');
     }
   };
@@ -1227,6 +1346,118 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         }}
         className="chat-container"
       >
+        {/* Tab Bar */}
+        {isConnected && (
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              borderBottom: "2px solid #e5e7eb",
+              padding: "0 1rem",
+              overflowX: "auto",
+              backgroundColor: "#ffffff",
+            }}
+          >
+            {/* Group tab - always visible */}
+            <div
+              onClick={() => setActiveTab("group")}
+              style={{
+                position: "relative",
+                padding: "0.75rem 1.5rem",
+                cursor: "pointer",
+                borderBottom: activeTab === "group" ? "3px solid #3b82f6" : "3px solid transparent",
+                transition: "all 0.2s",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontWeight: activeTab === "group" ? 600 : 400,
+                color: activeTab === "group" ? "#3b82f6" : "#6b7280",
+                backgroundColor: activeTab === "group" ? "#f3f4f6" : "transparent",
+              }}
+            >
+              <FaUserGroup size={16} {...decorativeIconProps} />
+              <span>Group</span>
+              {getUnreadCount("group") > 0 && activeTab !== "group" && (
+                <span
+                  style={{
+                    backgroundColor: "#ef4444",
+                    color: "white",
+                    borderRadius: "10px",
+                    padding: "0.1rem 0.5rem",
+                    fontSize: "0.75rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {getUnreadCount("group")}
+                </span>
+              )}
+            </div>
+
+            {/* Private conversation tabs */}
+            {Array.from(privateConversations.entries())
+              .filter(([address]) => !closedTabs.has(address))
+              .sort((a, b) => b[1].lastMessageTime - a[1].lastMessageTime)
+              .map(([address, conversation]) => (
+                <div
+                  key={address}
+                  onClick={() => setActiveTab(address)}
+                  style={{
+                    position: "relative",
+                    padding: "0.75rem 1.5rem",
+                    cursor: "pointer",
+                    borderBottom: activeTab === address ? "3px solid #3b82f6" : "3px solid transparent",
+                    transition: "all 0.2s",
+                    whiteSpace: "nowrap",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    fontWeight: activeTab === address ? 600 : 400,
+                    color: activeTab === address ? "#3b82f6" : "#6b7280",
+                    backgroundColor: activeTab === address ? "#f3f4f6" : "transparent",
+                  }}
+                >
+                  <span>{conversation.displayName}</span>
+                  {getUnreadCount(address) > 0 && activeTab !== address && (
+                    <span
+                      style={{
+                        backgroundColor: "#ef4444",
+                        color: "white",
+                        borderRadius: "10px",
+                        padding: "0.1rem 0.5rem",
+                        fontSize: "0.75rem",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {getUnreadCount(address)}
+                    </span>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setClosedTabs(prev => new Set([...prev, address]));
+                      if (activeTab === address) {
+                        setActiveTab("group");
+                      }
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#6b7280",
+                      fontSize: "1.25rem",
+                      cursor: "pointer",
+                      padding: 0,
+                      marginLeft: "0.25rem",
+                      lineHeight: 1,
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+          </div>
+        )}
+
         {/* Messages area */}
         <div
           style={{
@@ -1242,6 +1473,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           className="chat-messages"
         >
           {messages.map((message) => (
+            <div key={message.id} id={`message-${message.id}`}>
             <div
               key={message.id}
               style={{
@@ -1389,6 +1621,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                 </small>
               </div>
             </div>
+            </div>
           ))}
           <div ref={messagesEndRef} />
         </div>
@@ -1418,7 +1651,13 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
               autoResizeChatInput(e.currentTarget);
             }}
             onKeyDown={handleKeyPress}
-            placeholder={isConnected ? "Type your message... (or @address for private message)" : "Select an asset to start messaging..."}
+            placeholder={
+              !isConnected
+                ? "Select an asset to start messaging..."
+                : activeTab === "group"
+                ? "Type your message... (or /private NAddress to open private chat)"
+                : `Private message to ${privateConversations.get(activeTab)?.displayName || activeTab}...`
+            }
             disabled={!isConnected}
             rows={1}
             style={{
@@ -1490,8 +1729,8 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
             <IconSend />
           </div>
           </div>
-          {/* Private message indicator */}
-          {inputText.trim().match(/^@N[a-zA-Z0-9]{33,34}\s+/) && (
+          {/* Private command indicator */}
+          {inputText.trim().match(/^\/private\s+(N[a-zA-Z0-9]{33,34})$/) && (
             <div style={{
               marginTop: "0.5rem",
               padding: "0.5rem 0.75rem",
@@ -1504,8 +1743,8 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
               alignItems: "center",
               gap: "0.5rem"
             }}>
-              <span style={{ fontSize: "1rem" }}>🔒</span>
-              <span>Private message mode - Only the recipient can read this</span>
+              <span style={{ fontSize: "1rem" }}>💬</span>
+              <span>Press Enter to open private conversation with {inputText.trim().match(/^\/private\s+(N[a-zA-Z0-9]{33,34})$/)?.[1]?.slice(0, 8)}...</span>
             </div>
           )}
         </div>
