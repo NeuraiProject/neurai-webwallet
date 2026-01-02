@@ -57,3 +57,15 @@
 .rebel-settings__signout-full {
   width: 100%;
 }
+
+.rebel-settings__derivation-info {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background-color: var(--card-background-color);
+  border-left: 3px solid var(--primary);
+}
+
+.rebel-settings__derivation-info small {
+  display: block;
+  line-height: 1.5;
+}

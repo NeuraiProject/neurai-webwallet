@@ -1398,13 +1398,15 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           style={{
             borderTop: "2px solid #e5e7eb",
             padding: "1rem 1.25rem",
-            display: "flex",
-            gap: "0.75rem",
-            alignItems: "flex-end",
             backgroundColor: "#ffffff",
           }}
           className="chat-input-area"
         >
+          <div style={{
+            display: "flex",
+            gap: "0.75rem",
+            alignItems: "flex-end",
+          }}>
           <textarea
             ref={chatInputRef}
             value={inputText}
@@ -1416,7 +1418,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
               autoResizeChatInput(e.currentTarget);
             }}
             onKeyDown={handleKeyPress}
-            placeholder={isConnected ? "Type your message..." : "Select an asset to start messaging..."}
+            placeholder={isConnected ? "Type your message... (or @address for private message)" : "Select an asset to start messaging..."}
             disabled={!isConnected}
             rows={1}
             style={{
@@ -1487,6 +1489,25 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           >
             <IconSend />
           </div>
+          </div>
+          {/* Private message indicator */}
+          {inputText.trim().match(/^@N[a-zA-Z0-9]{33,34}\s+/) && (
+            <div style={{
+              marginTop: "0.5rem",
+              padding: "0.5rem 0.75rem",
+              backgroundColor: "#f0f9ff",
+              border: "1px solid #bae6fd",
+              borderRadius: "8px",
+              fontSize: "0.85rem",
+              color: "#0369a1",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem"
+            }}>
+              <span style={{ fontSize: "1rem" }}>🔒</span>
+              <span>Private message mode - Only the recipient can read this</span>
+            </div>
+          )}
         </div>
       </div>
 

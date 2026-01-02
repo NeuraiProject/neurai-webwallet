@@ -396,7 +396,7 @@ export function useDePINChat(
     }
   }, [wallet]);
 
-  // Send message via depinsubmitmsg with client-side ECIES encryption
+  // Send message via depinsubmismsg with client-side ECIES encryption
   const sendMessage = useCallback(async (
     message: string
   ) => {
@@ -417,6 +417,22 @@ export function useDePINChat(
     if (!recipientList || recipientList.length === 0) {
       console.error('❌ No recipients available');
       throw new Error('No recipients available. Click "Show All Addresses" first to load token holders.');
+    }
+
+    // Detectar si es un mensaje privado (@dirección)
+    const privateMessageMatch = message.match(/^@(N[a-zA-Z0-9]{33,34})\s+(.*)$/);
+    const isPrivateMessage = !!privateMessageMatch;
+    let targetRecipientAddress: string | null = null;
+    let cleanedMessage = message;
+
+    if (isPrivateMessage && privateMessageMatch) {
+      targetRecipientAddress = privateMessageMatch[1];
+      cleanedMessage = privateMessageMatch[2];
+      console.log('🔒 PRIVATE MESSAGE DETECTED');
+      console.log('  Target recipient:', targetRecipientAddress);
+      console.log('  Cleaned message:', cleanedMessage);
+    } else {
+      console.log('👥 GROUP MESSAGE (default)');
     }
 
     try {
@@ -444,7 +460,7 @@ export function useDePINChat(
       console.log('\n📝 Building DePIN message...');
       console.log('  Token:', selectedAsset);
       console.log('  Sender:', effectiveAddress);
-      console.log('  Message:', message);
+      console.log('  Message:', cleanedMessage);
       console.log('  Recipients with provided pubkeys:', recipientList.filter((r) => !!r.pubkey).length);
 
       // Build recipient pubkeys list
@@ -453,13 +469,37 @@ export function useDePINChat(
       const recipientSet = new Set<string>();
 
       let recipientsWithPubkeys = 0;
-      for (const recipient of recipientList) {
-        const pk = await resolveRecipientPubkey(String(recipient.address), recipient.pubkey ?? null);
-        if (!pk) continue;
-        recipientsWithPubkeys++;
-        if (!recipientSet.has(pk)) {
-          recipientSet.add(pk);
-          recipientPubKeys.push(pk);
+
+      if (isPrivateMessage && targetRecipientAddress) {
+        // Modo privado: solo cifrar para el destinatario específico
+        console.log('  🔒 PRIVATE MODE: Looking for recipient:', targetRecipientAddress);
+        const targetRecipient = recipientList.find((r) => r.address === targetRecipientAddress);
+
+        if (!targetRecipient) {
+          console.error('❌ Target recipient not found in recipient list');
+          throw new Error(`Recipient ${targetRecipientAddress} not found in token holders. They must hold the ${selectedAsset} token.`);
+        }
+
+        const pk = await resolveRecipientPubkey(String(targetRecipient.address), targetRecipient.pubkey ?? null);
+        if (!pk) {
+          console.error('❌ Could not resolve pubkey for target recipient');
+          throw new Error(`Could not get public key for ${targetRecipientAddress}. Recipient may need to reveal their pubkey first.`);
+        }
+
+        recipientPubKeys.push(pk);
+        recipientsWithPubkeys = 1;
+        console.log('  ✓ Target recipient pubkey found:', pk.substring(0, 16) + '...');
+      } else {
+        // Modo grupo: cifrar para todos los destinatarios
+        console.log('  👥 GROUP MODE: Building list for all recipients');
+        for (const recipient of recipientList) {
+          const pk = await resolveRecipientPubkey(String(recipient.address), recipient.pubkey ?? null);
+          if (!pk) continue;
+          recipientsWithPubkeys++;
+          if (!recipientSet.has(pk)) {
+            recipientSet.add(pk);
+            recipientPubKeys.push(pk);
+          }
         }
       }
 
@@ -506,14 +546,18 @@ export function useDePINChat(
         throw new Error('neuraiDepinMsg is not available. Ensure @neuraiproject/neurai-depin-msg is installed and bundled.');
       }
 
+      const messageType = isPrivateMessage ? 'private' : 'group';
+      console.log('  Message type:', messageType);
+
       const buildResult = await depinMsg.buildDepinMessage({
         token: selectedAsset,
         senderAddress: effectiveAddress,
         senderPubKey,
         privateKey: senderPrivateKey, // accepts WIF or 64-hex
         timestamp: Math.floor(Date.now() / 1000),
-        message,
-        recipientPubKeys
+        message: cleanedMessage,
+        recipientPubKeys,
+        messageType
       });
 
       const hexMessage: string = buildResult.hex;

@@ -44,7 +44,7 @@ const neuraiLogo = new URL("../neurai-xna-logo.png", import.meta.url);
 let _mnemonic =
   "sight rate burger maid melody slogan attitude gas account sick awful hammer";
 
-type ChainType = "xna" | "xna-test";
+type ChainType = "xna" | "xna-test" | "xna-legacy";
 
 //Set Dark or Light mode if store.
 const theme = localStorage.getItem("data-theme");
@@ -83,7 +83,16 @@ function App() {
   // Determine network from query string (stable for this session)
   const network: ChainType = React.useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
-    return searchParams.get("network") === "xna-test" ? "xna-test" : "xna";
+    const isTestnet = searchParams.get("network") === "xna-test";
+
+    // Testnet siempre usa xna-test (no legacy)
+    if (isTestnet) {
+      return "xna-test";
+    }
+
+    // Mainnet: verificar preferencia de derivación
+    const derivationType = localStorage.getItem("derivation_type");
+    return derivationType === "legacy" ? "xna-legacy" : "xna";
   }, []);
 
   const depinChatIdentity = React.useMemo<DepinChatIdentity | null>(() => {

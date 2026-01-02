@@ -20,10 +20,10 @@
   "author": "Neurai Community",
   "license": "MIT",
   "dependencies": {
-    "@neuraiproject/neurai-depin-msg": "^2.1.1",
+    "@neuraiproject/neurai-depin-msg": "^2.1.3",
     "@neuraiproject/neurai-history-list": "^1.2.5",
-    "@neuraiproject/neurai-jswallet": "0.12.8",
-    "@neuraiproject/neurai-key": "^2.8.5",
+    "@neuraiproject/neurai-jswallet": "0.12.10",
+    "@neuraiproject/neurai-key": "^2.8.7",
     "@neuraiproject/neurai-message": "^0.7.1",
     "@types/react": "^18.2.6",
     "@types/react-dom": "^18.2.4",

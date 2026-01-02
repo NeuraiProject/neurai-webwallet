@@ -25,6 +25,7 @@ export function Settings({
   const [useCustomRPC, setUseCustomRPC] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  const [useLegacyDerivation, setUseLegacyDerivation] = React.useState(false);
 
   // Load saved settings on mount
   React.useEffect(() => {
@@ -40,6 +41,10 @@ export function Settings({
         console.error("Error loading RPC config:", e);
       }
     }
+
+    // Cargar preferencia de derivación
+    const savedDerivationType = localStorage.getItem("derivation_type");
+    setUseLegacyDerivation(savedDerivationType === "legacy");
   }, []);
 
   const handleSave = () => {
@@ -91,6 +96,22 @@ export function Settings({
     }
   };
 
+  const handleDerivationToggle = (checked: boolean) => {
+    const newType = checked ? "legacy" : "standard";
+    localStorage.setItem("derivation_type", newType);
+    setUseLegacyDerivation(checked);
+
+    // Recargar inmediatamente
+    if (confirm("Derivation type changed. The wallet needs to reload to switch addresses. Reload now?")) {
+      window.location.reload();
+    }
+  };
+
+  const isTestnet = () => {
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.get("network") === "xna-test";
+  };
+
   const safeMnemonic = mnemonic ?? "";
   const mnemonicOnly = safeMnemonic.includes("|||") ? safeMnemonic.split("|||")[0] : safeMnemonic;
   const hasPassphrase = safeMnemonic.includes("|||");
@@ -108,6 +129,56 @@ export function Settings({
 
   return (
     <article>
+      <h3>Derivation Type</h3>
+      <div className="rebel-settings__card">
+        <p>
+          <strong>Current network:</strong> {isTestnet() ? "Testnet (xna-test)" : "Mainnet"}
+        </p>
+        {!isTestnet() && (
+          <>
+            <div className="rebel-settings__toggle-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={useLegacyDerivation}
+                  onChange={(e) => handleDerivationToggle(e.target.checked)}
+                />
+                Use legacy derivation (BIP44 coin type 0)
+              </label>
+            </div>
+            <div className="rebel-settings__card rebel-settings__derivation-info">
+              <small>
+                <strong>{useLegacyDerivation ? "Legacy" : "Standard"}:</strong>{" "}
+                {useLegacyDerivation
+                  ? "m/44'/0'/0'/0/0 (compatible with older wallets)"
+                  : "m/44'/1900'/0'/0/0 (recommended for new wallets)"}
+              </small>
+            </div>
+            <div className="rebel-settings__notes" style={{ marginTop: "1rem" }}>
+              <h4>Important:</h4>
+              <ul>
+                <li>
+                  <strong>Changing derivation generates different addresses</strong> from the same mnemonic
+                </li>
+                <li>
+                  Use legacy only if you need compatibility with old wallets (before coin type 1900)
+                </li>
+                <li>
+                  The wallet will reload when you change this setting
+                </li>
+              </ul>
+            </div>
+          </>
+        )}
+        {isTestnet() && (
+          <small className="rebel-settings__hint">
+            Testnet always uses standard derivation (coin type 1900)
+          </small>
+        )}
+      </div>
+
+      <hr className="rebel-settings__divider" />
+
       <h3>RPC Server Configuration</h3>
 
       <div className="rebel-settings__toggle-row">

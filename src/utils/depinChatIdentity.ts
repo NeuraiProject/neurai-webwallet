@@ -1,6 +1,6 @@
 import NeuraiKey from '@neuraiproject/neurai-key';
 
-export type DepinChatNetwork = 'xna' | 'xna-test';
+export type DepinChatNetwork = 'xna' | 'xna-test' | 'xna-legacy';
 
 export type DepinChatIdentity = {
   address: string;
