@@ -102,6 +102,36 @@ export function useDePINChat(
   // Cache recipient pubkeys per address to avoid repeated getpubkey calls
   const recipientPubKeyCacheRef = useRef<Map<string, string | null>>(new Map());
 
+  // OPTIMIZACIÓN: Pre-cargar todas las pubkeys del asset en una sola llamada RPC
+  const preloadRecipientPubkeys = useCallback(async (assetName: string) => {
+    if (!assetName) return;
+
+    try {
+      console.log(`🔵 [DePIN Cache] Pre-loading pubkeys for ${assetName}`);
+      const depinAddressesData: Array<{ address: string, pubkey: string }> = await wallet.rpc('listdepinaddresses', [assetName]) as Array<{ address: string, pubkey: string }>;
+
+      let loadedCount = 0;
+      for (const item of depinAddressesData) {
+        if (item.pubkey) {
+          const pkRaw = item.pubkey.trim().toLowerCase();
+          // Validar que sea una pubkey comprimida válida
+          if (pkRaw.length === 66 && (pkRaw.startsWith('02') || pkRaw.startsWith('03'))) {
+            recipientPubKeyCacheRef.current.set(item.address, pkRaw);
+            loadedCount++;
+          } else {
+            recipientPubKeyCacheRef.current.set(item.address, null);
+          }
+        } else {
+          recipientPubKeyCacheRef.current.set(item.address, null);
+        }
+      }
+      console.log(`✅ [DePIN Cache] Pre-loaded ${loadedCount} pubkeys in cache`);
+    } catch (error) {
+      console.warn('[DePIN Cache] Failed to preload pubkeys:', error);
+      // No es crítico si falla, resolveRecipientPubkey hará las llamadas individuales
+    }
+  }, [wallet]);
+
   const resolveRecipientPubkey = useCallback(async (address: string, existing: string | null) => {
     const normalizedExisting = (existing || '').trim().toLowerCase();
     if (normalizedExisting) return normalizedExisting;
@@ -110,6 +140,7 @@ export function useDePINChat(
       return recipientPubKeyCacheRef.current.get(address) ?? null;
     }
 
+    // Fallback: llamada individual si no está en caché
     try {
       const res: any = await wallet.rpc('getpubkey', [address]);
       const revealed = typeof res?.revealed === 'number' ? res.revealed === 1 : null;
@@ -177,7 +208,13 @@ export function useDePINChat(
     setGroupMessages([]);
     setPrivateConversations(new Map());
     privateConversationsRef.current = new Map();
-  }, [selectedAsset, effectiveAddress]);
+
+    // OPTIMIZACIÓN: Pre-cargar pubkeys del nuevo asset
+    recipientPubKeyCacheRef.current.clear();
+    if (selectedAsset) {
+      preloadRecipientPubkeys(selectedAsset);
+    }
+  }, [selectedAsset, effectiveAddress, preloadRecipientPubkeys]);
 
   // Automatic message polling every 5 seconds
   useEffect(() => {

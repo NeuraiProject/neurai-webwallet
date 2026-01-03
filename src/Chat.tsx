@@ -1011,10 +1011,27 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     setShowAddressList(true);
 
     try {
+      // OPTIMIZACIÓN: Usar listdepinaddresses para obtener todas las pubkeys en una sola llamada RPC
+      console.log(`🔵 RPC CALL: listdepinaddresses`);
+      console.log(`📤 Parameters: ["${assetName}"]`);
+
+      const depinAddressesData: Array<{ address: string, pubkey: string }> = await wallet.rpc("listdepinaddresses", [assetName]) as Array<{ address: string, pubkey: string }>;
+
+      console.log(`✅ RPC SUCCESS: listdepinaddresses`);
+      console.log(`📥 Response:`, depinAddressesData);
+
+      // Crear un mapa de address -> pubkey para búsqueda rápida
+      const pubkeyMap = new Map<string, string>();
+      for (const item of depinAddressesData) {
+        if (item.pubkey) {
+          pubkeyMap.set(item.address, item.pubkey);
+        }
+      }
+
       console.log(`🔵 RPC CALL: listaddressesbyasset`);
       console.log(`📤 Parameters: ["${assetName}"]`);
 
-      // Obtener todas las direcciones que tienen este asset
+      // Obtener los amounts de cada dirección
       const addressesData: Record<string, unknown> = await wallet.rpc("listaddressesbyasset", [assetName]) as Record<string, unknown>;
 
       console.log(`✅ RPC SUCCESS: listaddressesbyasset`);
@@ -1023,31 +1040,10 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       const addresses = Object.keys(addressesData);
       const results: Array<{ address: string, amount: number, pubkey: string | null }> = [];
 
-      // Para cada dirección, obtener su pubkey (on-chain) usando getpubkey.
+      // Combinar amounts con pubkeys obtenidas en batch
       for (const address of addresses) {
         const amount = normalizeAssetAmountMaybe(addressesData[address]);
-        let pubkey: string | null = null;
-
-        try {
-          console.log(`🔵 RPC CALL: getpubkey`);
-          console.log(`📤 Parameters: ["${address}"]`);
-
-          const pubkeyResult: any = await wallet.rpc("getpubkey", [address]);
-
-          console.log(`✅ RPC SUCCESS: getpubkey for ${address}`);
-          console.log(`📥 Response:`, pubkeyResult);
-
-          const revealed = parsePubkeyRevealedMaybe(pubkeyResult);
-          if (revealed === false) {
-            pubkey = null;
-          } else {
-            pubkey = parsePubkeyMaybe(pubkeyResult);
-          }
-        } catch (error: any) {
-          console.warn(`❌ RPC ERROR: getpubkey failed for ${address}`);
-          console.warn('Error:', error);
-          // pubkey se queda en null
-        }
+        const pubkey = pubkeyMap.get(address) ?? null;
 
         results.push({
           address,
@@ -1058,6 +1054,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
       setAddressList(results);
       console.log('📋 Address list loaded:', results);
+      console.log(`⚡ Optimización: 2 llamadas RPC en lugar de ${1 + addresses.length} llamadas`);
 
     } catch (error: any) {
       console.error("Error loading addresses with pubkeys:", error);
