@@ -502,27 +502,23 @@ export function Login({
   return (
     <article>
       <div className="rebel-login__topbar">
-        <div
-          onClick={() => setShowSettings(true)}
-          className="rebel-login__topbar-icon"
-          title="RPC Server Settings"
-          aria-label="RPC Server Settings"
-        >
-          <IconSettings />
+        <div className="rebel-login__topbar-brand">
+          <h1 className="rebel-login__topbar-title">Neurai Web Wallet</h1>
+          <p className="rebel-login__topbar-subtitle">A secure, client-side wallet for managing your Neurai assets</p>
         </div>
-        <LightModeToggle />
+        <div className="rebel-login__topbar-actions">
+          <div
+            onClick={() => setShowSettings(true)}
+            className="rebel-login__topbar-icon"
+            title="RPC Server Settings"
+            aria-label="RPC Server Settings"
+          >
+            <IconSettings />
+          </div>
+          <LightModeToggle />
+        </div>
       </div>
       {dialog}
-
-      {/* Hero Section */}
-      <header className="rebel-login__hero">
-        <h1 className="rebel-headline rebel-login__hero-title">
-          Neurai Web Wallet
-        </h1>
-        <p className="rebel-login__hero-subtitle">
-          A secure, client-side wallet for managing your Neurai assets
-        </p>
-      </header>
 
       {/* Features Grid */}
       <div
