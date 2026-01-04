@@ -319,19 +319,45 @@
 
 .rebel-login__visibility-toggle {
   position: absolute;
-  right: 0.5rem;
-  background: transparent;
-  border: none;
+  right: 0.75rem;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   cursor: pointer;
-  padding: 0.5rem;
+  padding: 0;
+  margin: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--muted-color);
+  color: #000000 !important;
+  /* Base color black for light mode */
+  z-index: 10;
+  transition: opacity 0.2s;
+}
+
+.rebel-login__visibility-toggle svg {
+  stroke: #000000 !important;
+  /* Force black stroke in light mode */
+}
+
+[data-theme="dark"] .rebel-login__visibility-toggle {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .rebel-login__visibility-toggle svg {
+  stroke: #ffffff !important;
+  /* Force white stroke in dark mode */
+}
+
+.rebel-login__visibility-toggle:hover {
+  opacity: 0.7;
+  /* Subtle hover effect instead of hidden-to-visible */
+  background: transparent !important;
 }
 
 .rebel-login__visibility-toggle--textarea {
-  top: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .rebel-login__visibility-toggle--input {
