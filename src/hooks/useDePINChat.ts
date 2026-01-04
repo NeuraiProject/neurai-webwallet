@@ -107,7 +107,7 @@ export function useDePINChat(
     if (!assetName) return;
 
     try {
-      console.log(`🔵 [DePIN Cache] Pre-loading pubkeys for ${assetName}`);
+
       const depinAddressesData: Array<{ address: string, pubkey: string }> = await wallet.rpc('listdepinaddresses', [assetName]) as Array<{ address: string, pubkey: string }>;
 
       let loadedCount = 0;
@@ -125,7 +125,7 @@ export function useDePINChat(
           recipientPubKeyCacheRef.current.set(item.address, null);
         }
       }
-      console.log(`✅ [DePIN Cache] Pre-loaded ${loadedCount} pubkeys in cache`);
+
     } catch (error) {
       console.warn('[DePIN Cache] Failed to preload pubkeys:', error);
       // No es crítico si falla, resolveRecipientPubkey hará las llamadas individuales
@@ -299,11 +299,11 @@ export function useDePINChat(
 
           seen.add(key);
           const ts = typeof item.timestamp === 'number' ? item.timestamp : Math.floor(Date.now() / 1000);
-          
+
           const messageHash = String(item.hash ?? '');
           const sender = String(item.sender ?? '');
           const contactAddress = getContactAddress(messageHash, sender, effectiveAddress, item.message_type);
-          
+
           newDecrypted.push({
             recipient: effectiveAddress,
             sender,
@@ -320,19 +320,14 @@ export function useDePINChat(
         lastTimestampRef.current = maxTimestamp;
 
         if (newDecrypted.length > 0) {
-          console.log(`[DePIN] +${newDecrypted.length} mensaje(s) descifrado(s)`);
+
 
           // Separate messages by type
           const newGroupMessages: DePINMessage[] = [];
           const privateUpdates = new Map<string, DePINMessage[]>();
 
           for (const msg of newDecrypted) {
-            console.log(`[DePIN] 🔍 Classifying msg ${msg.messageHash?.substring(0, 8)}:`, {
-              messageType: msg.messageType,
-              contactAddress: msg.contactAddress,
-              sender: msg.sender,
-              decision: msg.messageType === 'private' && msg.contactAddress ? 'PRIVATE' : 'GROUP'
-            });
+
 
             if (msg.messageType === 'private' && msg.contactAddress) {
               if (!privateUpdates.has(msg.contactAddress)) {
@@ -344,11 +339,7 @@ export function useDePINChat(
             }
           }
 
-          console.log(`[DePIN] 📊 Final separation:`, {
-            groupCount: newGroupMessages.length,
-            privateConversations: privateUpdates.size,
-            privateAddresses: Array.from(privateUpdates.keys())
-          });
+
 
           // Update both states atomically using React's batching
           // This prevents race conditions between the two updates
@@ -498,11 +489,11 @@ export function useDePINChat(
         if (typeof plaintext !== 'string' || plaintext.length === 0) continue;
         seen.add(key);
         const ts = typeof item.timestamp === 'number' ? item.timestamp : Math.floor(Date.now() / 1000);
-        
+
         const messageHash = String(item.hash ?? '');
         const sender = String(item.sender ?? '');
         const contactAddress = getContactAddress(messageHash, sender, effectiveAddress, item.message_type);
-        
+
         newDecrypted.push({
           recipient: effectiveAddress,
           sender,
@@ -544,7 +535,7 @@ export function useDePINChat(
 
         // Update private conversations
         if (privateUpdates.size > 0) {
-          console.log(`[DePIN] Updating ${privateUpdates.size} private conversation(s) (refresh)`, Array.from(privateUpdates.keys()));
+
           setPrivateConversations(prev => {
             const updated = new Map(prev);
 
@@ -554,7 +545,7 @@ export function useDePINChat(
                 ? [...existing.messages, ...msgs].sort((a, b) => a.timestamp - b.timestamp)
                 : msgs;
 
-              console.log(`[DePIN]   → Creating/updating conversation with ${contactAddress}: ${msgs.length} new message(s), ${allMessages.length} total`);
+
 
               updated.set(contactAddress, {
                 address: contactAddress,
@@ -581,13 +572,11 @@ export function useDePINChat(
   // Fetch pool statistics
   const fetchStats = useCallback(async () => {
     try {
-      console.log('🔵 RPC CALL: depinpoolstats');
-      console.log('📤 Parameters: []');
+
 
       const result = await wallet.rpc('depinpoolstats', []) as PoolStats;
 
-      console.log('✅ RPC SUCCESS: depinpoolstats');
-      console.log('📥 Response:', JSON.stringify(result, null, 2));
+
 
       setStats(result);
       return result;
@@ -603,14 +592,7 @@ export function useDePINChat(
   const sendMessage = useCallback(async (
     message: string
   ) => {
-    console.log('='.repeat(60));
-    console.log('🚀 SEND MESSAGE - START');
-    console.log('='.repeat(60));
-    console.log('Input:');
-    console.log('  Message:', message);
-    console.log('  Selected asset:', selectedAsset);
-    console.log('  My address:', effectiveAddress);
-    console.log('  Recipient list length:', recipientList?.length || 0);
+
 
     if (!selectedAsset || !effectiveAddress) {
       console.error('❌ Asset or address not selected');
@@ -632,21 +614,17 @@ export function useDePINChat(
     if (isPrivateMessage && privateMessageMatch) {
       targetRecipientAddress = privateMessageMatch[1];
       cleanedMessage = privateMessageMatch[2];
-      console.log('🔒 PRIVATE MESSAGE DETECTED');
-      console.log('  Target recipient:', targetRecipientAddress);
-      console.log('  Cleaned message:', cleanedMessage);
-    } else {
-      console.log('👥 GROUP MESSAGE (default)');
+
     }
 
     try {
       // Get sender's private key
-      console.log('\nGetting sender private key...');
+
       const senderPrivateKey = depinChatIdentity?.wif
         ? String(depinChatIdentity.wif)
         : (() => {
           const addressObjects = wallet.getAddressObjects();
-          console.log('  Address objects count:', addressObjects.length);
+
           const addressObj = addressObjects.find(obj => obj.address === effectiveAddress);
           if (!addressObj) {
             console.error('❌ Address object not found for:', effectiveAddress);
@@ -659,16 +637,12 @@ export function useDePINChat(
           return String(addressObj.privateKey);
         })();
 
-      console.log('  ✓ Private key found, length:', senderPrivateKey.length);
 
-      console.log('\n📝 Building DePIN message...');
-      console.log('  Token:', selectedAsset);
-      console.log('  Sender:', effectiveAddress);
-      console.log('  Message:', cleanedMessage);
-      console.log('  Recipients with provided pubkeys:', recipientList.filter((r) => !!r.pubkey).length);
+
+
 
       // Build recipient pubkeys list
-      console.log('\nBuilding recipient pubkeys list...');
+
       const recipientPubKeys: string[] = [];
       const recipientSet = new Set<string>();
 
@@ -676,7 +650,7 @@ export function useDePINChat(
 
       if (isPrivateMessage && targetRecipientAddress) {
         // Modo privado: solo cifrar para el destinatario específico
-        console.log('  🔒 PRIVATE MODE: Looking for recipient:', targetRecipientAddress);
+
         const targetRecipient = recipientList.find((r) => r.address === targetRecipientAddress);
 
         if (!targetRecipient) {
@@ -692,10 +666,10 @@ export function useDePINChat(
 
         recipientPubKeys.push(pk);
         recipientsWithPubkeys = 1;
-        console.log('  ✓ Target recipient pubkey found:', pk.substring(0, 16) + '...');
+
       } else {
         // Modo grupo: cifrar para todos los destinatarios
-        console.log('  👥 GROUP MODE: Building list for all recipients');
+
         for (const recipient of recipientList) {
           const pk = await resolveRecipientPubkey(String(recipient.address), recipient.pubkey ?? null);
           if (!pk) continue;
@@ -707,10 +681,7 @@ export function useDePINChat(
         }
       }
 
-      console.log('  Total recipients:', recipientList.length);
-      console.log('  Recipients with pubkeys:', recipientsWithPubkeys);
 
-      console.log('  Final recipient pubkeys:', recipientPubKeys.length);
       if (recipientPubKeys.length === 0) {
         console.error('❌ No valid public keys found');
         throw new Error('No valid public keys found for recipients');
@@ -721,14 +692,14 @@ export function useDePINChat(
       if (depinChatIdentity?.publicKey) {
         senderPubKey = String(depinChatIdentity.publicKey).trim().toLowerCase();
         senderPubKeyCacheRef.current = { address: effectiveAddress, pubkey: senderPubKey };
-        console.log('\nUsing derived chat sender pubkey');
+
       } else {
         const cache = senderPubKeyCacheRef.current;
         if (cache.address === effectiveAddress && cache.pubkey) {
           senderPubKey = cache.pubkey;
-          console.log('\nUsing cached sender pubkey');
+
         } else {
-          console.log('\nGetting sender pubkey via getpubkey...');
+
           try {
             const pubkeyResult: any = await wallet.rpc('getpubkey', [effectiveAddress]);
             senderPubKey = pubkeyResult?.pubkey ? String(pubkeyResult.pubkey).trim().toLowerCase() : null;

@@ -396,12 +396,6 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
   // Update message cache when DePIN data changes
   React.useEffect(() => {
-    console.log('[CACHE] 🔄 Updating message cache...', {
-      groupMessageCount: groupMessages.length,
-      privateConversationCount: privateConversations.size,
-      privateAddresses: Array.from(privateConversations.keys()),
-    });
-
     const isDepinExpired = (m: Pick<Message, "isDePIN" | "unixTimestamp" | "timestamp">) => {
       if (!m.isDePIN) return false;
       if (!messageExpiryHours || messageExpiryHours <= 0) return false;
@@ -448,7 +442,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       const tb = (b.unixTimestamp ?? Math.floor(b.timestamp.getTime() / 1000)) * 1000;
       return ta - tb;
     });
-    console.log(`[CACHE] 📊 Group tab: ${allGroupMessages.length} messages (${groupDepinMessages.length} confirmed + ${groupStillPending.length} pending)`);
+
     newCache.set("group", allGroupMessages);
 
     // Process private conversations
@@ -484,11 +478,9 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         const tb = (b.unixTimestamp ?? Math.floor(b.timestamp.getTime() / 1000)) * 1000;
         return ta - tb;
       });
-      console.log(`[CACHE] 📊 Private tab ${address}: ${allPrivateMessages.length} messages (${privateDepinMessages.length} confirmed + ${privateStillPending.length} pending)`);
       newCache.set(address, allPrivateMessages);
     }
 
-    console.log('[CACHE] ✅ Cache updated. Total tabs:', newCache.size);
     setMessagesByTab(newCache);
 
     // Reabrir pestañas cerradas si hay mensajes nuevos posteriores al cierre
@@ -509,7 +501,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         });
 
         if (hasNewMessage) {
-          console.log(`[CACHE] 🔓 Reopening tab ${address} - new message after close`);
+
           updatedClosed.delete(address);
           hasChanges = true;
         }
@@ -539,7 +531,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   // Get messages for current tab from cache
   const messages = messagesByTab.get(activeTab) || [];
 
-  console.log(`[RENDER] 📺 Rendering tab "${activeTab}" with ${messages.length} messages`);
+
 
   const extractBotModel = (text: string): { cleanText: string; model: string | null } => {
     // Expected formats (at the start):
@@ -706,41 +698,32 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   }, [isConnected, getMsgInfo]);
 
   const handleSend = async () => {
-    console.log('=== handleSend START ===');
-    console.log('Input text:', inputText);
+
 
     if (inputText.trim() === "") {
-      console.log('Empty input, returning');
       return;
     }
 
-    console.log('Current states:');
-    console.log('  selectedAsset:', selectedAsset);
-    console.log('  selectedAddress:', selectedAddress);
-    console.log('  isConnected:', isConnected);
-    console.log('  isPolling:', isPolling);
 
     // Verificar que hay un asset seleccionado
     if (!selectedAsset) {
-      console.error('ERROR: No asset selected!');
       alert("Please select an asset first");
       return;
     }
 
     // Verificar que hay una dirección
     if (!selectedAddress) {
-      console.error('ERROR: No address found for selected asset!');
       alert("No address found for selected asset");
       return;
     }
 
-    console.log('All validations passed, attempting to send message...');
+
 
     // Check for /private command
     const privateCommandMatch = inputText.trim().match(/^\/private\s+(N[a-zA-Z0-9]{33,34})$/);
     if (privateCommandMatch) {
       const targetAddress = privateCommandMatch[1];
-      console.log('🔒 /private command detected, opening tab for:', targetAddress);
+
 
       // Verify the address is in the recipient list
       if (!addressList.find(r => r.address === targetAddress)) {
@@ -787,12 +770,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       const expiresDate = computeExpiresDate(unixTimestamp);
       const targetTab = activeTab; // The current tab where message is being sent
 
-      console.log(`[SEND] 📤 Adding pending message to tab "${targetTab}"`, {
-        messageToDisplay,
-        messageToSend,
-        activeTab,
-        targetTab
-      });
+
 
       const pendingMsg: Message = {
         id: Date.now(),
@@ -822,13 +800,13 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
     try {
       // Enviar mensaje a través de DePIN usando el servidor RPC configurado
-      console.log('📤 Sending message via DePIN...');
+
+
       const result = await sendDePINMessage(messageToSend);
-      console.log('✅ Message sent successfully:', result);
 
       // Refrescar mensajes después de un breve delay para dar tiempo al servidor
       setTimeout(async () => {
-        console.log('🔄 Refreshing messages after send...');
+
         await refreshMessages();
       }, 1000);
 
@@ -875,14 +853,12 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       }
 
       const addresses: Record<string, string> = {};
-      console.log('🔵 RPC CALL: listassetbalancesbyaddress (chat address)');
-      console.log('📤 Parameters:', JSON.stringify([chatAddress], null, 2));
+
 
       let balance: any = null;
       try {
         balance = await wallet.rpc('listassetbalancesbyaddress', [chatAddress]);
-        console.log('✅ RPC SUCCESS: listassetbalancesbyaddress (chat address)');
-        console.log('📥 Response:', balance);
+
       } catch (e: any) {
         console.error('❌ RPC ERROR: listassetbalancesbyaddress failed for chat address');
         console.error(e);
@@ -907,36 +883,32 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   };
 
   const handleAssetSelection = async (assetName: string) => {
-    console.log('=== handleAssetSelection START ===');
-    console.log('Selected asset:', assetName);
-    console.log('Asset type:', getAssetType(assetName));
-    console.log('Current assetAddresses:', assetAddresses);
+
 
     setSelectedAsset(assetName);
     const address = assetAddresses[assetName] || null;
-    console.log('Address for asset from assetAddresses:', address);
+
 
     // Verificar que tenemos una dirección válida
     if (!address || address === "Not found in wallet" || address === "Error loading" || address === "Loading...") {
       console.error('ERROR: No valid address found for asset in assetAddresses');
-      console.log('assetAddresses keys:', Object.keys(assetAddresses));
+
       setSelectedAddress(null);
       alert(`Could not find a valid address for asset ${assetName}.\n\nPlease wait for the asset list to load completely and try again.`);
       return;
     }
 
     setSelectedAddress(address);
-    console.log('Set selectedAddress to:', address);
+
 
     // Auto-load addresses list when selecting an asset
-    console.log('Auto-loading addresses list for asset:', assetName);
+
     setTimeout(() => {
       loadAddressesWithPubkeysInternal(assetName);
     }, 100);
 
     // La dirección ya fue validada arriba, proceder a conectar
-    console.log('Asset has valid address, attempting to connect...');
-    console.log('Asset type:', getAssetType(assetName));
+
 
     const hasPubKey = depinChatPubkeyRevealed;
     const assetTypeLabel = getAssetTypeLabel(assetName);
@@ -944,24 +916,21 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     // Para cualquier tipo de asset, conectar si tiene pubkey o si no podemos verificar
     if (hasPubKey === true) {
       // Asset con pubkey disponible - conectar
-      console.log('Asset has pubkey, connecting...');
+
       setValidityStatus({ has_asset: true, valid: 1, blocked: false, amount: chatAssets[assetName] });
       setIsConnected(true);
       setIsPolling(true);
-      console.log('States set: isConnected=true, isPolling=true');
-      console.log('=== handleAssetSelection END (success) ===');
+
     } else if (hasPubKey === null) {
-      console.log('Cannot verify pubkey, connecting anyway...');
+
       // No podemos verificar pubkey - advertencia pero conectamos igual
       setValidityStatus({ has_asset: true, valid: 1, blocked: false, amount: chatAssets[assetName] });
       setIsConnected(true);
       setIsPolling(true);
-      console.log('=== handleAssetSelection END (unverified) ===');
+
     } else {
       // No hay pubkey - no podemos descifrar mensajes
-      console.log('No pubkey available, cannot connect');
       alert(`Cannot connect: Asset ${assetName} doesn't have a public key.\n\nTo use messaging, you need to reveal the public key for this address by sending a transaction from it.`);
-      console.log('=== handleAssetSelection END (no pubkey) ===');
     }
   };
 
@@ -1013,13 +982,11 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
     try {
       // OPTIMIZACIÓN: Usar listdepinaddresses para obtener todas las pubkeys en una sola llamada RPC
-      console.log(`🔵 RPC CALL: listdepinaddresses`);
-      console.log(`📤 Parameters: ["${assetName}"]`);
+
 
       const depinAddressesData: Array<{ address: string, pubkey: string }> = await wallet.rpc("listdepinaddresses", [assetName]) as Array<{ address: string, pubkey: string }>;
 
-      console.log(`✅ RPC SUCCESS: listdepinaddresses`);
-      console.log(`📥 Response:`, depinAddressesData);
+
 
       // Crear un mapa de address -> pubkey para búsqueda rápida
       const pubkeyMap = new Map<string, string>();
@@ -1029,14 +996,12 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         }
       }
 
-      console.log(`🔵 RPC CALL: listaddressesbyasset`);
-      console.log(`📤 Parameters: ["${assetName}"]`);
+
 
       // Obtener los amounts de cada dirección
       const addressesData: Record<string, unknown> = await wallet.rpc("listaddressesbyasset", [assetName]) as Record<string, unknown>;
 
-      console.log(`✅ RPC SUCCESS: listaddressesbyasset`);
-      console.log(`📥 Response:`, addressesData);
+
 
       const addresses = Object.keys(addressesData);
       const results: Array<{ address: string, amount: number, pubkey: string | null }> = [];
@@ -1054,8 +1019,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       }
 
       setAddressList(results);
-      console.log('📋 Address list loaded:', results);
-      console.log(`⚡ Optimización: 2 llamadas RPC en lugar de ${1 + addresses.length} llamadas`);
+
 
     } catch (error: any) {
       console.error("Error loading addresses with pubkeys:", error);
