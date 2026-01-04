@@ -1,0 +1,68 @@
+/* Login Tabs */
+.rebel-login__tabs {
+    display: flex;
+    margin-bottom: 0;
+    /* Intentionally 0 to connect with card below */
+    border-bottom: 0;
+    gap: 0.5rem;
+}
+
+.rebel-login__tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.75rem 1rem;
+    color: var(--muted-color);
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    font-size: 0.95rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.rebel-login__tab:hover {
+    color: var(--primary);
+    background-color: var(--background-color);
+    /* Light hover bg */
+}
+
+.rebel-login__tab.is-active {
+    color: var(--primary);
+    border-bottom: 2px solid var(--primary);
+    background-color: var(--group-background-color);
+    /* Match card bg */
+    /* Add subtle shadow to lift it or blend it? */
+    /* Ideally it should look like it's part of the card */
+    margin-bottom: -1px;
+    /* Overlap border if card has one */
+    position: relative;
+    z-index: 2;
+}
+
+/* Ensure recovery card connects to tabs */
+.rebel-login__recovery-card {
+    border-top-left-radius: 0;
+    /* If first tab active, maybe? */
+    margin-top: 0;
+    /* Add some top radius logic if needed or keep default */
+}
+
+/* Created Words Box (Read-only) */
+.rebel-login__created-words-box {
+    background-color: var(--code-background-color);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--muted-border-color);
+    font-family: monospace;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--primary);
+    word-spacing: 0.5rem;
+    min-height: 3rem;
+    user-select: all;
+    /* Make it easy to copy */
+}
+
+.rebel-login__mb-1 {
+    margin-bottom: 1rem !important;
+}

@@ -213,59 +213,86 @@
   justify-content: center;
 }
 
-.rebel-login__word-count {
-  font-weight: normal;
-  color: var(--muted-color);
+.rebel-login__segmented-control {
+  display: flex;
+  gap: 0;
+  /* Joined buttons */
 }
 
-.rebel-login__word-count.is-active {
-  font-weight: bold;
-  color: var(--primary);
+@media (min-width: 768px) {
+  .rebel-login__segmented-control {
+    max-width: 320px;
+    /* Limit width on desktop */
+  }
 }
 
-.rebel-login__switch {
-  position: relative;
-  display: inline-block;
-  width: 60px;
-  height: 34px;
+.rebel-login__segment-btn {
+  flex: 1;
+  background: transparent !important;
+  /* Force override of any global button styles */
+  border: 2px solid #e2e8f0;
+  /* Default border */
+  font-size: 0.9rem;
+  padding: 0.4rem 1rem;
   cursor: pointer;
+  color: #000000 !important;
+  /* Force black for inactive buttons in light mode */
+  transition: all 0.2s ease;
+  font-weight: 600;
+  margin: 0;
+  margin-left: -2px;
+  /* Overlap borders */
+  position: relative;
+  /* For z-index */
 }
 
-.rebel-login__switch-input {
-  opacity: 0;
-  width: 0;
-  height: 0;
+.rebel-login__segment-btn:first-child {
+  margin-left: 0;
+  border-top-left-radius: 0.5rem;
+  border-bottom-left-radius: 0.5rem;
 }
 
-.rebel-login__switch-track {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--pico-switch-background-color);
-  border-radius: 34px;
-  transition: 0.4s;
+.rebel-login__segment-btn:last-child {
+  border-top-right-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
 }
 
-.rebel-login__switch-thumb {
-  position: absolute;
-  height: 26px;
-  width: 26px;
-  left: 4px;
-  bottom: 4px;
-  background-color: var(--pico-switch-color);
-  border-radius: 50%;
-  transition: 0.4s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+.rebel-login__segment-btn:not(.is-active):hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  z-index: 5;
 }
 
-.rebel-login__switch.is-on .rebel-login__switch-track {
-  background-color: var(--pico-primary-background);
+/* Selected State: Default Button Color */
+.rebel-login__segment-btn.is-active {
+  background-color: var(--pico-background-color) !important;
+  border: 2px solid var(--pico-background-color) !important;
+  color: var(--pico-color) !important;
+  /* Ensure text is visible */
+  z-index: 10;
+  box-shadow: none;
 }
 
-.rebel-login__switch.is-on .rebel-login__switch-thumb {
-  left: 30px;
+/* Dark Mode Overrides */
+[data-theme="dark"] .rebel-login__segment-btn {
+  background-color: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: var(--primary) !important;
+  /* Restore primary/light color for dark mode */
+}
+
+[data-theme="dark"] .rebel-login__segment-btn.is-active {
+  background-color: var(--pico-background-color) !important;
+  border-color: var(--pico-background-color) !important;
+  color: var(--pico-color) !important;
+}
+
+
+
+
+
+[data-theme="dark"] .rebel-login__segment-btn:not(.is-active):hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  /* subtle hover */
 }
 
 .rebel-login__mnemonic-label {
@@ -477,4 +504,94 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
+}
+
+
+
+/* Created Words Box (Read-only) */
+.rebel-login__created-words-box {
+  background-color: var(--code-background-color);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--muted-border-color);
+  font-family: monospace;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--primary);
+  word-spacing: 0.5rem;
+  min-height: 3rem;
+  user-select: all;
+  /* Make it easy to copy */
+}
+
+.rebel-login__mb-1 {
+  margin-bottom: 1rem !important;
+}
+
+/* Integrated Tabs Styling */
+.rebel-login__tabs {
+  gap: 0;
+  /* Remove gap to connect tabs */
+  padding-left: 1rem;
+  /* Align first tab with card padding */
+}
+
+.rebel-login__tab {
+  border: 1px solid transparent;
+  /* Prepare borders */
+  border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+  /* Match card border color for unselected */
+  position: relative;
+  /* top: 1px; removed */
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  margin-right: 0.25rem;
+  /* Small gap between tabs */
+  background-color: transparent;
+  opacity: 0.7;
+  margin-bottom: -1px !important;
+  /* All tabs touch the card */
+  padding-bottom: 0.8rem;
+  /* Align text vertically */
+}
+
+.rebel-login__tab:hover {
+  background-color: rgba(59, 130, 246, 0.05);
+  opacity: 1;
+}
+
+.rebel-login__tab.is-active {
+  background-color: rgba(59, 130, 246, 0.1);
+  /* Match card bg */
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  /* Match card border */
+  border-bottom-color: transparent !important;
+  /* Remove bottom border to merge */
+  border-width: 1px !important;
+  /* Force 1px */
+  color: var(--primary);
+  opacity: 1;
+  z-index: 2;
+  margin-bottom: -1px !important;
+  /* Overlap card border */
+  padding-bottom: 0.8rem;
+  /* Slight increase to cover gap */
+  outline: none !important;
+  /* No focus ring */
+  box-shadow: none !important;
+}
+
+/* Dark Mode: Active tab looks like inactive word buttons */
+[data-theme="dark"] .rebel-login__tab.is-active {
+  background-color: transparent !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  border-bottom-color: transparent !important;
+  color: var(--primary) !important;
+}
+
+/* Ensure card has same bg/border colors */
+.rebel-login__recovery-card {
+  border-top-left-radius: 0;
+  /* Square off top-left if desired, or keep rounded */
+  z-index: 1;
 }
