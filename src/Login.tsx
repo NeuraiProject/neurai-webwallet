@@ -502,15 +502,14 @@ export function Login({
   return (
     <article>
       <div className="rebel-login__topbar">
-        <button
-          type="button"
+        <div
           onClick={() => setShowSettings(true)}
-          className="rebel-login__icon-button"
+          className="rebel-login__topbar-icon"
           title="RPC Server Settings"
           aria-label="RPC Server Settings"
         >
           <IconSettings />
-        </button>
+        </div>
         <LightModeToggle />
       </div>
       {dialog}
