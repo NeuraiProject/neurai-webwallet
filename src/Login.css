@@ -615,9 +615,65 @@
   color: var(--primary) !important;
 }
 
-/* Ensure card has same bg/border colors */
+/* Mobile Responsive Tabs */
+@media (max-width: 767px) {
+  .rebel-login__tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding-left: 0;
+    gap: 3px;
+    margin-bottom: 0px;
+    /* Connect to the card */
+  }
+
+  .rebel-login__tab {
+    width: 100%;
+    margin-right: 0;
+    margin-bottom: 0 !important;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(59, 130, 246, 0.4) !important;
+    text-align: center;
+    padding: 0.8rem 1rem;
+    opacity: 1;
+    background-color: rgba(59, 130, 246, 0.05);
+  }
+
+  /* Specific fix for bottom row (Esp32 HW and Help) to touch the card */
+  .rebel-login__tab:nth-child(3),
+  .rebel-login__tab:nth-child(4) {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    margin-bottom: -1px !important;
+    border-bottom-color: transparent !important;
+  }
+
+  .rebel-login__tab.is-active {
+    background-color: rgba(59, 130, 246, 0.15) !important;
+    border-color: rgba(59, 130, 246, 0.5) !important;
+    color: var(--primary) !important;
+    position: relative;
+    z-index: 10;
+  }
+
+  [data-theme="dark"] .rebel-login__tab {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  [data-theme="dark"] .rebel-login__tab.is-active {
+    background-color: transparent !important;
+    border: 2px solid rgba(255, 255, 255, 0.2) !important;
+    border-bottom-color: transparent !important;
+    color: var(--primary) !important;
+  }
+
+  .rebel-login__recovery-card {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+  }
+}
+
+/* Ensure card handles overlap correctly */
 .rebel-login__recovery-card {
-  border-top-left-radius: 0;
-  /* Square off top-left if desired, or keep rounded */
   z-index: 1;
 }
