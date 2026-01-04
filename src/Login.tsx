@@ -24,7 +24,7 @@ export function Login({
   const [showWords, setShowWords] = React.useState(false);
   const [showPassphrase, setShowPassphrase] = React.useState(false);
   const [wordCount, setWordCount] = React.useState<12 | 24>(12);
-  const [activeTab, setActiveTab] = React.useState<'recover' | 'create' | 'esp32'>('recover');
+  const [activeTab, setActiveTab] = React.useState<'recover' | 'create' | 'esp32' | 'help'>('recover');
   const [createdMnemonic, setCreatedMnemonic] = React.useState<string>("");
   const [usePassphrase, setUsePassphrase] = React.useState(false);
   const [dialog, setDialog] = React.useState(<></>);
@@ -552,10 +552,10 @@ export function Login({
         </div>
 
         <div className="rebel-login__feature-card rebel-login__feature-card--green">
-          <div className="rebel-login__feature-icon">⚡</div>
-          <h3 className="rebel-login__feature-title">Fast</h3>
+          <div className="rebel-login__feature-icon">🛡️</div>
+          <h3 className="rebel-login__feature-title">DePIN</h3>
           <p className="rebel-login__feature-text">
-            Send and receive Neurai and assets instantly.
+            Military-grade encrypted communication system.
           </p>
         </div>
 
@@ -568,39 +568,10 @@ export function Login({
         </div>
       </div>
 
-      {/* How it works */}
-      <details className="rebel-login__how-details">
-        <summary className="rebel-login__how-summary">
-          How does it work?
-        </summary>
-        <div className="rebel-login__how-content">
-          <ol className="rebel-login__how-list">
-            <li className="rebel-login__how-list-item">
-              <strong>Create or import a wallet</strong> using 12 or 24 recovery words
-            </li>
-            <li className="rebel-login__how-list-item">
-              <strong>Optional passphrase</strong> - add an extra layer of security with a BIP39 passphrase (acts as a "13th/25th word")
-            </li>
-            <li className="rebel-login__how-list-item">
-              <strong>Your keys stay private</strong> - they're encrypted and stored locally in your browser
-            </li>
-            <li className="rebel-login__how-list-item">
-              <strong>Manage your assets</strong> - send, receive, and view your Neurai tokens
-            </li>
-            <li className="rebel-login__how-list-item">
-              <strong>Sign out</strong> - your session data is cleared when you leave
-            </li>
-          </ol>
-          <p className="rebel-login__how-warning">
-            ⚠️ <strong>Important:</strong> Always backup your recovery words. They cannot be recovered if lost!
-          </p>
-        </div>
-      </details>
 
-      <hr className="rebel-login__divider" />
 
       {/* Login Form */}
-      <hr className="rebel-login__divider" />
+
 
       {/* Login Tabs */}
       <p className="rebel-login__privacy">
@@ -618,7 +589,7 @@ export function Login({
           className={`rebel-login__tab ${activeTab === 'recover' ? 'is-active' : ''}`}
           onClick={() => setActiveTab('recover')}
         >
-          Recover your wallet
+          Recovery Wallet
         </button>
         <button
           type="button"
@@ -634,6 +605,13 @@ export function Login({
         >
           Esp32 HW
         </button>
+        <button
+          type="button"
+          className={`rebel-login__tab ${activeTab === 'help' ? 'is-active' : ''}`}
+          onClick={() => setActiveTab('help')}
+        >
+          Help
+        </button>
       </div>
 
       {/* Card for recovery words input */}
@@ -646,6 +624,9 @@ export function Login({
         )}
         {activeTab === 'esp32' && (
           <h2 className="rebel-login__recovery-title">Hardware Wallet Access</h2>
+        )}
+        {activeTab === 'help' && (
+          <h2 className="rebel-login__recovery-title">How the Wallet Works</h2>
         )}
 
         <form onSubmit={onSubmit}>
@@ -897,7 +878,41 @@ export function Login({
           )}
 
           {/* ----- SUBMIT BUTTON (Only for Recover and Create) ----- */}
-          {activeTab !== 'esp32' && (
+          {/* ----- HELP / INFO TAB ----- */}
+          {activeTab === 'help' && (
+            <div className="rebel-login__how-content" style={{ border: 'none', background: 'transparent', padding: '0 1rem' }}>
+              <div className="rebel-login__card-muted" style={{ marginTop: 0 }}>
+                <h4 style={{ marginTop: 0, color: 'var(--primary)' }}>Wallet Setup & Security</h4>
+                <p className="rebel-login__muted">
+                  <strong>Create or Import:</strong> You can generate a new 12 or 24-word recovery phrase (mnemonic) or import an existing one. This phrase is the master key to your funds.
+                </p>
+                <p className="rebel-login__muted">
+                  <strong>BIP39 Passphrase:</strong> Add an extra layer of security with an optional passphrase. In BIP39, this serves as a "13th/25th word", meaning the same mnemonic with a different passphrase will lead to a completely different wallet.
+                </p>
+
+                <h4 style={{ color: 'var(--primary)' }}>Privacy First Architecture</h4>
+                <p className="rebel-login__muted">
+                  <strong>Zero-Leak Policy:</strong> Your recovery words and passphrases never leave your device. All sensitive operations, including encryption and transaction signing, are executed locally within your browser's memory.
+                </p>
+
+                <h4 style={{ color: 'var(--primary)' }}>DePIN & IoT Integration</h4>
+                <p className="rebel-login__muted">
+                  <strong>Advanced Features:</strong> Beyond standard XNA transfers, this wallet supports Decentralized Physical Infrastructure Networks (DePIN) and IoT device management, allowing for secure peer-to-peer communication.
+                </p>
+
+                <h4 style={{ color: 'var(--primary)' }}>Secure Login Options</h4>
+                <p className="rebel-login__muted">
+                  <strong>ESP32 Hardware:</strong> For enhanced protection against keyloggers, you can use an ESP32 device to store and inject your encrypted keys directly via USB.
+                </p>
+
+                <p className="rebel-login__how-warning" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                  ⚠️ <strong>CRITICAL:</strong> Neurai cannot recover your wallet. If you lose your recovery words, your funds are gone forever. Always keep physical backups in a safe place.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {(activeTab === 'recover' || activeTab === 'create') && (
             <div className="grid rebel-login__form-actions">
               <input type="submit" value="Sign in" />
             </div>

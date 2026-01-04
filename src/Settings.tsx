@@ -117,9 +117,9 @@ export function Settings({
   const hasPassphrase = safeMnemonic.includes("|||");
   const wordCount = mnemonicOnly
     ? mnemonicOnly
-        .trim()
-        .split(/\s+/)
-        .filter((word: string) => word.length > 0).length
+      .trim()
+      .split(/\s+/)
+      .filter((word: string) => word.length > 0).length
     : 0;
   const wordsText = wordCount === 24 ? "24 words" : "12 words";
 
@@ -150,7 +150,7 @@ export function Settings({
               <small>
                 <strong>{useLegacyDerivation ? "Legacy" : "Standard"}:</strong>{" "}
                 {useLegacyDerivation
-                  ? "m/44'/0'/0'/0/0 (compatible with older wallets)"
+                  ? "m/44'/0'/0'/0/0 (compatible with Electrum, Neurai-Qt or old Webwallets)"
                   : "m/44'/1900'/0'/0/0 (recommended for new wallets)"}
               </small>
             </div>
@@ -161,7 +161,7 @@ export function Settings({
                   <strong>Changing derivation generates different addresses</strong> from the same mnemonic
                 </li>
                 <li>
-                  Use legacy only if you need compatibility with old wallets (before coin type 1900)
+                  Use legacy only if you need to restore old wallets from <strong>Electrum</strong>, <strong>Neurai-Qt</strong> or previous <strong>Webwallets</strong> (before coin type 1900)
                 </li>
                 <li>
                   The wallet will reload when you change this setting
