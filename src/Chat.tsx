@@ -4,7 +4,7 @@ import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { useDePINChat } from "./hooks/useDePINChat";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import { FaBomb, FaFireFlameCurved, FaQrcode, FaRegClock, FaRegCircleCheck, FaRegCopy, FaRobot, FaUserGroup, FaBars, FaXmark } from "react-icons/fa6";
+import { FaBomb, FaFireFlameCurved, FaQrcode, FaRegClock, FaRegCircleCheck, FaRegCopy, FaRobot, FaUserGroup, FaBars, FaXmark, FaArrowDown, FaArrowUp } from "react-icons/fa6";
 import { betterAlert, betterToast } from "./betterDialog";
 import type { DepinChatIdentity } from "./utils/depinChatIdentity";
 
@@ -1361,811 +1361,814 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         </div>
       )}
 
-      {/* Chat container */}
-      <div
-        style={{
-          marginTop: "0.5rem",
-          display: "flex",
-          flexDirection: "row", // Changed to row for sidebar layout
-          height: "600px",
-          border: "2px solid #e5e7eb",
-          borderRadius: "16px",
-          overflow: "hidden",
-          backgroundColor: "#ffffff",
-          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-        }}
-        className="chat-container"
-      >
-        {/* Sidebar */}
-        {isConnected && (
-          <div
-            className={`chat-sidebar ${isSidebarOpen ? "open" : "closed"}`}
-            style={{
-              width: isSidebarOpen ? "280px" : "0px",
-              borderRight: isSidebarOpen ? "1px solid #e5e7eb" : "none",
-              backgroundColor: "#f9fafb",
-              display: "flex",
-              flexDirection: "column",
-              transition: "all 0.3s ease",
-              overflow: "hidden",
-              flexShrink: 0,
-            }}
-          >
-            {/* Sidebar Header */}
-            <div style={{ padding: "1rem", borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>Contacts</span>
-              <button
-                className="chat-icon-button"
-                onClick={() => setSidebarOpen(false)}
-                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#666" }}
-              >
-                <FaXmark size={18} />
-              </button>
-            </div>
+      {/* Top Asset Selector & Chat Container */}
+      <div style={{ position: "relative", marginTop: "0.5rem" }}>
 
-            {/* Sidebar Content */}
-            <div style={{ overflowY: "auto", flex: 1 }}>
-              {/* Group Item */}
-              <div
-                onClick={() => { setActiveTab("group"); if (window.innerWidth < 768) setSidebarOpen(false); }}
-                className={`chat-sidebar-item ${activeTab === "group" ? "active" : ""}`}
-                style={{
-                  padding: "0.75rem 1rem",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  borderBottom: "1px solid #f3f4f6",
-                }}
-              >
-                <div style={{
-                  width: "40px", height: "40px", borderRadius: "50%",
-                  backgroundColor: "#3b82f6", color: "white",
-                  display: "flex", alignItems: "center", justifyContent: "center"
-                }}>
-                  <FaUserGroup size={18} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600 }}>Public Group</div>
-                  <div style={{ fontSize: "0.8rem", color: "#6b7280" }}>Everyone</div>
-                </div>
-                {getUnreadCount("group") > 0 && (
-                  <span style={{ backgroundColor: "#ef4444", color: "white", borderRadius: "99px", padding: "0.1rem 0.6rem", fontSize: "0.75rem", fontWeight: "bold" }}>
-                    {getUnreadCount("group")}
-                  </span>
-                )}
+        {/* Asset List Button (Top) */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "0.5rem",
+          padding: "0 0.5rem"
+        }}>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              onClick={() => {
+                setShowAssets(!showAssets);
+                loadAssetAddresses();
+              }}
+              style={{
+                fontSize: "0.9rem",
+                padding: "0.4rem 1rem",
+                borderRadius: "20px",
+                backgroundColor: "#3b82f6",
+                color: "white",
+                border: "none",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem"
+              }}
+            >
+              {showAssets ? <FaArrowUp /> : <FaArrowDown />}
+              {showAssets ? "Hide Asset List" : "Select Asset"}
+            </button>
+
+
+          </div>
+
+          {selectedAsset && (
+            <button
+              onClick={handleDisconnect}
+              style={{
+                fontSize: "0.8rem",
+                padding: "0.3rem 0.8rem",
+                borderRadius: "6px",
+                backgroundColor: "#ef4444",
+                color: "white",
+                border: "none"
+              }}
+            >
+              Disconnect
+            </button>
+          )}
+        </div>
+
+        {/* Asset List Slider Overlay */}
+        <div
+          className={`asset-slider ${showAssets ? "open" : "closed"}`}
+          style={{
+            position: "absolute",
+            top: "50px", // Adjust based on header height
+            left: 0,
+            right: 0,
+            backgroundColor: "#ffffff",
+            zIndex: 100,
+            borderBottom: showAssets ? "2px solid #e5e7eb" : "none",
+            boxShadow: showAssets ? "0 10px 15px -3px rgba(0, 0, 0, 0.1)" : "none",
+            transition: "all 0.3s ease-in-out",
+            maxHeight: showAssets ? "500px" : "0px",
+            overflow: "hidden",
+            borderTopLeftRadius: "16px",
+            borderTopRightRadius: "16px",
+          }}
+        >
+          <div style={{ padding: "1rem", overflowY: "auto", maxHeight: "480px" }}>
+            <h4 style={{ marginTop: 0 }}>Select an Asset to Chat</h4>
+            <table role="grid">
+              <thead>
+                <tr>
+                  <th style={{ width: "50px", textAlign: "center" }}>Select</th>
+                  <th>Asset Name</th>
+                  <th>Address</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(chatAssets).map((assetName) => {
+                  if (assetName === wallet.baseCurrency) return null;
+                  if (chatAssets[assetName] === 0) return null;
+
+                  const address = assetAddresses[assetName] || "Loading...";
+
+                  return (
+                    <tr
+                      key={assetName}
+                      onClick={() => {
+                        handleAssetSelection(assetName);
+                        setShowAssets(false); // Auto-close on selection
+                      }}
+                      style={{ cursor: "pointer", backgroundColor: selectedAsset === assetName ? "#eff6ff" : "transparent" }}
+                      className="asset-row"
+                    >
+                      <td style={{ textAlign: "center" }}>
+                        <input
+                          type="radio"
+                          name="selected-asset"
+                          checked={selectedAsset === assetName}
+                          onChange={() => {
+                            handleAssetSelection(assetName);
+                            setShowAssets(false);
+                          }}
+                          style={{ cursor: "pointer" }}
+                        />
+                      </td>
+                      <td>
+                        <span title={getAssetTypeLabel(assetName)}>{getAssetIcon(assetName)} </span>
+                        {assetName}
+                      </td>
+                      <td style={{
+                        fontFamily: "monospace",
+                        fontSize: "0.85rem",
+                        wordBreak: "break-all"
+                      }}>
+                        {address}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: "0.5rem",
+            display: "flex",
+            flexDirection: "row", // Changed to row for sidebar layout
+            height: "600px",
+            border: "2px solid #e5e7eb",
+            borderRadius: "16px",
+            overflow: "hidden",
+            backgroundColor: "#ffffff",
+            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+          }}
+          className="chat-container"
+        >
+          {/* Sidebar */}
+          {isConnected && (
+            <div
+              className={`chat-sidebar ${isSidebarOpen ? "open" : "closed"}`}
+              style={{
+                width: isSidebarOpen ? "280px" : "0px",
+                borderRight: isSidebarOpen ? "1px solid #e5e7eb" : "none",
+                backgroundColor: "#f9fafb",
+                display: "flex",
+                flexDirection: "column",
+                transition: "all 0.3s ease",
+                overflow: "hidden",
+                flexShrink: 0,
+              }}
+            >
+              {/* Sidebar Header */}
+              <div style={{ padding: "1rem", borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>Contacts</span>
+                <button
+                  className="chat-icon-button"
+                  onClick={() => setSidebarOpen(false)}
+                  style={{ background: "transparent", border: "none", cursor: "pointer", color: "#666" }}
+                >
+                  <FaXmark size={18} />
+                </button>
               </div>
 
-              {/* Private Conversations */}
-              {Array.from(privateConversations.entries())
-                .filter(([address]) => !closedTabs.has(address))
-                .sort((a, b) => b[1].lastMessageTime - a[1].lastMessageTime)
-                .map(([address, conversation]) => (
-                  <div
-                    key={address}
-                    onClick={() => { setActiveTab(address); if (window.innerWidth < 768) setSidebarOpen(false); }}
-                    className={`chat-sidebar-item ${activeTab === address ? "active" : ""}`}
-                    style={{
-                      padding: "0.75rem 1rem",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.75rem",
-                      borderBottom: "1px solid #f3f4f6",
-                    }}
-                  >
-                    <div style={{
-                      width: "40px", height: "40px", borderRadius: "50%",
-                      backgroundColor: "#10b981", color: "white",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: "0.9rem", fontWeight: "bold"
-                    }}>
-                      {conversation.displayName.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {conversation.displayName}
-                      </div>
-                      <div style={{ fontSize: "0.8rem", color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {shortenAddress(address)}
-                      </div>
-                    </div>
-                    {getUnreadCount(address) > 0 && (
-                      <span style={{ backgroundColor: "#ef4444", color: "white", borderRadius: "99px", padding: "0.1rem 0.6rem", fontSize: "0.75rem", fontWeight: "bold" }}>
-                        {getUnreadCount(address)}
-                      </span>
-                    )}
+              {/* Sidebar Content */}
+              <div style={{ overflowY: "auto", flex: 1 }}>
+                {/* Group Item */}
+                <div
+                  onClick={() => { setActiveTab("group"); if (window.innerWidth < 768) setSidebarOpen(false); }}
+                  className={`chat-sidebar-item ${activeTab === "group" ? "active" : ""}`}
+                  style={{
+                    padding: "0.75rem 1rem",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    borderBottom: "1px solid #f3f4f6",
+                  }}
+                >
+                  <div style={{
+                    width: "40px", height: "40px", borderRadius: "50%",
+                    backgroundColor: "#3b82f6", color: "white",
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                  }}>
+                    <FaUserGroup size={18} />
                   </div>
-                ))}
-
-              {/* Other Contacts (Holders) */}
-              {addressList.length > 0 && addressList.some(item => item.address !== chatAddress && !privateConversations.has(item.address) && item.pubkey) && (
-                <>
-                  <div style={{ padding: "1rem 1rem 0.5rem", fontSize: "0.75rem", fontWeight: "bold", color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    Other Contacts
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600 }}>Public Group</div>
+                    <div style={{ fontSize: "0.8rem", color: "#6b7280" }}>Everyone</div>
                   </div>
-                  {addressList
-                    .filter(item => item.address !== chatAddress && !privateConversations.has(item.address) && item.pubkey)
-                    .map((item) => (
-                      <div
-                        key={item.address}
-                        onClick={() => {
-                          createPrivateConversation(item.address);
-                          setActiveTab(item.address);
-                          if (window.innerWidth < 768) setSidebarOpen(false);
-                        }}
-                        className={`chat-sidebar-item`}
-                        style={{
-                          padding: "0.75rem 1rem",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.75rem",
-                          borderBottom: "1px solid #f3f4f6",
-                          opacity: 0.8,
-                        }}
-                      >
-                        <div style={{
-                          width: "36px", height: "36px", borderRadius: "50%",
-                          backgroundColor: "#9ca3af", color: "white",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: "0.85rem", fontWeight: "bold"
-                        }}>
-                          {(item.pubkey ? "👤" : "?")}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, fontSize: "0.95rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {shortenAddress(item.address)}
-                          </div>
+                  {getUnreadCount("group") > 0 && (
+                    <span style={{ backgroundColor: "#ef4444", color: "white", borderRadius: "99px", padding: "0.1rem 0.6rem", fontSize: "0.75rem", fontWeight: "bold" }}>
+                      {getUnreadCount("group")}
+                    </span>
+                  )}
+                </div>
 
-                        </div>
-                      </div>
-                    ))}
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Main Content Area */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-          {/* Chat Header for Main Content */}
-          <div style={{
-            height: "60px",
-            borderBottom: "1px solid #e5e7eb",
-            display: "flex",
-            alignItems: "center",
-            padding: "0 1rem",
-            backgroundColor: "#ffffff",
-            gap: "1rem"
-          }} className="chat-main-header">
-            {isConnected && !isSidebarOpen && (
-              <button
-                onClick={() => setSidebarOpen(true)}
-                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "0.5rem" }}
-                className="chat-toggle-btn"
-              >
-                <FaBars size={20} />
-              </button>
-            )}
-            <div style={{ fontWeight: 700, fontSize: "1.1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              {activeTab === "group" ? (
-                <>
-                  <FaUserGroup className="text-blue-500" />
-                  Public Group
-                </>
-              ) : (
-                <>
-                  <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#10b981" }}></div>
-                  {privateConversations.get(activeTab)?.displayName || shortenAddress(activeTab)}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Messages area - todas las pestañas siempre renderizadas */}
-          <div style={{ flex: 1, position: "relative", backgroundColor: "#f9fafb" }}>
-            {/* Pestaña General */}
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                overflowY: "auto",
-                padding: "1.5rem",
-                display: activeTab === "group" ? "flex" : "none",
-                flexDirection: "column",
-                gap: "1rem",
-                backgroundColor: "#f9fafb",
-                backgroundImage: "linear-gradient(to bottom, #f9fafb 0%, #f3f4f6 100%)",
-              }}
-              className="chat-messages"
-            >
-              {(messagesByTab.get("group") || []).map((message) => (
-                <div key={message.id} id={`message-${message.id}`}>
-                  <div
-                    key={message.id}
-                    style={{
-                      display: "flex",
-                      justifyContent:
-                        message.sender === "user" ? "flex-end" : "flex-start",
-                      animation: "slideIn 0.3s ease-out",
-                    }}
-                  >
+                {/* Private Conversations */}
+                {Array.from(privateConversations.entries())
+                  .filter(([address]) => !closedTabs.has(address))
+                  .sort((a, b) => b[1].lastMessageTime - a[1].lastMessageTime)
+                  .map(([address, conversation]) => (
                     <div
-                      className={message.sender === "user" ? "chat-message-user" : "chat-message-bot"}
+                      key={address}
+                      onClick={() => { setActiveTab(address); if (window.innerWidth < 768) setSidebarOpen(false); }}
+                      className={`chat-sidebar-item ${activeTab === address ? "active" : ""}`}
                       style={{
-                        maxWidth: "90%",
-                        padding: "0.5rem 0.5rem",
-                        borderRadius: message.sender === "user"
-                          ? "16px 16px 4px 16px"
-                          : "16px 16px 16px 4px",
-                        backgroundColor:
-                          message.sender === "user"
-                            ? "rgb(247 232 209)"
-                            : "rgb(239 239 239)",
-                        color:
-                          message.sender === "user"
-                            ? "rgb(63 54 54)"
-                            : "#1f2937",
-                        boxShadow: message.sender === "user"
-                          ? "rgb(42 47 55 / 74%) 0px 2px 8px"
-                          : "rgb(42 47 55 / 74%) 0px 2px 8px",
-                        border: message.sender === "user"
-                          ? "none"
-                          : "1px solid #e5e7eb",
+                        padding: "0.75rem 1rem",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        borderBottom: "1px solid #f3f4f6",
                       }}
                     >
-                      {/* DePIN Message Format */}
-                      {message.isDePIN && (
-                        <>
-                          {/* Sender (left) + Expires (right) */}
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "baseline",
-                              gap: "0.75rem",
-                              margin: "0",
-                              opacity: message.sender === "user" ? 0.95 : 0.8,
-                            }}
-                          >
-                            <span style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
-                              {shortenAddress(message.senderAddress)}
-                            </span>
-                            {message.expiresDate && (
-                              <span
-                                style={{
-                                  fontSize: "0.75rem",
-                                  textAlign: "right",
-                                  whiteSpace: "nowrap",
-                                  color: "#000",
-                                  display: "inline-flex",
-                                  alignItems: "baseline",
-                                  gap: "0.3rem",
-                                }}
-                              >
-                                <FaBomb style={{ color: "#000", fontSize: "1em", lineHeight: 1 }} {...decorativeIconProps} />
-                                <span style={{ fontStyle: "italic" }}>{message.expiresDate}</span>
-                              </span>
-                            )}
-                          </div>
-                          {/* BOT model (if present in prefix) */}
-                          {message.sender === "bot" && extractBotModel(message.text).model && (
-                            <p
-                              style={{
-                                margin: "0 0 0.75rem 0",
-                                fontSize: "0.75rem",
-                                fontWeight: "bold",
-                                opacity: 0.6,
-                              }}
-                            >
-                              <FaRobot
-                                size={14}
-                                style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
-                                {...decorativeIconProps}
-                              />
-                              {extractBotModel(message.text).model}
-                            </p>
-                          )}
-                          {/* Message Content */}
-                          <div
-                            style={{
-                              margin: 0,
-                              wordWrap: "break-word",
-                              lineHeight: "1.5",
-                              fontSize: "0.95rem",
-                              padding: "0.5rem",
-                              whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
-                              backgroundColor: "transparent",
-                              borderRadius: "8px",
-                            }}
-                          >
-                            {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
-                          </div>
-                        </>
+                      <div style={{
+                        width: "40px", height: "40px", borderRadius: "50%",
+                        backgroundColor: "#10b981", color: "white",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: "0.9rem", fontWeight: "bold"
+                      }}>
+                        {conversation.displayName.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {conversation.displayName}
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {shortenAddress(address)}
+                        </div>
+                      </div>
+                      {getUnreadCount(address) > 0 && (
+                        <span style={{ backgroundColor: "#ef4444", color: "white", borderRadius: "99px", padding: "0.1rem 0.6rem", fontSize: "0.75rem", fontWeight: "bold" }}>
+                          {getUnreadCount(address)}
+                        </span>
                       )}
-                      {/* Regular Message Format */}
-                      {!message.isDePIN && (
+                    </div>
+                  ))}
+
+                {/* Other Contacts (Holders) */}
+                {addressList.length > 0 && addressList.some(item => item.address !== chatAddress && !privateConversations.has(item.address) && item.pubkey) && (
+                  <>
+                    <div style={{ padding: "1rem 1rem 0.5rem", fontSize: "0.75rem", fontWeight: "bold", color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Other Contacts
+                    </div>
+                    {addressList
+                      .filter(item => item.address !== chatAddress && !privateConversations.has(item.address) && item.pubkey)
+                      .map((item) => (
                         <div
+                          key={item.address}
+                          onClick={() => {
+                            createPrivateConversation(item.address);
+                            setActiveTab(item.address);
+                            if (window.innerWidth < 768) setSidebarOpen(false);
+                          }}
+                          className={`chat-sidebar-item`}
                           style={{
-                            margin: 0,
-                            wordWrap: "break-word",
-                            lineHeight: "1.5",
-                            fontSize: "0.95rem",
-                            whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
+                            padding: "0.75rem 1rem",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.75rem",
+                            borderBottom: "1px solid #f3f4f6",
+                            opacity: 0.8,
                           }}
                         >
-                          {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
+                          <div style={{
+                            width: "36px", height: "36px", borderRadius: "50%",
+                            backgroundColor: "#9ca3af", color: "white",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: "0.85rem", fontWeight: "bold"
+                          }}>
+                            {(item.pubkey ? "👤" : "?")}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: "0.95rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {shortenAddress(item.address)}
+                            </div>
+
+                          </div>
                         </div>
-                      )}
-                      <small
-                        style={{
-                          display: "block",
-                          marginTop: "0.375rem",
-                          opacity: message.sender === "user" ? 0.9 : 0.6,
-                          fontSize: "0.7rem",
-                          textAlign: "right",
-                        }}
-                      >
-                        {message.sender === "user" && message.delivery === "pending" && (
-                          <FaRegClock
-                            size={15}
-                            color="#835608ff"
-                            style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
-                            {...decorativeIconProps}
-                          />
-                        )}
-                        {message.sender === "user" && message.delivery === "confirmed" && (
-                          <FaRegCircleCheck
-                            size={15}
-                            color="#22c55e"
-                            style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
-                            {...decorativeIconProps}
-                          />
-                        )}
-                        {message.isDePIN && message.sendDate
-                          ? message.sendDate
-                          : message.timestamp.toLocaleTimeString()}
-                      </small>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <div ref={(el) => messagesEndRef.current.set("group", el)} />
+                      ))}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Main Content Area */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+            {/* Chat Header for Main Content */}
+            <div style={{
+              height: "60px",
+              borderBottom: "1px solid #e5e7eb",
+              display: "flex",
+              alignItems: "center",
+              padding: "0 1rem",
+              backgroundColor: "#ffffff",
+              gap: "1rem"
+            }} className="chat-main-header">
+              {isConnected && !isSidebarOpen && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "0.5rem" }}
+                  className="chat-toggle-btn"
+                >
+                  <FaBars size={20} />
+                </button>
+              )}
+              <div style={{ fontWeight: 700, fontSize: "1.1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                {activeTab === "group" ? (
+                  <>
+                    <FaUserGroup className="text-blue-500" />
+                    Public Group
+                  </>
+                ) : (
+                  <>
+                    <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#10b981" }}></div>
+                    {privateConversations.get(activeTab)?.displayName || shortenAddress(activeTab)}
+                  </>
+                )}
+              </div>
             </div>
 
-            {/* Pestañas Privadas */}
-            {Array.from(privateConversations.keys())
-              .filter((address) => !closedTabs.has(address))
-              .map((address) => (
-                <div
-                  key={address}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    overflowY: "auto",
-                    padding: "1.5rem",
-                    display: activeTab === address ? "flex" : "none",
-                    flexDirection: "column",
-                    gap: "1rem",
-                    backgroundColor: "#f9fafb",
-                    backgroundImage: "linear-gradient(to bottom, #f9fafb 0%, #f3f4f6 100%)",
-                  }}
-                  className="chat-messages"
-                >
-                  {(messagesByTab.get(address) || []).map((message) => (
-                    <div key={message.id} id={`message-${message.id}`}>
+            {/* Messages area - todas las pestañas siempre renderizadas */}
+            <div style={{ flex: 1, position: "relative", backgroundColor: "#f9fafb" }}>
+              {/* Pestaña General */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  overflowY: "auto",
+                  padding: "1.5rem",
+                  display: activeTab === "group" ? "flex" : "none",
+                  flexDirection: "column",
+                  gap: "1rem",
+                  backgroundColor: "#f9fafb",
+                  backgroundImage: "linear-gradient(to bottom, #f9fafb 0%, #f3f4f6 100%)",
+                }}
+                className="chat-messages"
+              >
+                {(messagesByTab.get("group") || []).map((message) => (
+                  <div key={message.id} id={`message-${message.id}`}>
+                    <div
+                      key={message.id}
+                      style={{
+                        display: "flex",
+                        justifyContent:
+                          message.sender === "user" ? "flex-end" : "flex-start",
+                        animation: "slideIn 0.3s ease-out",
+                      }}
+                    >
                       <div
-                        key={message.id}
+                        className={message.sender === "user" ? "chat-message-user" : "chat-message-bot"}
                         style={{
-                          display: "flex",
-                          justifyContent:
-                            message.sender === "user" ? "flex-end" : "flex-start",
-                          animation: "slideIn 0.3s ease-out",
+                          maxWidth: "90%",
+                          padding: "0.5rem 0.5rem",
+                          borderRadius: message.sender === "user"
+                            ? "16px 16px 4px 16px"
+                            : "16px 16px 16px 4px",
+                          backgroundColor:
+                            message.sender === "user"
+                              ? "rgb(247 232 209)"
+                              : "rgb(239 239 239)",
+                          color:
+                            message.sender === "user"
+                              ? "rgb(63 54 54)"
+                              : "#1f2937",
+                          boxShadow: message.sender === "user"
+                            ? "rgb(42 47 55 / 74%) 0px 2px 8px"
+                            : "rgb(42 47 55 / 74%) 0px 2px 8px",
+                          border: message.sender === "user"
+                            ? "none"
+                            : "1px solid #e5e7eb",
                         }}
                       >
-                        <div
-                          className={message.sender === "user" ? "chat-message-user" : "chat-message-bot"}
-                          style={{
-                            maxWidth: "90%",
-                            padding: "0.5rem 0.5rem",
-                            borderRadius: message.sender === "user"
-                              ? "16px 16px 4px 16px"
-                              : "16px 16px 16px 4px",
-                            backgroundColor:
-                              message.sender === "user"
-                                ? "rgb(247 232 209)"
-                                : "rgb(239 239 239)",
-                            color:
-                              message.sender === "user"
-                                ? "rgb(63 54 54)"
-                                : "#1f2937",
-                            boxShadow: message.sender === "user"
-                              ? "rgb(42 47 55 / 74%) 0px 2px 8px"
-                              : "rgb(42 47 55 / 74%) 0px 2px 8px",
-                            border: message.sender === "user"
-                              ? "none"
-                              : "1px solid #e5e7eb",
-                          }}
-                        >
-                          {/* DePIN Message Format */}
-                          {message.isDePIN && (
-                            <>
-                              {/* Sender (left) + Expires (right) */}
-                              <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  alignItems: "baseline",
-                                  gap: "0.75rem",
-                                  margin: "0",
-                                  opacity: message.sender === "user" ? 0.95 : 0.8,
-                                }}
-                              >
-                                <span style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
-                                  {shortenAddress(message.senderAddress)}
-                                </span>
-                                {message.expiresDate && (
-                                  <span
-                                    style={{
-                                      fontSize: "0.75rem",
-                                      textAlign: "right",
-                                      whiteSpace: "nowrap",
-                                      color: "#000",
-                                      display: "inline-flex",
-                                      alignItems: "baseline",
-                                      gap: "0.3rem",
-                                    }}
-                                  >
-                                    <FaBomb style={{ color: "#000", fontSize: "1em", lineHeight: 1 }} {...decorativeIconProps} />
-                                    <span style={{ fontStyle: "italic" }}>{message.expiresDate}</span>
-                                  </span>
-                                )}
-                              </div>
-                              {/* BOT model (if present in prefix) */}
-                              {message.sender === "bot" && extractBotModel(message.text).model && (
-                                <p
+                        {/* DePIN Message Format */}
+                        {message.isDePIN && (
+                          <>
+                            {/* Sender (left) + Expires (right) */}
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "baseline",
+                                gap: "0.75rem",
+                                margin: "0",
+                                opacity: message.sender === "user" ? 0.95 : 0.8,
+                              }}
+                            >
+                              <span style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
+                                {shortenAddress(message.senderAddress)}
+                              </span>
+                              {message.expiresDate && (
+                                <span
                                   style={{
-                                    margin: "0 0 0.75rem 0",
                                     fontSize: "0.75rem",
-                                    fontWeight: "bold",
-                                    opacity: 0.6,
+                                    textAlign: "right",
+                                    whiteSpace: "nowrap",
+                                    color: "#000",
+                                    display: "inline-flex",
+                                    alignItems: "baseline",
+                                    gap: "0.3rem",
                                   }}
                                 >
-                                  <FaRobot
-                                    size={14}
-                                    style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
-                                    {...decorativeIconProps}
-                                  />
-                                  {extractBotModel(message.text).model}
-                                </p>
+                                  <FaBomb style={{ color: "#000", fontSize: "1em", lineHeight: 1 }} {...decorativeIconProps} />
+                                  <span style={{ fontStyle: "italic" }}>{message.expiresDate}</span>
+                                </span>
                               )}
-                              {/* Message Content */}
-                              <div
+                            </div>
+                            {/* BOT model (if present in prefix) */}
+                            {message.sender === "bot" && extractBotModel(message.text).model && (
+                              <p
                                 style={{
-                                  margin: 0,
-                                  wordWrap: "break-word",
-                                  lineHeight: "1.5",
-                                  fontSize: "0.95rem",
-                                  padding: "0.5rem",
-                                  whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
-                                  backgroundColor: "transparent",
-                                  borderRadius: "8px",
+                                  margin: "0 0 0.75rem 0",
+                                  fontSize: "0.75rem",
+                                  fontWeight: "bold",
+                                  opacity: 0.6,
                                 }}
                               >
-                                {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
-                              </div>
-                            </>
-                          )}
-                          {/* Regular Message Format */}
-                          {!message.isDePIN && (
+                                <FaRobot
+                                  size={14}
+                                  style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                                  {...decorativeIconProps}
+                                />
+                                {extractBotModel(message.text).model}
+                              </p>
+                            )}
+                            {/* Message Content */}
                             <div
                               style={{
                                 margin: 0,
                                 wordWrap: "break-word",
                                 lineHeight: "1.5",
                                 fontSize: "0.95rem",
+                                padding: "0.5rem",
                                 whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
+                                backgroundColor: "transparent",
+                                borderRadius: "8px",
                               }}
                             >
                               {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
                             </div>
-                          )}
-                          <small
+                          </>
+                        )}
+                        {/* Regular Message Format */}
+                        {!message.isDePIN && (
+                          <div
                             style={{
-                              display: "block",
-                              marginTop: "0.375rem",
-                              opacity: message.sender === "user" ? 0.9 : 0.6,
-                              fontSize: "0.7rem",
-                              textAlign: "right",
+                              margin: 0,
+                              wordWrap: "break-word",
+                              lineHeight: "1.5",
+                              fontSize: "0.95rem",
+                              whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
                             }}
                           >
-                            {message.sender === "user" && message.delivery === "pending" && (
-                              <FaRegClock
-                                size={15}
-                                color="#835608ff"
-                                style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
-                                {...decorativeIconProps}
-                              />
-                            )}
-                            {message.sender === "user" && message.delivery === "confirmed" && (
-                              <FaRegCircleCheck
-                                size={15}
-                                color="#22c55e"
-                                style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
-                                {...decorativeIconProps}
-                              />
-                            )}
-                            {message.isDePIN && message.sendDate
-                              ? message.sendDate
-                              : message.timestamp.toLocaleTimeString()}
-                          </small>
-                        </div>
+                            {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
+                          </div>
+                        )}
+                        <small
+                          style={{
+                            display: "block",
+                            marginTop: "0.375rem",
+                            opacity: message.sender === "user" ? 0.9 : 0.6,
+                            fontSize: "0.7rem",
+                            textAlign: "right",
+                          }}
+                        >
+                          {message.sender === "user" && message.delivery === "pending" && (
+                            <FaRegClock
+                              size={15}
+                              color="#835608ff"
+                              style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                              {...decorativeIconProps}
+                            />
+                          )}
+                          {message.sender === "user" && message.delivery === "confirmed" && (
+                            <FaRegCircleCheck
+                              size={15}
+                              color="#22c55e"
+                              style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                              {...decorativeIconProps}
+                            />
+                          )}
+                          {message.isDePIN && message.sendDate
+                            ? message.sendDate
+                            : message.timestamp.toLocaleTimeString()}
+                        </small>
                       </div>
                     </div>
-                  ))}
-                  <div ref={(el) => messagesEndRef.current.set(address, el)} />
-                </div>
-              ))}
-          </div>
+                  </div>
+                ))}
+                <div ref={(el) => messagesEndRef.current.set("group", el)} />
+              </div>
 
-          {/* Input area */}
-          <div
-            style={{
-              borderTop: "2px solid #e5e7eb",
-              padding: "1rem 1.25rem",
-              backgroundColor: "#ffffff",
-            }}
-            className="chat-input-area"
-          >
-            <div style={{
-              display: "flex",
-              gap: "0.75rem",
-              alignItems: "flex-end",
-            }}>
-              <textarea
-                ref={chatInputRef}
-                value={inputText}
-                onChange={(e) => {
-                  setInputText(e.target.value);
-                  autoResizeChatInput(e.target);
-                }}
-                onInput={(e) => {
-                  autoResizeChatInput(e.currentTarget);
-                }}
-                onKeyDown={handleKeyPress}
-                placeholder=""
-                disabled={!isConnected}
-                rows={1}
-                style={{
-                  flex: 1,
-                  padding: "0.875rem 1rem",
-                  borderRadius: "24px",
-                  border: "2px solid #d1d5db",
-                  backgroundColor: isConnected ? "#ffffff" : "#e5e7eb",
-                  margin: 0,
-                  fontSize: "0.95rem",
-                  outline: "none",
-                  transition: "all 0.2s",
-                  opacity: isConnected ? 1 : 0.6,
-                  resize: "none",
-                  overflow: "hidden",
-                  lineHeight: "1.35",
-                  minHeight: "48px",
-                  fontFamily: "inherit",
-                }}
-                onFocus={(e) => {
-                  if (isConnected) {
-                    // Softer focus styling (avoid strong blue border)
-                    e.target.style.border = "2px solid rgba(59, 130, 246, 0.35)";
-                    e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.12)";
-                    e.target.style.backgroundColor = "#ffffff";
-                  }
-                }}
-                onBlur={(e) => {
-                  e.target.style.border = "2px solid #d1d5db";
-                  e.target.style.boxShadow = "none";
-                  e.target.style.backgroundColor = isConnected ? "#ffffff" : "#e5e7eb";
-                }}
-              />
-              <div
-                onClick={handleSend}
-                className={inputText.trim() && isConnected ? "chat-send-button-active" : "chat-send-button-inactive"}
-                style={{
-                  cursor: inputText.trim() && isConnected ? "pointer" : "not-allowed",
+              {/* Pestañas Privadas */}
+              {Array.from(privateConversations.keys())
+                .filter((address) => !closedTabs.has(address))
+                .map((address) => (
+                  <div
+                    key={address}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      overflowY: "auto",
+                      padding: "1.5rem",
+                      display: activeTab === address ? "flex" : "none",
+                      flexDirection: "column",
+                      gap: "1rem",
+                      backgroundColor: "#f9fafb",
+                      backgroundImage: "linear-gradient(to bottom, #f9fafb 0%, #f3f4f6 100%)",
+                    }}
+                    className="chat-messages"
+                  >
+                    {(messagesByTab.get(address) || []).map((message) => (
+                      <div key={message.id} id={`message-${message.id}`}>
+                        <div
+                          key={message.id}
+                          style={{
+                            display: "flex",
+                            justifyContent:
+                              message.sender === "user" ? "flex-end" : "flex-start",
+                            animation: "slideIn 0.3s ease-out",
+                          }}
+                        >
+                          <div
+                            className={message.sender === "user" ? "chat-message-user" : "chat-message-bot"}
+                            style={{
+                              maxWidth: "90%",
+                              padding: "0.5rem 0.5rem",
+                              borderRadius: message.sender === "user"
+                                ? "16px 16px 4px 16px"
+                                : "16px 16px 16px 4px",
+                              backgroundColor:
+                                message.sender === "user"
+                                  ? "rgb(247 232 209)"
+                                  : "rgb(239 239 239)",
+                              color:
+                                message.sender === "user"
+                                  ? "rgb(63 54 54)"
+                                  : "#1f2937",
+                              boxShadow: message.sender === "user"
+                                ? "rgb(42 47 55 / 74%) 0px 2px 8px"
+                                : "rgb(42 47 55 / 74%) 0px 2px 8px",
+                              border: message.sender === "user"
+                                ? "none"
+                                : "1px solid #e5e7eb",
+                            }}
+                          >
+                            {/* DePIN Message Format */}
+                            {message.isDePIN && (
+                              <>
+                                {/* Sender (left) + Expires (right) */}
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "baseline",
+                                    gap: "0.75rem",
+                                    margin: "0",
+                                    opacity: message.sender === "user" ? 0.95 : 0.8,
+                                  }}
+                                >
+                                  <span style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
+                                    {shortenAddress(message.senderAddress)}
+                                  </span>
+                                  {message.expiresDate && (
+                                    <span
+                                      style={{
+                                        fontSize: "0.75rem",
+                                        textAlign: "right",
+                                        whiteSpace: "nowrap",
+                                        color: "#000",
+                                        display: "inline-flex",
+                                        alignItems: "baseline",
+                                        gap: "0.3rem",
+                                      }}
+                                    >
+                                      <FaBomb style={{ color: "#000", fontSize: "1em", lineHeight: 1 }} {...decorativeIconProps} />
+                                      <span style={{ fontStyle: "italic" }}>{message.expiresDate}</span>
+                                    </span>
+                                  )}
+                                </div>
+                                {/* BOT model (if present in prefix) */}
+                                {message.sender === "bot" && extractBotModel(message.text).model && (
+                                  <p
+                                    style={{
+                                      margin: "0 0 0.75rem 0",
+                                      fontSize: "0.75rem",
+                                      fontWeight: "bold",
+                                      opacity: 0.6,
+                                    }}
+                                  >
+                                    <FaRobot
+                                      size={14}
+                                      style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                                      {...decorativeIconProps}
+                                    />
+                                    {extractBotModel(message.text).model}
+                                  </p>
+                                )}
+                                {/* Message Content */}
+                                <div
+                                  style={{
+                                    margin: 0,
+                                    wordWrap: "break-word",
+                                    lineHeight: "1.5",
+                                    fontSize: "0.95rem",
+                                    padding: "0.5rem",
+                                    whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
+                                    backgroundColor: "transparent",
+                                    borderRadius: "8px",
+                                  }}
+                                >
+                                  {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
+                                </div>
+                              </>
+                            )}
+                            {/* Regular Message Format */}
+                            {!message.isDePIN && (
+                              <div
+                                style={{
+                                  margin: 0,
+                                  wordWrap: "break-word",
+                                  lineHeight: "1.5",
+                                  fontSize: "0.95rem",
+                                  whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
+                                }}
+                              >
+                                {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
+                              </div>
+                            )}
+                            <small
+                              style={{
+                                display: "block",
+                                marginTop: "0.375rem",
+                                opacity: message.sender === "user" ? 0.9 : 0.6,
+                                fontSize: "0.7rem",
+                                textAlign: "right",
+                              }}
+                            >
+                              {message.sender === "user" && message.delivery === "pending" && (
+                                <FaRegClock
+                                  size={15}
+                                  color="#835608ff"
+                                  style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                                  {...decorativeIconProps}
+                                />
+                              )}
+                              {message.sender === "user" && message.delivery === "confirmed" && (
+                                <FaRegCircleCheck
+                                  size={15}
+                                  color="#22c55e"
+                                  style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                                  {...decorativeIconProps}
+                                />
+                              )}
+                              {message.isDePIN && message.sendDate
+                                ? message.sendDate
+                                : message.timestamp.toLocaleTimeString()}
+                            </small>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={(el) => messagesEndRef.current.set(address, el)} />
+                  </div>
+                ))}
+            </div>
+
+            {/* Input area */}
+            <div
+              style={{
+                borderTop: "2px solid #e5e7eb",
+                padding: "1rem 1.25rem",
+                backgroundColor: "#ffffff",
+              }}
+              className="chat-input-area"
+            >
+              <div style={{
+                display: "flex",
+                gap: "0.75rem",
+                alignItems: "flex-end",
+              }}>
+                <textarea
+                  ref={chatInputRef}
+                  value={inputText}
+                  onChange={(e) => {
+                    setInputText(e.target.value);
+                    autoResizeChatInput(e.target);
+                  }}
+                  onInput={(e) => {
+                    autoResizeChatInput(e.currentTarget);
+                  }}
+                  onKeyDown={handleKeyPress}
+                  placeholder=""
+                  disabled={!isConnected}
+                  rows={1}
+                  style={{
+                    flex: 1,
+                    padding: "0.875rem 1rem",
+                    borderRadius: "24px",
+                    border: "2px solid #d1d5db",
+                    backgroundColor: isConnected ? "#ffffff" : "#e5e7eb",
+                    margin: 0,
+                    fontSize: "0.95rem",
+                    outline: "none",
+                    transition: "all 0.2s",
+                    opacity: isConnected ? 1 : 0.6,
+                    resize: "none",
+                    overflow: "hidden",
+                    lineHeight: "1.35",
+                    minHeight: "48px",
+                    fontFamily: "inherit",
+                  }}
+                  onFocus={(e) => {
+                    if (isConnected) {
+                      // Softer focus styling (avoid strong blue border)
+                      e.target.style.border = "2px solid rgba(59, 130, 246, 0.35)";
+                      e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.12)";
+                      e.target.style.backgroundColor = "#ffffff";
+                    }
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.border = "2px solid #d1d5db";
+                    e.target.style.boxShadow = "none";
+                    e.target.style.backgroundColor = isConnected ? "#ffffff" : "#e5e7eb";
+                  }}
+                />
+                <div
+                  onClick={handleSend}
+                  className={inputText.trim() && isConnected ? "chat-send-button-active" : "chat-send-button-inactive"}
+                  style={{
+                    cursor: inputText.trim() && isConnected ? "pointer" : "not-allowed",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "50%",
+                    backgroundColor: inputText.trim() && isConnected
+                      ? "#3b82f6"
+                      : "#d1d5db",
+                    color: "#ffffff",
+                    transition: "all 0.2s",
+                    boxShadow: inputText.trim() && isConnected
+                      ? "0 4px 12px rgba(59, 130, 246, 0.4)"
+                      : "none",
+                    transform: "scale(1)",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (inputText.trim() && isConnected) {
+                      e.currentTarget.style.transform = "scale(1.05)";
+                      e.currentTarget.style.backgroundColor = "#2563eb";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "scale(1)";
+                    if (inputText.trim() && isConnected) {
+                      e.currentTarget.style.backgroundColor = "#3b82f6";
+                    }
+                  }}
+                  title={!isConnected ? "Select an asset first" : "Send message"}
+                >
+                  <IconSend />
+                </div>
+              </div>
+              {/* Private command indicator */}
+              {inputText.trim().match(/^\/private\s+(N[a-zA-Z0-9]{33,34})$/) && (
+                <div style={{
+                  marginTop: "0.5rem",
+                  padding: "0.5rem 0.75rem",
+                  backgroundColor: "#f0f9ff",
+                  border: "1px solid #bae6fd",
+                  borderRadius: "8px",
+                  fontSize: "0.85rem",
+                  color: "#0369a1",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "50%",
-                  backgroundColor: inputText.trim() && isConnected
-                    ? "#3b82f6"
-                    : "#d1d5db",
-                  color: "#ffffff",
-                  transition: "all 0.2s",
-                  boxShadow: inputText.trim() && isConnected
-                    ? "0 4px 12px rgba(59, 130, 246, 0.4)"
-                    : "none",
-                  transform: "scale(1)",
-                }}
-                onMouseEnter={(e) => {
-                  if (inputText.trim() && isConnected) {
-                    e.currentTarget.style.transform = "scale(1.05)";
-                    e.currentTarget.style.backgroundColor = "#2563eb";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "scale(1)";
-                  if (inputText.trim() && isConnected) {
-                    e.currentTarget.style.backgroundColor = "#3b82f6";
-                  }
-                }}
-                title={!isConnected ? "Select an asset first" : "Send message"}
-              >
-                <IconSend />
-              </div>
+                  gap: "0.5rem"
+                }}>
+                  <span style={{ fontSize: "1rem" }}>💬</span>
+                  <span>Press Enter to open private conversation with {inputText.trim().match(/^\/private\s+(N[a-zA-Z0-9]{33,34})$/)?.[1]?.slice(0, 8)}...</span>
+                </div>
+              )}
             </div>
-            {/* Private command indicator */}
-            {inputText.trim().match(/^\/private\s+(N[a-zA-Z0-9]{33,34})$/) && (
-              <div style={{
-                marginTop: "0.5rem",
-                padding: "0.5rem 0.75rem",
-                backgroundColor: "#f0f9ff",
-                border: "1px solid #bae6fd",
-                borderRadius: "8px",
-                fontSize: "0.85rem",
-                color: "#0369a1",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem"
-              }}>
-                <span style={{ fontSize: "1rem" }}>💬</span>
-                <span>Press Enter to open private conversation with {inputText.trim().match(/^\/private\s+(N[a-zA-Z0-9]{33,34})$/)?.[1]?.slice(0, 8)}...</span>
-              </div>
-            )}
           </div>
         </div>
-      </div>
-
-      {/* Asset List Button */}
-      <div style={{ marginTop: "1rem", textAlign: "center", display: "flex", gap: "0.5rem", justifyContent: "center", flexWrap: "wrap" }}>
-        <button onClick={loadAssetAddresses}>
-          {showAssets ? "Hide Asset List" : "Asset List"}
-        </button>
-        {selectedAsset && (
-          <>
-            <button
-              onClick={handleDisconnect}
-              style={{
-                backgroundColor: "#ef4444",
-                color: "white",
-                border: "none",
-              }}
-            >
-              Disconnect
-            </button>
-            <button
-              onClick={loadAddressesWithPubkeys}
-              disabled={loadingAddressList}
-              style={{
-                backgroundColor: "#3b82f6",
-                color: "white",
-                border: "none",
-              }}
-            >
-              {loadingAddressList ? "Loading..." : "Show All Addresses"}
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Address List Table - Shows all addresses with the selected asset */}
-      {showAddressList && selectedAsset && (
-        <div style={{ marginTop: "1rem" }}>
-          <h4>Addresses holding {selectedAsset}</h4>
-          {addressList.length === 0 && !loadingAddressList ? (
-            <p>No addresses found or still loading...</p>
-          ) : (
-            <table role="grid">
-              <thead>
-                <tr>
-                  <th>Address</th>
-                  <th style={{ textAlign: "center", width: "100px" }}>Amount</th>
-                  <th>Public Key</th>
-                </tr>
-              </thead>
-              <tbody>
-                {addressList.map((item) => (
-                  <tr key={item.address}>
-                    <td style={{
-                      fontFamily: "monospace",
-                      fontSize: "0.85rem",
-                      wordBreak: "break-all"
-                    }}>
-                      {item.address}
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      {item.amount}
-                    </td>
-                    <td style={{
-                      fontFamily: "monospace",
-                      fontSize: "0.75rem",
-                      wordBreak: "break-all",
-                      color: item.pubkey ? "#22c55e" : "#ef4444"
-                    }}>
-                      {item.pubkey || "Not available"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          <div style={{ marginTop: "0.5rem", textAlign: "center" }}>
-            <button onClick={() => setShowAddressList(false)}>
-              Hide Address List
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Asset List Table */}
-      {showAssets && (
-        <div style={{ marginTop: "1rem" }}>
-          <table role="grid">
-            <thead>
-              <tr>
-                <th style={{ width: "50px", textAlign: "center" }}>Select</th>
-                <th>Asset Name</th>
-                <th>Address</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.keys(chatAssets).map((assetName) => {
-                if (assetName === wallet.baseCurrency) return null;
-                if (chatAssets[assetName] === 0) return null;
-
-                const address = assetAddresses[assetName] || "Loading...";
-
-                return (
-                  <tr key={assetName}>
-                    <td style={{ textAlign: "center" }}>
-                      <input
-                        type="radio"
-                        name="selected-asset"
-                        checked={selectedAsset === assetName}
-                        onChange={() => handleAssetSelection(assetName)}
-                        style={{ cursor: "pointer" }}
-                      />
-                    </td>
-                    <td>
-                      <span title={getAssetTypeLabel(assetName)}>{getAssetIcon(assetName)} </span>
-                      {assetName}
-                    </td>
-                    <td style={{
-                      fontFamily: "monospace",
-                      fontSize: "0.85rem",
-                      wordBreak: "break-all"
-                    }}>
-                      {address}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
 
 
 
-      <style>{`
+
+
+        <style>{`
         @keyframes depinFlameFlicker {
           0% { color: #ef4444; }
           50% { color: #f59e0b; }
@@ -2436,7 +2439,22 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
             transform: translateX(0);
           }
         }
+        
+        [data-theme="dark"] .asset-slider {
+          background-color: #1a1a1a !important;
+          border-bottom-color: #333333 !important;
+        }
+        
+        [data-theme="dark"] .asset-row:hover {
+          background-color: #252525 !important;
+        }
+
+        [data-theme="dark"] .asset-row {
+          color: #e0e0e0;
+        }
+
       `}</style>
+      </div> {/* Close wrapper div */}
     </article >
   );
 }
