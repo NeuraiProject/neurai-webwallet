@@ -8,6 +8,13 @@ type UseNodeStatusOptions = {
   timeoutMs?: number;
 };
 
+type BlockchainInfo = {
+  blocks?: number;
+  headers?: number;
+  initialblockdownload?: boolean;
+  verificationprogress?: number;
+};
+
 const DEFAULT_INTERVAL = 30_000;
 const DEFAULT_TIMEOUT = 4_500;
 
@@ -42,7 +49,7 @@ export function useNodeStatus(wallet: Wallet | null, options?: UseNodeStatusOpti
 
     const checkSync = async () => {
       try {
-        const info: any = await withTimeout(wallet.rpc("getblockchaininfo", []));
+        const info = (await withTimeout(wallet.rpc("getblockchaininfo", []))) as BlockchainInfo;
 
         if (cancelled) return;
 
@@ -71,10 +78,10 @@ export function useNodeStatus(wallet: Wallet | null, options?: UseNodeStatusOpti
         } else {
           setSyncHint("RPC connected • Node not ready / not synced");
         }
-      } catch (e: any) {
+      } catch (error) {
         if (cancelled) return;
 
-        const message = String(e?.message || e || "");
+        const message = error instanceof Error ? error.message : String(error || "");
 
         if (
           message.toLowerCase().includes("whitelist") ||

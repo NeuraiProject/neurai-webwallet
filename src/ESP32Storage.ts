@@ -1,3 +1,16 @@
+type ESP32Command = {
+    action: string;
+    key?: string;
+    value?: string;
+    [key: string]: unknown;
+};
+
+type ESP32Response = {
+    status?: 'ok' | 'error' | string;
+    message?: string;
+    [key: string]: unknown;
+};
+
 class ESP32WebUSBStorage {
     port: SerialPort | null;
     reader: ReadableStreamDefaultReader<string> | null;
@@ -6,7 +19,7 @@ class ESP32WebUSBStorage {
     writableStreamClosed: Promise<void> | null;
     readBuffer: string;
     isReading: boolean;
-    responseQueue: any[];
+    responseQueue: ESP32Response[];
 
     constructor() {
         this.port = null;
@@ -31,7 +44,7 @@ class ESP32WebUSBStorage {
                 { usbVendorId: 0x303A }, // ESP32-S2/S3 native USB
             ];
             
-            this.port = await (navigator as any).serial.requestPort({ filters });
+            this.port = await navigator.serial.requestPort({ filters });
             
             console.log('Port selected:', this.port);
             
@@ -40,25 +53,31 @@ class ESP32WebUSBStorage {
             }
             
             // Open with standard configuration
-            await this.port.open({ 
+            await this.port.open({
                 baudRate: 115200,
                 dataBits: 8,
                 stopBits: 1,
                 parity: 'none',
                 flowControl: 'none',
                 bufferSize: 8192 // Larger buffer
-            } as any);
+            });
 
             console.log('Port opened successfully');
 
             // Configure writer
             const encoder = new TextEncoderStream();
-            this.writableStreamClosed = encoder.readable.pipeTo(this.port.writable as any);
+            if (!this.port.writable) {
+                throw new Error('Serial port is not writable');
+            }
+            this.writableStreamClosed = encoder.readable.pipeTo(this.port.writable);
             this.writer = encoder.writable.getWriter();
 
             // Configure reader
             const decoder = new TextDecoderStream();
-            this.readableStreamClosed = (this.port.readable as any).pipeTo(decoder.writable);
+            if (!this.port.readable) {
+                throw new Error('Serial port is not readable');
+            }
+            this.readableStreamClosed = this.port.readable.pipeTo(decoder.writable);
             this.reader = decoder.readable.getReader();
 
             console.log('Streams configured');
@@ -164,9 +183,13 @@ class ESP32WebUSBStorage {
                 
                 // Try to parse as JSON
                 try {
-                    const data = JSON.parse(line);
+                    const data: unknown = JSON.parse(line);
                     console.log('✅ Valid JSON detected:', data);
-                    this.responseQueue.push(data);
+                    if (data && typeof data === 'object') {
+                        this.responseQueue.push(data as ESP32Response);
+                    } else {
+                        console.warn('⚠️ JSON response is not an object:', data);
+                    }
                 } catch (e) {
                     console.warn('⚠️ Non-JSON line (ESP32 debug):', line);
                     // Ignore non-JSON lines (ESP32 debug logs)
@@ -181,12 +204,12 @@ class ESP32WebUSBStorage {
     }
 
     // Wait for a valid JSON response
-    async waitForResponse(timeoutMs = 5000) {
+    async waitForResponse(timeoutMs = 5000): Promise<ESP32Response> {
         const startTime = Date.now();
         
         while (Date.now() - startTime < timeoutMs) {
             if (this.responseQueue.length > 0) {
-                return this.responseQueue.shift();
+                return this.responseQueue.shift() as ESP32Response;
             }
             await this.delay(50);
         }
@@ -194,7 +217,7 @@ class ESP32WebUSBStorage {
         throw new Error('Timeout waiting for ESP32 response');
     }
 
-    async sendCommand(command: any) {
+    async sendCommand(command: ESP32Command): Promise<ESP32Response> {
         if (!this.port) {
             throw new Error('Device not connected');
         }
@@ -212,9 +235,10 @@ class ESP32WebUSBStorage {
         
         try {
             await this.writer!.write(commandStr);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error sending command:', error);
-            throw new Error('Error sending command: ' + error.message);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error('Error sending command: ' + errorMessage);
         }
 
         // Small wait for ESP32 to process command

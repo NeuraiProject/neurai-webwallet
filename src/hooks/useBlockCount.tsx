@@ -13,7 +13,7 @@ export function useBlockCount(wallet: Wallet | null) {
     const fetchBlockCount = async () => {
       if (!wallet) return;
       try {
-        const b: any = await wallet.rpc("getblockcount", []);
+        const b = (await wallet.rpc("getblockcount", [])) as unknown;
         if (cancelled) return;
         if (typeof b === "number" && b !== blockCount) {
           setBlockCount(b);

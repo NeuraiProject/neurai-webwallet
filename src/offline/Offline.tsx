@@ -3,7 +3,12 @@ import NeuraiKey from "@neuraiproject/neurai-key";
 import { Settings } from "../Settings";
 import "./Offline.css";
 
-type ChainType = "xna" | "xna-test";
+type ChainType = "xna" | "xna-test" | "xna-legacy" | "xna-legacy-test";
+type AddressPair = {
+  external?: {
+    address?: string;
+  };
+};
 
 export function Offline({
   mnemonic,
@@ -24,9 +29,9 @@ export function Offline({
     const out: Array<{ index: number; address: string }> = [];
     for (let i = 0; i < addressCount; i++) {
       try {
-        const pair: any = passphrase
-          ? NeuraiKey.getAddressPair(network, mnemonic, 0, i, passphrase)
-          : NeuraiKey.getAddressPair(network, mnemonic, 0, i);
+        const pair = passphrase
+          ? (NeuraiKey.getAddressPair(network, mnemonic, 0, i, passphrase) as AddressPair | null)
+          : (NeuraiKey.getAddressPair(network, mnemonic, 0, i) as AddressPair | null);
         const address = String(pair?.external?.address || "");
         if (address) out.push({ index: i, address });
       } catch {

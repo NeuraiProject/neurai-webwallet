@@ -154,7 +154,7 @@ export function Settings({
                   : "m/44'/1900'/0'/0/0 (recommended for new wallets)"}
               </small>
             </div>
-            <div className="rebel-settings__notes" style={{ marginTop: "1rem" }}>
+            <div className="rebel-settings__notes rebel-settings__notes--compact">
               <h4>Important:</h4>
               <ul>
                 <li>
@@ -172,7 +172,7 @@ export function Settings({
         )}
         {isTestnet() && (
           <small className="rebel-settings__hint">
-            Testnet always uses standard derivation (coin type 1900)
+            Testnet uses coin type 1; legacy and standard derivation are equivalent
           </small>
         )}
       </div>

@@ -10,6 +10,12 @@
   font-weight: bold;
 }
 
+.rebel-history__labeled {
+  max-width: 300px;
+  display: flex;
+  justify-content: space-between;
+}
+
 .rebel-history__more {
   margin-top: calc(2 * var(--pico-spacing));
 }

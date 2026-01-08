@@ -9,12 +9,30 @@ import { useTransaction } from "../useTransaction";
 
 import networkInfo from "../networkInfo";
 import "./History.css";
+
+type RawHistoryItem = {
+  satoshis?: number;
+  value?: number;
+  [key: string]: unknown;
+};
+
+type HistoryAsset = {
+  assetName: string;
+  value: number;
+};
+
+type HistoryListItem = {
+  transactionId: string;
+  blockHeight?: number;
+  assets: HistoryAsset[];
+};
+
 interface IProps {
   blockCount: number | null;
   wallet: Wallet;
 }
 export function History({ blockCount, wallet }: IProps) {
-  const [history, setHistory] = React.useState<any>([]);
+  const [history, setHistory] = React.useState<RawHistoryItem[]>([]);
 
   React.useEffect(() => {
     wallet.getHistory().then(setHistory);
@@ -22,24 +40,24 @@ export function History({ blockCount, wallet }: IProps) {
 
   const normalizedHistory = React.useMemo(
     () =>
-      history.map((h: { satoshis?: number }) => ({
+      history.map((h) => ({
         ...h,
         value: typeof h.satoshis === "number" ? h.satoshis / 1e8 : h.value,
       })),
     [history]
   );
 
-  const items = getHistory(normalizedHistory);
-  items.sort((item1, item2) => item2.blockHeight - item1.blockHeight);
+  const items = getHistory(normalizedHistory) as HistoryListItem[];
+  items.sort((item1, item2) => (item2.blockHeight ?? 0) - (item1.blockHeight ?? 0));
 
-  const listItems = items.map((item: any, index: number) => {
+  const listItems = items.map((item, index) => {
     if (index > 20) {
       return null;
     }
 
-    const URL = networkInfo[wallet.network].getTransactionURL(
-      item.transactionId
-    );
+    const networkKey = wallet.network as keyof typeof networkInfo;
+    const network = networkInfo[networkKey] ?? networkInfo.xna;
+    const transactionURL = network?.getTransactionURL?.(item.transactionId);
 
     return (
       <article key={item.transactionId} className="rebel-history__item">
@@ -75,11 +93,13 @@ export function History({ blockCount, wallet }: IProps) {
               <CopyButton value={item.transactionId} title="Copy" />
             </fieldset>
             <Spacer size="lg" />
-            <p>
-              <a href={URL} target="_blank">
-                View in block explorer
-              </a>
-            </p>
+            {transactionURL && (
+              <p>
+                <a href={transactionURL} target="_blank" rel="noreferrer">
+                  View in block explorer
+                </a>
+              </p>
+            )}
           </div>
         </details>
       </article>
@@ -89,8 +109,8 @@ export function History({ blockCount, wallet }: IProps) {
 }
 
 export interface ITransaction {
-  vin: any;
-  vout: any;
+  vin: Array<{ address?: string; value?: number }>;
+  vout: Array<{ value?: number }>;
   time: number;
 }
 
@@ -142,9 +162,13 @@ function Fee({
   let totalInput = 0;
   let totalOutput = 0;
 
-  transaction.vin.map((o) => (totalInput += o.value));
+  transaction.vin.forEach((o) => {
+    totalInput += o.value ?? 0;
+  });
 
-  transaction.vout.map((o) => (totalOutput += o.value));
+  transaction.vout.forEach((o) => {
+    totalOutput += o.value ?? 0;
+  });
 
   const fee = totalInput - totalOutput;
 

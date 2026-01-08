@@ -705,3 +705,46 @@
 .rebel-login__recovery-card {
   z-index: 1;
 }
+
+/* ========================================
+   UTILITY CLASSES FOR INLINE STYLE REMOVAL
+   ======================================== */
+
+/* Spacing utilities */
+.rebel-login__spacing-top-sm {
+  margin-top: 0.5rem;
+}
+
+/* Embedded card variants (transparent background, no borders) */
+.rebel-login__esp32-card--embedded {
+  margin-top: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.rebel-login__how-content--embedded {
+  border: none;
+  background: transparent;
+  padding: 0 1rem;
+}
+
+.rebel-login__card-muted--no-top-margin {
+  margin-top: 0;
+}
+
+/* Heading variants */
+.rebel-login__heading-primary {
+  color: var(--primary);
+}
+
+.rebel-login__heading-primary--no-top-margin {
+  margin-top: 0;
+  color: var(--primary);
+}
+
+/* Warning box danger variant (red background) */
+.rebel-login__how-warning--danger {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}

@@ -20,6 +20,8 @@ import { FaAnglesDown, FaAnglesUp } from "react-icons/fa6";
 import networkInfo, { INetworks } from "./networkInfo";
 import { BUILD_DATE } from "./buildDate";
 
+type StatusTone = "ok" | "warn" | "error" | "muted";
+
 type RouteNavItemConfig = {
   type: "route";
   route: Routes;
@@ -48,7 +50,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   { type: "route", route: Routes.SETTINGS, title: "Settings", lockable: false },
 ];
 
-const neuraiLogo = new URL("../neurai-xna-logo.png", import.meta.url);
+const neuraiLogo = new URL("../public/neurai-xna-logo.png", import.meta.url);
 
 export function Navigator({
   balance,
@@ -69,35 +71,20 @@ export function Navigator({
   const isFromESP32 = localStorage.getItem("loginFromESP32") === "true";
   const { syncHealth, syncHint } = useNodeStatus(wallet);
 
-  const syncColor =
+  const syncTone: StatusTone =
     syncHealth === "ok"
-      ? "#22c55e"
+      ? "ok"
       : syncHealth === "syncing"
-        ? "#f59e0b"
+        ? "warn"
         : syncHealth === "offline"
-          ? "#ef4444"
-          : "#9ca3af";
-
-  const syncShadow =
-    syncHealth === "ok"
-      ? "0 0 4px rgba(34, 197, 94, 0.6)"
-      : syncHealth === "syncing"
-        ? "0 0 4px rgba(245, 158, 11, 0.6)"
-        : syncHealth === "offline"
-          ? "0 0 4px rgba(239, 68, 68, 0.6)"
-          : "0 0 4px rgba(156, 163, 175, 0.4)";
+          ? "error"
+          : "muted";
 
   const [isCompact, setIsCompact] = usePersistentState<boolean>("rebelNavigatorCompact", false);
 
-  const passphraseColor = hasPassphrase ? "#22c55e" : "#ef4444";
-  const passphraseShadow = hasPassphrase
-    ? "0 0 4px rgba(34, 197, 94, 0.6)"
-    : "0 0 4px rgba(239, 68, 68, 0.6)";
+  const passphraseTone: StatusTone = hasPassphrase ? "ok" : "error";
 
-  const hwColor = isFromESP32 ? "#22c55e" : "#ef4444";
-  const hwShadow = isFromESP32
-    ? "0 0 4px rgba(34, 197, 94, 0.6)"
-    : "0 0 4px rgba(239, 68, 68, 0.6)";
+  const hwTone: StatusTone = isFromESP32 ? "ok" : "error";
 
   const onClickHome = (event: React.MouseEvent) => {
     setRoute(Routes.HOME);
@@ -111,9 +98,8 @@ export function Navigator({
       props: {
         title: syncHint,
         label: "Syncr",
-        dotColor: syncColor,
-        dotShadow: syncShadow,
-        labelColor: syncHealth === "offline" ? "#ef4444" : "var(--muted-color)",
+        tone: syncTone,
+        labelTone: syncHealth === "offline" ? "error" : undefined,
         live: true,
       },
     },
@@ -122,8 +108,7 @@ export function Navigator({
       props: {
         title: hasPassphrase ? "Passphrase set" : "No passphrase",
         label: "Passphrase",
-        dotColor: passphraseColor,
-        dotShadow: passphraseShadow,
+        tone: passphraseTone,
       },
     },
     {
@@ -131,8 +116,7 @@ export function Navigator({
       props: {
         title: isFromESP32 ? "Hardware wallet" : "Not hardware",
         label: "HW",
-        dotColor: hwColor,
-        dotShadow: hwShadow,
+        tone: hwTone,
       },
     },
   ];
@@ -390,35 +374,33 @@ function PlaceholderNavItem({
 function StatusItem({
   title,
   label,
-  dotColor,
-  dotShadow,
-  labelColor,
+  tone,
+  labelTone,
   live = false,
 }: {
   title: string;
   label: string;
-  dotColor: string;
-  dotShadow: string;
-  labelColor?: string;
+  tone: StatusTone;
+  labelTone?: StatusTone;
   live?: boolean;
 }) {
-  const style = {
-    ["--rebel-status-dot-color" as any]: dotColor,
-    ["--rebel-status-dot-shadow" as any]: dotShadow,
-    ["--rebel-status-label-color" as any]: labelColor ?? "var(--muted-color)",
-  } as React.CSSProperties;
-
   return (
     <div
-      className="rebel-navigator__status-item"
+      className={`rebel-navigator__status-item rebel-navigator__status-item--${tone}`}
       title={title}
       role={live ? "status" : undefined}
       aria-live={live ? "polite" : undefined}
       aria-label={`${label}: ${title}`}
-      style={style}
     >
       <span className="rebel-navigator__status-dot" />
-      <span className="rebel-navigator__status-label">{label}</span>
+      <span
+        className={
+          "rebel-navigator__status-label" +
+          (labelTone ? ` rebel-navigator__status-label--${labelTone}` : "")
+        }
+      >
+        {label}
+      </span>
     </div>
   );
 }

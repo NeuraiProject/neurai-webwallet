@@ -1,20 +1,21 @@
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import React from "react";
-import { Events, addEventListener, triggerEvent } from "../Events";
+import { Events, addEventListener, triggerEvent, removeEventListener } from "../Events";
+import type { MempoolAsset } from "../utils";
 
 export function useMempool(wallet: Wallet | null, blockCount: number) {
-  const [mempool, setMempool] = React.useState<any>([]);
+  const [mempool, setMempool] = React.useState<MempoolAsset[]>([]);
   const fetchMempool = async () => {
     if (wallet) {
-      let m: any = [];
+      let m: MempoolAsset[] = [];
       try {
-        m = await wallet.getMempool();
+        m = (await wallet.getMempool()) as MempoolAsset[];
       } catch {
         return;
       }
       //Compare with prev state.
       //If less items in mempool, we suspect a new block is out
-      setMempool((prevState: any) => {
+      setMempool((prevState) => {
         if (prevState.length > m.length) {
           triggerEvent(Events.SUSPICION__NEW_BLOCK);
         }

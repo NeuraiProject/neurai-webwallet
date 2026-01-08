@@ -6,10 +6,25 @@ import "./Send.css";
 import {
   getAssetBalanceFromMempool,
   getAssetBalanceIncludingMempool,
+  isBaseAssetName,
+  normalizeAssetName,
+  type MempoolAsset,
 } from "./utils";
 import { Events, triggerEvent } from "./Events";
 import { betterAlert, betterConfirm, betterToast } from "./betterDialog";
 import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
+
+type ValidateAddressResponse = {
+  isvalid: boolean;
+};
+
+type CreateTransactionResult = {
+  debug: {
+    fee: number;
+    signedTransaction?: string;
+  };
+};
+
 export function Send({
   assets,
   balance,
@@ -18,7 +33,7 @@ export function Send({
 }: {
   assets: IAsset[];
   balance: number;
-  mempool: any;
+  mempool: MempoolAsset[] | null;
   wallet: Wallet;
 }) {
   const defaultValueAssets = "-";
@@ -27,11 +42,18 @@ export function Send({
   const [asset, setAsset] = React.useState(defaultValueAssets);
   const [showQRCode, setShowQRCode] = React.useState(false);
   const [isBusy, setIsBusy] = React.useState(false);
+  const walletBaseCurrency =
+    typeof wallet.baseCurrency === "string" && wallet.baseCurrency.trim().length > 0
+      ? wallet.baseCurrency
+      : "XNA";
+  const baseCurrencyLabel = normalizeAssetName(walletBaseCurrency) || "XNA";
 
-  const isSendButtenDisabled = isBusy === true || defaultValueAssets === asset;
+  const hasSelectedAsset =
+    typeof asset === "string" && asset.trim().length > 0 && asset !== defaultValueAssets;
+  const isSendButtenDisabled = isBusy === true || !hasSelectedAsset;
 
-  function onResult(to) {
-    setTo(to);
+  function onResult(value: string | null) {
+    setTo(value ?? "");
     setShowQRCode(false);
   }
   const qr = useQRReader(showQRCode, onResult);
@@ -50,21 +72,35 @@ export function Send({
     const clearForm = () => {
       setTo("");
       setAmount("");
-      setAsset("");
+      setAsset(defaultValueAssets);
       triggerEvent(Events.INFO__TRANSFER_IN_PROCESS);
       betterToast("✓ Success");
     };
 
     //Validate that "to address" is a valid address
-    const validateAddressResponse = await wallet.rpc("validateaddress", [to]);
+    const validateAddressResponse = (await wallet.rpc("validateaddress", [to])) as ValidateAddressResponse;
 
     if (validateAddressResponse.isvalid === false) {
       betterAlert("Error", to + " does not seem to be a valid address");
       return false;
     }
 
+    if (!hasSelectedAsset) {
+      betterAlert("Select an asset", "Please choose an asset before sending.");
+      return;
+    }
+
+    const assetToSend = isBaseAssetName(asset, baseCurrencyLabel)
+      ? walletBaseCurrency
+      : asset;
+
+    if (!assetToSend || assetToSend === defaultValueAssets) {
+      betterAlert("Select an asset", "Please choose a valid asset before sending.");
+      return;
+    }
+
     setIsBusy(true);
-    const promise = send({ wallet, to, asset, amount, clearForm });
+    const promise = send({ wallet, to, asset: assetToSend, amount, clearForm });
     promise.catch(() => {
       //Do nothing);
     });
@@ -76,10 +112,20 @@ export function Send({
   const options = (
     <AssetOptions wallet={wallet} allAssets={allAssets}></AssetOptions>
   );
+  const displayBalance =
+    balance + getAssetBalanceFromMempool(baseCurrencyLabel, mempool);
 
-  function maxButtonEventHandler(event) {
+  function maxButtonEventHandler(event: React.MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
-    const newAmount = allAssets[asset];
+    if (!hasSelectedAsset) {
+      return;
+    }
+    const newAmount = isBaseAssetName(asset, baseCurrencyLabel)
+      ? displayBalance
+      : allAssets[asset];
+    if (typeof newAmount !== "number" || Number.isNaN(newAmount)) {
+      return;
+    }
     const str = "" + newAmount;
     //Check for exponential notation
     //The value 1e8 should be displayed to the user as 0.00000001
@@ -101,8 +147,6 @@ export function Send({
       </a>
     );
   }
-  const displayBalance =
-    balance + getAssetBalanceFromMempool(wallet.baseCurrency, mempool);
   return (
     <article>
       <h5>Send / transfer / pay</h5>
@@ -120,12 +164,12 @@ export function Send({
         <label>
           Asset
           <select
-            onChange={(event) => setAsset(event.target.value)}
+            onChange={(event) => setAsset(event.target.value || defaultValueAssets)}
             value={asset}
           >
-            <option>{defaultValueAssets}</option>
-            <option value={wallet.baseCurrency}>
-              {wallet.baseCurrency} ({displayBalance})
+            <option value={defaultValueAssets}>{defaultValueAssets}</option>
+            <option value={baseCurrencyLabel}>
+              {baseCurrencyLabel} (base currency) ({displayBalance})
             </option>
             {options}
           </select>
@@ -164,7 +208,7 @@ function AssetOptions({ wallet, allAssets }: IAssetOptionsProps) {
   const options = Object.keys(allAssets).map((assetName: string) => {
     const balance = allAssets[assetName];
     //Ignore base currency, such as RVN
-    if (wallet.baseCurrency === assetName) {
+    if (isBaseAssetName(assetName, wallet.baseCurrency)) {
       return null;
     }
 
@@ -182,10 +226,7 @@ function AssetOptions({ wallet, allAssets }: IAssetOptionsProps) {
 
   return options;
 }
-function useQRReader(
-  showQRCode: boolean,
-  onResult: (value: string | null) => void
-) {
+function useQRReader(showQRCode: boolean, onResult: (value: string | null) => void) {
   const [qr, setQR] = React.useState(<></>);
   const [mode, setMode] = React.useState("environment");
   React.useEffect(() => {
@@ -200,13 +241,13 @@ function useQRReader(
               facingMode: mode,
             }}
             scanDelay={100}
-            onResult={(result, error) => {
-              if (!!result) {
-                //@ts-ignore
-                onResult(result?.text);
-              }
-
-              if (!!error) {
+            onResult={(result) => {
+              if (!result) return;
+              const text = typeof (result as { text?: unknown }).text === "string"
+                ? (result as { text?: string }).text
+                : null;
+              if (text !== null) {
+                onResult(text);
               }
             }}
           />
@@ -243,7 +284,19 @@ function useQRReader(
  *
  * @returns
  */
-async function send({ wallet, to, asset, amount, clearForm }) {
+async function send({
+  wallet,
+  to,
+  asset,
+  amount,
+  clearForm,
+}: {
+  wallet: Wallet;
+  to: string;
+  asset: string;
+  amount: string;
+  clearForm: () => void;
+}) {
   const promise = wallet.createTransaction({
     toAddress: to,
     assetName: asset,
@@ -252,12 +305,13 @@ async function send({ wallet, to, asset, amount, clearForm }) {
 
   try {
     await promise;
-  } catch (e) {
-    betterAlert("Error", "" + e);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    betterAlert("Error", errorMessage);
     return;
   }
 
-  const sendResult = await promise;
+  const sendResult = (await promise) as CreateTransactionResult;
   //Yes template literals combined, to avoid the headache of new lines getting indented
   const confirmText = `Do you want to send ${amount} ${asset} to 
 ${to}?

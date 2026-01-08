@@ -1,6 +1,6 @@
 import NeuraiKey from '@neuraiproject/neurai-key';
 
-export type DepinChatNetwork = 'xna' | 'xna-test' | 'xna-legacy';
+export type DepinChatNetwork = 'xna' | 'xna-test' | 'xna-legacy' | 'xna-legacy-test';
 
 export type DepinChatIdentity = {
   address: string;
@@ -10,6 +10,16 @@ export type DepinChatIdentity = {
   coinType: number;
   account: number;
   index: number;
+};
+
+type NeuraiKeyApi = {
+  getHDKey: (network: DepinChatNetwork, mnemonic: string, passphrase: string) => unknown;
+  getCoinType: (network: DepinChatNetwork) => number;
+  getAddressByPath: (
+    network: DepinChatNetwork,
+    hdKey: unknown,
+    path: string
+  ) => { WIF?: string; address?: string; publicKey?: string } | null;
 };
 
 function compressPubKeyHex(pubKeyHex: string): string {
@@ -48,11 +58,12 @@ export function deriveDepinChatIdentity(params: {
 
   const passphrase = params.passphrase ?? '';
 
-  const hdKey = (NeuraiKey as any).getHDKey(params.network, mnemonic, passphrase);
-  const coinType: number = (NeuraiKey as any).getCoinType(params.network);
+  const keyApi = NeuraiKey as unknown as NeuraiKeyApi;
+  const hdKey = keyApi.getHDKey(params.network, mnemonic, passphrase);
+  const coinType = keyApi.getCoinType(params.network);
 
   const path = `m/44'/${coinType}'/${account}'/0/${index}`;
-  const addrObj = (NeuraiKey as any).getAddressByPath(params.network, hdKey, path);
+  const addrObj = keyApi.getAddressByPath(params.network, hdKey, path);
 
   const wif = String(addrObj?.WIF ?? '').trim();
   const address = String(addrObj?.address ?? '').trim();

@@ -1,3 +1,5 @@
+import "./betterDialog.css";
+
 enum DialogType {
   ALERT = "ALERT",
   CONFIRM = "CONFIRM",
@@ -5,9 +7,9 @@ enum DialogType {
 }
 
 export function betterToast(text: string) {
-  const html = ` <dialog open><article style="border: 1px solid grey" > 
+  const html = ` <dialog open><article class="rebel-dialog__article rebel-dialog__toast"> 
   </header>
-  <p>
+  <p class="rebel-dialog__text">
    ${text}
   </p> 
 </article>
@@ -18,13 +20,13 @@ export function betterToast(text: string) {
 
   setTimeout(() => document.body.removeChild(dom), 1000);
 }
-export async function betterConfirm(headline, text): Promise<boolean> {
+export async function betterConfirm(headline: string, text: string): Promise<boolean> {
   const promise = new Promise<boolean>((resolve, reject) => {
     createDialog(DialogType.CONFIRM, headline, text, resolve, reject);
   });
   return promise;
 }
-export async function betterAlert(headline, text): Promise<boolean> {
+export async function betterAlert(headline: string, text: string): Promise<boolean> {
   const promise = new Promise<boolean>((resolve, reject) => {
     createDialog(DialogType.ALERT, headline, text, resolve, reject);
   });
@@ -34,12 +36,12 @@ export async function betterAlert(headline, text): Promise<boolean> {
 function getButtons(dialogType: DialogType) {
   if (dialogType === DialogType.CONFIRM) {
     return `
-      <button class="secondary" style="max-width: 150px">Cancel</button> 
-      <button class="primary" style="max-width: 150px">OK</button>
+      <button class="secondary rebel-dialog__button">Cancel</button> 
+      <button class="primary rebel-dialog__button">OK</button>
       `;
-  } else if (DialogType.ALERT) {
+  } else if (dialogType === DialogType.ALERT) {
     return ` 
-      <button class="primary" style="max-width: 150px">OK</button>
+      <button class="primary rebel-dialog__button">OK</button>
       `;
   }
   return "";
@@ -49,17 +51,17 @@ function createDialog(
   dialogType: DialogType,
   headline: string,
   text: string,
-  resolve,
-  reject
+  resolve: (value: boolean) => void,
+  reject: (reason?: unknown) => void
 ) {
   const html = `   <dialog open>
-      <article style="border: 1px solid grey" >
+      <article class="rebel-dialog__article">
         <header>
           <a href="#close" aria-label="Close" class="close"></a>
           ${headline}
         </header>
-        <p style="white-space: pre">${text}</p>
-        <footer style="display:flex; justify-content: space-between">  
+        <p class="rebel-dialog__text">${text}</p>
+        <footer class="rebel-dialog__footer">  
          ${getButtons(dialogType)}
         </footer>
       </article>

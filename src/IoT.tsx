@@ -12,11 +12,11 @@ export function IoT({ wallet }: { wallet: Wallet }) {
     alert(`Action ${action} on device ${deviceId}`);
   };
 
-  const getStatusColor = (lastHeartbeat: Date) => {
+  const getStatusTone = (lastHeartbeat: Date) => {
     const diff = Date.now() - lastHeartbeat.getTime();
-    if (diff < 2 * 60 * 1000) return "#22c55e"; // Green (2 min)
-    if (diff < 10 * 60 * 1000) return "#f59e0b"; // Orange (10 min)
-    return "#ef4444"; // Red
+    if (diff < 2 * 60 * 1000) return "ok"; // Green (2 min)
+    if (diff < 10 * 60 * 1000) return "warn"; // Orange (10 min)
+    return "error"; // Red
   };
 
   return (
@@ -29,8 +29,7 @@ export function IoT({ wallet }: { wallet: Wallet }) {
             <header className="rebel-iot__card-header">
               <div className="rebel-iot__device-info">
                 <span 
-                  className="rebel-iot__status-dot" 
-                  style={{ backgroundColor: getStatusColor(device.lastHeartbeat) }}
+                  className={`rebel-iot__status-dot rebel-iot__status-dot--${getStatusTone(device.lastHeartbeat)}`}
                   title={`Last heartbeat: ${device.lastHeartbeat.toLocaleString()}`}
                 />
                 <h4 className="rebel-iot__device-name">{device.name}</h4>

@@ -31,6 +31,30 @@ type PinV2Envelope = {
 
 export type StoredSecretLocation = "local" | "session";
 
+export type MempoolAsset = {
+  assetName?: string;
+  satoshis?: number;
+};
+
+export function normalizeAssetName(value?: string | null): string {
+  return (value ?? "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
+export function isBaseAssetName(assetName?: string | null, baseCurrency?: string | null): boolean {
+  const normalizedAsset = normalizeAssetName(assetName);
+  if (!normalizedAsset) {
+    return false;
+  }
+  const normalizedBase = normalizeAssetName(baseCurrency);
+  if (!normalizedBase) {
+    return normalizedAsset === "XNA";
+  }
+  return normalizedAsset === normalizedBase;
+}
+
 export function getStoredMnemonicRaw(): { location: StoredSecretLocation; value: string } | null {
   const sessionRaw = sessionStorage.getItem(SESSION_KEY);
   if (sessionRaw && sessionRaw.length > 0) {
@@ -60,12 +84,20 @@ function decryptLegacyStaticAes(ciphertext: string): string {
   }
 }
 
-function getSubtleOrThrow() {
-  const subtle = (globalThis as any)?.crypto?.subtle;
-  if (!subtle) {
+function getCryptoOrThrow(): Crypto {
+  const cryptoObj = globalThis.crypto;
+  if (!cryptoObj || typeof cryptoObj.getRandomValues !== "function") {
     throw new Error("WebCrypto is required");
   }
-  return subtle as SubtleCrypto;
+  return cryptoObj;
+}
+
+function getSubtleOrThrow(): SubtleCrypto {
+  const cryptoObj = getCryptoOrThrow();
+  if (!cryptoObj.subtle) {
+    throw new Error("WebCrypto is required");
+  }
+  return cryptoObj.subtle;
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -120,8 +152,9 @@ async function deriveAesKeyFromPin(pin: string, salt: Uint8Array, iterations: nu
 
 async function encryptPinV2(plaintext: string, pin: string): Promise<string> {
   const subtle = getSubtleOrThrow();
-  const salt = (globalThis as any).crypto.getRandomValues(new Uint8Array(PBKDF2_SALT_BYTES));
-  const iv = (globalThis as any).crypto.getRandomValues(new Uint8Array(AES_GCM_IV_BYTES));
+  const cryptoObj = getCryptoOrThrow();
+  const salt = cryptoObj.getRandomValues(new Uint8Array(PBKDF2_SALT_BYTES));
+  const iv = cryptoObj.getRandomValues(new Uint8Array(AES_GCM_IV_BYTES));
 
   const key = await deriveAesKeyFromPin(pin, salt, PBKDF2_ITERATIONS);
   const ptBytes = new TextEncoder().encode(plaintext);
@@ -273,19 +306,22 @@ export function setMnemonic(_value: string, options?: { persist?: boolean }) {
 export function getAssetBalanceIncludingMempool(
   wallet: Wallet,
   assets: IAsset[],
-  mempool: any
+  mempool: MempoolAsset[] | null
 ) {
   const allAssets: { [key: string]: number } = {}; //Object with assets from blockchain and from mempool
   //Add assets from blockchain
-  assets.map(
-    (asset: IAsset) => (allAssets[asset.assetName] = asset.balance / 1e8)
-  );
+  assets.forEach((asset: IAsset) => {
+    if (!asset?.assetName || isBaseAssetName(asset.assetName, wallet.baseCurrency)) {
+      return;
+    }
+    allAssets[asset.assetName] = asset.balance / 1e8;
+  });
 
   //Add assets from mempool
-  if (mempool && mempool.length > 0) {
-    mempool.map((m: IAsset) => {
+  if (Array.isArray(mempool) && mempool.length > 0) {
+    mempool.forEach((m) => {
       //Ignore base currency such as XNA
-      if (m.assetName === wallet.baseCurrency) {
+      if (!m.assetName || isBaseAssetName(m.assetName, wallet.baseCurrency)) {
         return;
       }
       const hasAsset = allAssets.hasOwnProperty(m.assetName);
@@ -300,8 +336,8 @@ export function getAssetBalanceIncludingMempool(
 
   return allAssets;
 }
-export function getAssetBalanceFromMempool(assetName: string, mempool: any) {
-  if (!mempool) {
+export function getAssetBalanceFromMempool(assetName: string, mempool: MempoolAsset[] | null) {
+  if (!Array.isArray(mempool)) {
     return 0;
   }
   if (mempool.length === 0) {
@@ -309,8 +345,8 @@ export function getAssetBalanceFromMempool(assetName: string, mempool: any) {
   }
 
   let pending = 0;
-  mempool.map((item: any) => {
-    if (item.assetName === assetName) {
+  mempool.forEach((item) => {
+    if (item.assetName === assetName && typeof item.satoshis === "number") {
       pending = pending + item.satoshis / 1e8;
     }
   });

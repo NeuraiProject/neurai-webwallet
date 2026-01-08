@@ -1,7 +1,7 @@
 import React from "react";
 
 import { Wallet } from "@neuraiproject/neurai-jswallet";
-import { getAssetBalanceFromMempool } from "./utils";
+import { getAssetBalanceFromMempool, type MempoolAsset } from "./utils";
 import "./Balance.css";
 
 export function Balance({
@@ -11,7 +11,7 @@ export function Balance({
 }: {
   wallet: Wallet;
   balance: number;
-  mempool: any;
+  mempool: MempoolAsset[] | null;
 }) {
   let pending = getAssetBalanceFromMempool(wallet.baseCurrency, mempool);
   const hasPending = pending !== 0;

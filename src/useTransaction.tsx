@@ -2,21 +2,22 @@ import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { ITransaction } from "./history/History";
 
-const _cache = {};
+const transactionCache = new Map<string, Promise<ITransaction>>();
 export function useTransaction(wallet: Wallet, transactionId: string) {
   const [transaction, setTransaction] = React.useState<null | ITransaction>(
     null
   );
 
   React.useEffect(() => {
-    let key = transactionId;
+    const key = transactionId;
 
-    if (!_cache[key]) {
-      const promise = wallet.rpc("getrawtransaction", [transactionId, true]);
-      _cache[key] = promise;
+    if (!transactionCache.has(key)) {
+      const promise = wallet.rpc("getrawtransaction", [transactionId, true]) as Promise<ITransaction>;
+      transactionCache.set(key, promise);
     }
 
-    let promise = _cache[key];
+    const promise = transactionCache.get(key);
+    if (!promise) return;
     promise.then((t) => setTransaction(t));
   }, [wallet, transactionId]);
 

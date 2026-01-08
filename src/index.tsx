@@ -13,25 +13,25 @@ import {
 import { createRoot } from "react-dom/client";
 import "./App.css";
 
+import { Loader } from "./Loader";
+import { Login } from "./Login";
+import { Navigator } from "./Navigator";
+import { Routes } from "./Routes";
+import { Footer } from "./Footer";
 import { History } from "./history/History";
 import { Assets } from "./Assets";
 import { Mempool } from "./Mempool";
 import { ReceiveAddress } from "./ReceiveAddress";
 import { Balance } from "./Balance";
-import { Loader } from "./Loader";
 import { Send } from "./Send";
-import { Login } from "./Login";
 import { Sweep } from "./Sweep";
-import { Navigator } from "./Navigator";
-import { Routes } from "./Routes";
-import { Footer } from "./Footer";
 import { Sign } from "./sign/Sign";
 import { Settings } from "./Settings";
-import { IoT } from "./IoT";
 
 const DEFAULT_RPC_MAINNET = "https://rpc-depin.neurai.org/rpc";
 const DEFAULT_RPC_TESTNET = "https://rpc-testnet.neurai.org/rpc";
 import { Chat } from "./Chat";
+import { IoT } from "./IoT";
 import { useMempool } from "./hooks/useMempool";
 import { useBlockCount } from "./hooks/useBlockCount";
 import { useBalance } from "./hooks/useBalance";
@@ -39,12 +39,49 @@ import { useAssets } from "./hooks/useAssets";
 import { useReceiveAddress } from "./hooks/useReceiveAddress";
 import { deriveDepinChatIdentity, DepinChatIdentity } from "./utils/depinChatIdentity";
 
-const neuraiLogo = new URL("../neurai-xna-logo.png", import.meta.url);
+const neuraiLogo = new URL("../public/neurai-xna-logo.png", import.meta.url);
 
 let _mnemonic =
   "sight rate burger maid melody slogan attitude gas account sick awful hammer";
 
-type ChainType = "xna" | "xna-test" | "xna-legacy";
+type ChainType = "xna" | "xna-test" | "xna-legacy" | "xna-legacy-test";
+type WalletConfig = {
+  minAmountOfAddresses: number;
+  mnemonic: string;
+  network: ChainType;
+  passphrase?: string;
+  rpc_url?: string;
+  rpc_username?: string;
+  rpc_password?: string;
+};
+
+type RpcConfig = {
+  url?: string;
+  username?: string;
+  password?: string;
+};
+
+type RpcErrorShape = {
+  message?: unknown;
+  error?: {
+    message?: unknown;
+    error?: {
+      message?: unknown;
+    };
+  };
+  data?: {
+    message?: unknown;
+  };
+  response?: {
+    data?: {
+      error?: unknown;
+    };
+    statusText?: unknown;
+  };
+  status?: unknown;
+  statusCode?: unknown;
+  code?: unknown;
+};
 
 //Set Dark or Light mode if store.
 const theme = localStorage.getItem("data-theme");
@@ -84,15 +121,14 @@ function App() {
   const network: ChainType = React.useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const isTestnet = searchParams.get("network") === "xna-test";
+    const derivationType = localStorage.getItem("derivation_type");
+    const useLegacy = derivationType === "legacy";
 
-    // Testnet siempre usa xna-test (no legacy)
     if (isTestnet) {
-      return "xna-test";
+      return useLegacy ? "xna-legacy-test" : "xna-test";
     }
 
-    // Mainnet: verificar preferencia de derivación
-    const derivationType = localStorage.getItem("derivation_type");
-    return derivationType === "legacy" ? "xna-legacy" : "xna";
+    return useLegacy ? "xna-legacy" : "xna";
   }, []);
 
   const depinChatIdentity = React.useMemo<DepinChatIdentity | null>(() => {
@@ -142,7 +178,7 @@ function App() {
   }, []);
 
   const buildWalletConfig = React.useCallback(() => {
-    const walletConfig: any = {
+    const walletConfig: WalletConfig = {
       minAmountOfAddresses,
       mnemonic,
       network,
@@ -155,8 +191,8 @@ function App() {
     const savedRpcConfig = localStorage.getItem("rpc_config");
     if (savedRpcConfig) {
       try {
-        const rpcConfig = JSON.parse(savedRpcConfig);
-        if (rpcConfig.url) {
+        const rpcConfig = JSON.parse(savedRpcConfig) as RpcConfig;
+        if (rpcConfig && rpcConfig.url) {
           walletConfig.rpc_url = rpcConfig.url;
           if (rpcConfig.username) {
             walletConfig.rpc_username = rpcConfig.username;
@@ -166,17 +202,24 @@ function App() {
           }
           console.log("Using custom RPC server:", rpcConfig.url);
         }
-      } catch (e) {
-        console.error("Error loading custom RPC config:", e);
+      } catch (error) {
+        console.error("Error loading custom RPC config:", error);
       }
       } else {
-        walletConfig.rpc_url = network === "xna-test" ? DEFAULT_RPC_TESTNET : DEFAULT_RPC_MAINNET;
+        const isTestnetNetwork = network === "xna-test" || network === "xna-legacy-test";
+        walletConfig.rpc_url = isTestnetNetwork ? DEFAULT_RPC_TESTNET : DEFAULT_RPC_MAINNET;
     }
 
     return walletConfig;
   }, [minAmountOfAddresses, mnemonic, network, passphrase]);
 
-  const formatRpcError = React.useCallback((err: any): string => {
+  const ensureWalletDefaults = React.useCallback((instance: Wallet) => {
+    if (!instance.baseCurrency) {
+      instance.baseCurrency = "XNA";
+    }
+  }, []);
+
+  const formatRpcError = React.useCallback((err: unknown): string => {
     if (!err) return "Unknown RPC error";
     if (typeof err === "string") return err;
     if (err instanceof Error) {
@@ -184,17 +227,18 @@ function App() {
       return m || "RPC error";
     }
 
+    const errorObj = err as RpcErrorShape;
     // Try common nested error shapes
     const msgCandidate =
-      err?.message ??
-      err?.error?.message ??
-      err?.error?.error?.message ??
-      err?.data?.message ??
-      err?.response?.data?.error ??
-      err?.response?.statusText ??
+      errorObj?.message ??
+      errorObj?.error?.message ??
+      errorObj?.error?.error?.message ??
+      errorObj?.data?.message ??
+      errorObj?.response?.data?.error ??
+      errorObj?.response?.statusText ??
       null;
 
-    const statusCandidate = err?.status ?? err?.statusCode ?? err?.code ?? null;
+    const statusCandidate = errorObj?.status ?? errorObj?.statusCode ?? errorObj?.code ?? null;
 
     const msg = typeof msgCandidate === "string" ? msgCandidate.trim() : "";
     const status =
@@ -222,7 +266,7 @@ function App() {
     try {
       const seen = new WeakSet();
       const json = JSON.stringify(
-        err,
+        errorObj,
         (_k, v) => {
           if (typeof v === "object" && v !== null) {
             if (seen.has(v)) return "[Circular]";
@@ -265,6 +309,7 @@ function App() {
     NeuraiWallet.createInstance(walletConfig)
       .then((w) => {
         if (!isTimedOut) {
+          ensureWalletDefaults(w);
           setWallet(w);
           setRpcError(null);
           setIsRpcTimeout(false);
@@ -337,9 +382,9 @@ function App() {
         if (cancelled) return;
         setRpcError(null);
         setIsRpcTimeout(false);
-      } catch (e: any) {
+      } catch (error) {
         if (cancelled) return;
-        const msg = formatRpcError(e);
+        const msg = formatRpcError(error);
 
         // If the RPC is reachable but disallows the method, don't treat it as offline.
         const lower = msg.toLowerCase();
@@ -395,8 +440,8 @@ function App() {
                 setMnemonic(m);
                 setPassphrase(p);
                 setPendingMnemonicData(null);
-              } catch (e: any) {
-                setPinGateError(e?.message ? String(e.message) : "Failed to save encrypted wallet");
+              } catch (error) {
+                setPinGateError(error instanceof Error ? error.message : "Failed to save encrypted wallet");
               }
             })();
           }}
@@ -455,8 +500,8 @@ function App() {
                 const { mnemonic: m, passphrase: p } = splitMnemonicAndPassphrase(plaintext);
                 setMnemonic(m);
                 setPassphrase(p);
-              } catch (e: any) {
-                setPinGateError(e?.message ? String(e.message) : "Failed to decrypt wallet data");
+              } catch (error) {
+                setPinGateError(error instanceof Error ? error.message : "Failed to decrypt wallet data");
               }
             })();
           }}
@@ -590,14 +635,14 @@ function App() {
             <Sign assets={assets} wallet={wallet} />
           )}
 
-	          <div
-	            className={
-	              currentRoute === Routes.CHAT ? "rebel-app__chat" : "rebel-app__chat rebel-app__chat--hidden"
-	            }
-	            aria-hidden={currentRoute !== Routes.CHAT}
-	          >
-	            <Chat wallet={wallet} assets={assets} mempool={mempool} depinChatIdentity={depinChatIdentity} />
-	          </div>
+          <div
+            className={
+              currentRoute === Routes.CHAT ? "rebel-app__chat" : "rebel-app__chat rebel-app__chat--hidden"
+            }
+            aria-hidden={currentRoute !== Routes.CHAT}
+          >
+            <Chat wallet={wallet} assets={assets} mempool={mempool} depinChatIdentity={depinChatIdentity} />
+          </div>
 
           {currentRoute === Routes.IOT && <IoT wallet={wallet} />}
 

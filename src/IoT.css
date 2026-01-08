@@ -60,6 +60,21 @@
   box-shadow: 0 0 8px currentColor;
 }
 
+.rebel-iot__status-dot--ok {
+  background-color: #22c55e;
+  color: #22c55e;
+}
+
+.rebel-iot__status-dot--warn {
+  background-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.rebel-iot__status-dot--error {
+  background-color: #ef4444;
+  color: #ef4444;
+}
+
 .rebel-iot__device-name {
   margin: 0;
   font-size: 1.1rem;

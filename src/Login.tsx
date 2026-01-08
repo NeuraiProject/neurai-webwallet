@@ -4,23 +4,36 @@ import { LightModeToggle } from "./components/LightModeToggle";
 import ESP32Storage from "./ESP32Storage";
 import { Settings } from "./Settings";
 import { IconSettings } from "./icons";
+import { autoResizeTextarea } from "./utils/domUtils";
 import "./Login.css";
 
 // @ts-ignore - Parcel handles this correctly
 const CryptoJS = require("crypto-js");
+type Bip39Module = typeof import("bip39");
+type ESP32Result = {
+  status?: string;
+  keys?: string[];
+  value?: string;
+  message?: string;
+};
+type NeuraiKeyWithEntropy = typeof NeuraiKey & {
+  mnemonicToEntropy?: (mnemonic: string) => string;
+};
+
 // Fallback bip39 for entropy conversion if NeuraiKey lacks mnemonicToEntropy
-let bip39: any = null;
+let bip39: Bip39Module | null = null;
 import("bip39").then((m) => (bip39 = m)).catch(() => (bip39 = null));
 
 //For bundler not to optimize/remove NeuraiKey
 console.log("NeuraiKey", !!NeuraiKey);
 
-const neuraiLogo = new URL("../neurai-xna-logo.png", import.meta.url);
+const neuraiLogo = new URL("../public/neurai-xna-logo.png", import.meta.url);
 export function Login({
   onLogin,
 }: {
   onLogin: (data: { mnemonicData: string; persist: boolean; isFromESP32?: boolean }) => void;
 }) {
+  const neuraiKeyWithEntropy = NeuraiKey as NeuraiKeyWithEntropy;
   const [showWords, setShowWords] = React.useState(false);
   const [showPassphrase, setShowPassphrase] = React.useState(false);
   const [wordCount, setWordCount] = React.useState<12 | 24>(12);
@@ -52,7 +65,7 @@ export function Login({
   const [showQuickPassphraseText, setShowQuickPassphraseText] = React.useState<boolean>(false);
   // Removed seed/entropy preview fields and their computation (no longer needed)
 
-  // Auto-resize textarea
+  // Auto-resize textarea (using unified utility from domUtils)
   const handleTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     autoResizeTextarea(event.target);
     // seed/entropy preview removed
@@ -60,18 +73,6 @@ export function Login({
 
   const handleTextareaInput = (event: React.FormEvent<HTMLTextAreaElement>) => {
     autoResizeTextarea(event.currentTarget);
-  };
-
-  const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
-    // Reset height to allow shrinking
-    textarea.style.height = 'auto';
-
-    // Get the scroll height (content height)
-    const scrollHeight = textarea.scrollHeight;
-
-    // Set new height, ensuring minimum height when empty
-    const minHeight = textarea.value.trim() ? scrollHeight : 44; // 44px when empty
-    textarea.style.height = minHeight + 'px';
   };
 
   // Auto-resize on mount and when content changes
@@ -89,6 +90,9 @@ export function Login({
     const onClose = () => setDialog(<></>);
     const d = <Dialog title={title} text={text} onClose={onClose}></Dialog>;
     setDialog(d);
+  }
+  function getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
   }
   function newWallet(event: FormEvent) {
     event.preventDefault();
@@ -126,7 +130,7 @@ export function Login({
       }
       value = createdMnemonic.trim();
     } else if (activeTab === 'recover') {
-      const mnemonicInput = document.getElementById("mnemonic") as HTMLFormElement;
+      const mnemonicInput = document.getElementById("mnemonic") as HTMLTextAreaElement;
       if (!mnemonicInput) {
         return null;
       }
@@ -170,8 +174,8 @@ export function Login({
 
       // Load list of keys
       await loadESP32Keys();
-    } catch (error: any) {
-      setEsp32Status("❌ Failed to connect: " + error.message);
+    } catch (error) {
+      setEsp32Status("❌ Failed to connect: " + getErrorMessage(error));
       console.error("ESP32 connection error:", error);
     }
   }
@@ -183,20 +187,20 @@ export function Login({
       setEsp32Keys([]);
       setSelectedKey("");
       setEsp32Status("");
-    } catch (error: any) {
+    } catch (error) {
       console.error("ESP32 disconnect error:", error);
     }
   }
 
   async function loadESP32Keys() {
     try {
-      const result = await esp32Storage.list();
+      const result = await esp32Storage.list() as ESP32Result;
       if (result.status === "success" && result.keys) {
         setEsp32Keys(result.keys);
         setEsp32Status(`✅ Found ${result.keys.length} stored wallet(s)`);
       }
-    } catch (error: any) {
-      setEsp32Status("❌ Error loading keys: " + error.message);
+    } catch (error) {
+      setEsp32Status("❌ Error loading keys: " + getErrorMessage(error));
       console.error("ESP32 list error:", error);
     }
   }
@@ -217,14 +221,14 @@ export function Login({
     }
     let entropyHex = "";
     try {
-      if (typeof (NeuraiKey as any).mnemonicToEntropy === "function") {
-        entropyHex = (NeuraiKey as any).mnemonicToEntropy(mnemonic);
+      if (typeof neuraiKeyWithEntropy.mnemonicToEntropy === "function") {
+        entropyHex = neuraiKeyWithEntropy.mnemonicToEntropy(mnemonic);
       } else if (bip39 && typeof bip39.mnemonicToEntropy === "function") {
         entropyHex = bip39.mnemonicToEntropy(mnemonic);
       } else {
         throw new Error("mnemonicToEntropy not available");
       }
-    } catch (e: any) {
+    } catch {
       alert("Failed to derive BIP39 entropy from the mnemonic.");
       return;
     }
@@ -266,8 +270,8 @@ export function Login({
 
       // Reload keys
       await loadESP32Keys();
-    } catch (error: any) {
-      setEsp32Status("❌ Error saving: " + error.message);
+    } catch (error) {
+      setEsp32Status("❌ Error saving: " + getErrorMessage(error));
       console.error("ESP32 save error:", error);
     }
   }
@@ -280,7 +284,7 @@ export function Login({
 
     try {
       setEsp32Status(`📖 Loading "${selectedKey}"...`);
-      const result = await esp32Storage.read(selectedKey);
+      const result = await esp32Storage.read(selectedKey) as ESP32Result;
 
       if (result.status === "success" && result.value) {
         let data = result.value;
@@ -326,8 +330,8 @@ export function Login({
           setEsp32Status("❌ Error: Invalid data format on device (expected raw BIP39 entropy hex)");
         }
       }
-    } catch (error: any) {
-      setEsp32Status("❌ Error loading: " + error.message);
+    } catch (error) {
+      setEsp32Status("❌ Error loading: " + getErrorMessage(error));
       console.error("ESP32 read error:", error);
     }
   }
@@ -351,8 +355,8 @@ export function Login({
 
       // Reload keys
       await loadESP32Keys();
-    } catch (error: any) {
-      setEsp32Status("❌ Error deleting: " + error.message);
+    } catch (error) {
+      setEsp32Status("❌ Error deleting: " + getErrorMessage(error));
       console.error("ESP32 delete error:", error);
     }
   }
@@ -367,8 +371,8 @@ export function Login({
 
       // Load list of keys
       await loadESP32QuickKeys();
-    } catch (error: any) {
-      setEsp32QuickStatus("❌ Failed to connect: " + error.message);
+    } catch (error) {
+      setEsp32QuickStatus("❌ Failed to connect: " + getErrorMessage(error));
       console.error("ESP32 Quick connection error:", error);
     }
   }
@@ -387,20 +391,20 @@ export function Login({
       setShowQuickPassphrase(false);
       setShowQuickPassphraseText(false);
       setEsp32QuickStatus("");
-    } catch (error: any) {
+    } catch (error) {
       console.error("ESP32 Quick disconnect error:", error);
     }
   }
 
   async function loadESP32QuickKeys() {
     try {
-      const result = await esp32QuickStorage.list();
+      const result = await esp32QuickStorage.list() as ESP32Result;
       if (result.status === "success" && result.keys) {
         setEsp32QuickKeys(result.keys);
         setEsp32QuickStatus(`✅ Found ${result.keys.length} stored wallet(s)`);
       }
-    } catch (error: any) {
-      setEsp32QuickStatus("❌ Error loading keys: " + error.message);
+    } catch (error) {
+      setEsp32QuickStatus("❌ Error loading keys: " + getErrorMessage(error));
       console.error("ESP32 Quick list error:", error);
     }
   }
@@ -412,7 +416,7 @@ export function Login({
 
     try {
       setEsp32QuickStatus(`📖 Loading "${selectedQuickKey}"...`);
-      const result = await esp32QuickStorage.read(selectedQuickKey);
+      const result = await esp32QuickStorage.read(selectedQuickKey) as ESP32Result;
 
       if (result.status === "success" && result.value) {
         let data = result.value;
@@ -459,8 +463,8 @@ export function Login({
           setEsp32QuickStatus("❌ Error: Invalid data format on device (expected raw BIP39 entropy hex)");
         }
       }
-    } catch (error: any) {
-      setEsp32QuickStatus("❌ Error loading: " + error.message);
+    } catch (error) {
+      setEsp32QuickStatus("❌ Error loading: " + getErrorMessage(error));
       console.error("ESP32 Quick read error:", error);
     }
   }
@@ -667,7 +671,7 @@ export function Login({
                   <div className="rebel-login__created-words-box">
                     {createdMnemonic}
                   </div>
-                  <p className="rebel-login__muted rebel-login__muted--tight" style={{ marginTop: '0.5rem' }}>
+                  <p className="rebel-login__muted rebel-login__muted--tight rebel-login__spacing-top-sm">
                     ⚠️ Save these words immediately! You will not see them again.
                   </p>
                 </div>
@@ -780,7 +784,7 @@ export function Login({
 
           {/* ----- ESP32 TAB ----- */}
           {activeTab === 'esp32' && (
-            <div className="rebel-login__esp32-card" style={{ marginTop: 0, border: 'none', background: 'transparent', padding: 0 }}>
+            <div className="rebel-login__esp32-card rebel-login__esp32-card--embedded">
               {/* Reusing existing ESP32 UI logic here but inline */}
               <p className="rebel-login__muted">
                 Store your recovery words securely on an ESP32 device. Connect via USB to save or load wallets.
@@ -875,9 +879,9 @@ export function Login({
           {/* ----- SUBMIT BUTTON (Only for Recover and Create) ----- */}
           {/* ----- HELP / INFO TAB ----- */}
           {activeTab === 'help' && (
-            <div className="rebel-login__how-content" style={{ border: 'none', background: 'transparent', padding: '0 1rem' }}>
-              <div className="rebel-login__card-muted" style={{ marginTop: 0 }}>
-                <h4 style={{ marginTop: 0, color: 'var(--primary)' }}>Wallet Setup & Security</h4>
+            <div className="rebel-login__how-content rebel-login__how-content--embedded">
+              <div className="rebel-login__card-muted rebel-login__card-muted--no-top-margin">
+                <h4 className="rebel-login__heading-primary--no-top-margin">Wallet Setup & Security</h4>
                 <p className="rebel-login__muted">
                   <strong>Create or Import:</strong> You can generate a new 12 or 24-word recovery phrase (mnemonic) or import an existing one. This phrase is the master key to your funds.
                 </p>
@@ -885,22 +889,22 @@ export function Login({
                   <strong>BIP39 Passphrase:</strong> Add an extra layer of security with an optional passphrase. In BIP39, this serves as a "13th/25th word", meaning the same mnemonic with a different passphrase will lead to a completely different wallet.
                 </p>
 
-                <h4 style={{ color: 'var(--primary)' }}>Privacy First Architecture</h4>
+                <h4 className="rebel-login__heading-primary">Privacy First Architecture</h4>
                 <p className="rebel-login__muted">
                   <strong>Zero-Leak Policy:</strong> Your recovery words and passphrases never leave your device. All sensitive operations, including encryption and transaction signing, are executed locally within your browser's memory.
                 </p>
 
-                <h4 style={{ color: 'var(--primary)' }}>DePIN & IoT Integration</h4>
+                <h4 className="rebel-login__heading-primary">DePIN & IoT Integration</h4>
                 <p className="rebel-login__muted">
                   <strong>Advanced Features:</strong> Beyond standard XNA transfers, this wallet supports Decentralized Physical Infrastructure Networks (DePIN) and IoT device management, allowing for secure peer-to-peer communication.
                 </p>
 
-                <h4 style={{ color: 'var(--primary)' }}>Secure Login Options</h4>
+                <h4 className="rebel-login__heading-primary">Secure Login Options</h4>
                 <p className="rebel-login__muted">
                   <strong>ESP32 Hardware:</strong> For enhanced protection against keyloggers, you can use an ESP32 device to store and inject your encrypted keys directly via USB.
                 </p>
 
-                <p className="rebel-login__how-warning" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                <p className="rebel-login__how-warning rebel-login__how-warning--danger">
                   ⚠️ <strong>CRITICAL:</strong> Neurai cannot recover your wallet. If you lose your recovery words, your funds are gone forever. Always keep physical backups in a safe place.
                 </p>
               </div>
@@ -953,7 +957,7 @@ export function Login({
                         // Auto-load wallet info when selected
                         try {
                           setEsp32QuickStatus(`📖 Loading "${newKey}"...`);
-                          const result = await esp32QuickStorage.read(newKey);
+                          const result = await esp32QuickStorage.read(newKey) as ESP32Result;
 
                           if (result.status === "success" && result.value) {
                             let data = result.value;
@@ -1000,8 +1004,8 @@ export function Login({
                               setSelectedQuickKey("");
                             }
                           }
-                        } catch (error: any) {
-                          setEsp32QuickStatus("❌ Error loading: " + error.message);
+                        } catch (error) {
+                          setEsp32QuickStatus("❌ Error loading: " + getErrorMessage(error));
                           console.error("ESP32 Quick read error:", error);
                         }
                       } else {

@@ -1,0 +1,20 @@
+.rebel-dialog__article {
+  border: 1px solid #9ca3af;
+}
+
+.rebel-dialog__toast {
+  border-color: #9ca3af;
+}
+
+.rebel-dialog__text {
+  white-space: pre;
+}
+
+.rebel-dialog__footer {
+  display: flex;
+  justify-content: space-between;
+}
+
+.rebel-dialog__button {
+  max-width: 150px;
+}

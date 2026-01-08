@@ -33,11 +33,15 @@ const neuraiTestnet: INetworkInfo = {
 export interface INetworks {
   xna: INetworkInfo;
   "xna-test": INetworkInfo;
+  "xna-legacy": INetworkInfo;
+  "xna-legacy-test": INetworkInfo;
 }
 
 const networks: INetworks = {
   xna: neuraiMainnet,
   "xna-test": neuraiTestnet,
+  "xna-legacy": neuraiMainnet,
+  "xna-legacy-test": neuraiTestnet,
 };
 
 export default networks;

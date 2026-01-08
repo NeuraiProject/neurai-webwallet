@@ -1,5 +1,5 @@
 import React from "react";
-const imageUrl = new URL("../neurai-xna-logo.png", import.meta.url);
+const imageUrl = new URL("../public/neurai-xna-logo.png", import.meta.url);
 import "./Loader.css";
 
 export function Loader() {

@@ -1,11 +1,12 @@
 import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
-import { getAssetBalanceIncludingMempool } from "./utils";
+import { getAssetBalanceIncludingMempool, isBaseAssetName } from "./utils";
 import { AssetName } from "./AssetName";
 
 import networkInfo from "./networkInfo";
 import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
 import "./Assets.css";
+import { AssetPlaceholder } from "./components/AssetPlaceholder";
 
 interface IAsset {
   assetName: string;
@@ -26,7 +27,7 @@ export function Assets({ wallet, assets, mempool }) {
         </thead>
         <tbody>
           {Object.keys(allAssets).map((assetName: string) => {
-            if (assetName === wallet.baseCurrency) {
+            if (isBaseAssetName(assetName, wallet.baseCurrency)) {
               return null; //Exclude base currency XNA
             }
             const balance = allAssets[assetName];
@@ -62,9 +63,13 @@ function LinkToIPFS({ wallet, assetName }: LinkToIPFSProps) {
   const [assetData, setAssetData] = React.useState<IAsset | null>(null);
 
   React.useEffect(() => {
+    if (isBaseAssetName(assetName, wallet.baseCurrency)) {
+      setAssetData(null);
+      return;
+    }
     const promise = wallet.rpc("getassetdata", [assetName]);
     promise.then(setAssetData);
-  }, []);
+  }, [assetName, wallet.baseCurrency]);
 
   if (assetData && assetData.ipfs_hash) {
     const url = "https://gateway.pinata.cloud/ipfs/" + assetData.ipfs_hash;
@@ -87,11 +92,8 @@ function LinkToIPFS({ wallet, assetName }: LinkToIPFSProps) {
     );
   }
   return (
-    <span>
-      <img
-        className="rebel-assets__thumb"
-        src="https://socialistmodernism.com/wp-content/uploads/2017/07/placeholder-image.png"
-      />
+    <span className="rebel-assets__link">
+      <AssetPlaceholder />
       <AssetName name={assetName} />
     </span>
   );

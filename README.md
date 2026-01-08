@@ -29,7 +29,21 @@ https://localhost:1234
 
 Now the ./dist folder contains the web "site", you can FTP the files to your web server.
 
-### Experimental features
+## Testing
+
+This project includes a comprehensive suite of unit tests to ensure the reliability and security of core wallet logic, including cryptography, asset management, and UTXO handling. All testing files are located in the `test/` directory.
+
+### Run all tests
+
+`npm test`
+
+The test suite covers:
+- **Cryptography**: Key derivation and address generation.
+- **DePIN Messaging**: Message signing and encryption logic.
+- **Utils**: Formatting, asset validation, and DOM helpers.
+- **UTXO Management**: Coin selection and transaction building logic.
+
+## Experimental features
 
 To use TESTNET instead of MAINNET for Neurai, append `?network=xna-test` to the URL.
 

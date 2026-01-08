@@ -1,13 +1,8 @@
 import React from "react";
 
 export function LabeledContent({ label, children }) {
-  const style = {
-    maxWidth: "300px",
-    display: "flex",
-    justifyContent: "space-between",
-  };
   return (
-    <div style={style}>
+    <div className="rebel-history__labeled">
       <div>{label}</div>
       <div>{children}</div>
     </div>

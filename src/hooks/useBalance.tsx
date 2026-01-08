@@ -1,6 +1,6 @@
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import React from "react";
-import { Events, addEventListener } from "../Events";
+import { Events, addEventListener, removeEventListener } from "../Events";
 
 export function useBalance(wallet: Wallet | null, blockCount: number) {
   const [balance, setBalance] = React.useState(0);

@@ -7,6 +7,15 @@ import DOMPurify from "dompurify";
 import { FaBomb, FaFireFlameCurved, FaQrcode, FaRegClock, FaRegCircleCheck, FaRegCopy, FaRobot, FaUserGroup, FaBars, FaXmark, FaArrowDown, FaArrowUp } from "react-icons/fa6";
 import { betterAlert, betterToast } from "./betterDialog";
 import type { DepinChatIdentity } from "./utils/depinChatIdentity";
+import { normalizeAssetAmountMaybe, shortenAddress, formatUnixTimestampNoSeconds, formatUnixTimestampNoSecondsShortYear } from './utils/formatting';
+import { parsePubkeyMaybe, parsePubkeyRevealedMaybe } from './utils/cryptoUtils';
+import { getAssetType, isValidMessagingAsset, getAssetIcon, getAssetTypeLabel } from './utils/assetUtils';
+import { copyToClipboard, autoResizeTextarea, scrollToLastUnread } from './utils/domUtils';
+import { extractBotModel, computeExpiresDate, getUnreadCount } from './utils/messageUtils';
+import { pickForcedUtxosForAmount } from './utils/utxoUtils';
+import { isBaseAssetName } from "./utils";
+import type { PubkeyResponse, UTXOResponse } from "./types/rpc";
+import './Chat.css';
 
 const decorativeIconProps = { "aria-hidden": true, focusable: false } as const;
 
@@ -35,50 +44,47 @@ interface DePINMessage {
   expires: string;
 }
 
+type AssetValidityStatus = {
+  has_asset: boolean;
+  amount?: number;
+  valid?: 0 | 1;
+  blocked?: boolean;
+};
+
+type MsgInfo = {
+  depinpoolpkey?: string;
+  maxmessagesize?: number;
+  messageexpiryhours?: number;
+  maxpoolsizemb?: number;
+  cipher?: string;
+};
+
+type TransactionDebug = {
+  inputs?: Array<{ address?: unknown }>;
+  UTXOs?: Array<{ address?: unknown }>;
+  signedTransaction?: unknown;
+};
+
+type ForcedUtxo = {
+  utxo: UTXOResponse;
+  address: string;
+  privateKey: string;
+};
+
+type CreateTransactionParams = {
+  toAddress: string;
+  assetName: string;
+  amount: number;
+  forcedUTXOs: ForcedUtxo[];
+  forcedChangeAddressBaseCurrency: string;
+  forcedChangeAddressAssets: string;
+};
+
 interface ChatProps {
   wallet: Wallet;
-  assets: any[];
-  mempool: any;
+  assets: unknown[];
+  mempool: unknown;
   depinChatIdentity?: DepinChatIdentity | null;
-}
-
-function normalizeAssetAmountMaybe(raw: unknown): number {
-  const n = typeof raw === "string" ? Number(raw) : (raw as number);
-  if (!Number.isFinite(n)) return 0;
-
-  // Heuristic: many RPCs return asset amounts in satoshis (1e8). If it looks like an integer
-  // larger than typical human-scale amounts, treat it as satoshis.
-  if (Number.isInteger(n) && Math.abs(n) > 100_000) {
-    return n / 1e8;
-  }
-
-  return n;
-}
-
-function parsePubkeyMaybe(pubkeyResult: any): string | null {
-  const candidate =
-    (typeof pubkeyResult === "string" && pubkeyResult) ||
-    pubkeyResult?.pubkey ||
-    pubkeyResult?.result?.pubkey ||
-    (typeof pubkeyResult?.result === "string" ? pubkeyResult.result : null) ||
-    null;
-
-  if (typeof candidate !== "string") return null;
-  const trimmed = candidate.trim();
-
-  // Accept compressed (33 bytes) or uncompressed (65 bytes) pubkeys in hex.
-  if (!/^[0-9a-fA-F]{66}$/.test(trimmed) && !/^[0-9a-fA-F]{130}$/.test(trimmed)) {
-    return null;
-  }
-
-  return trimmed;
-}
-
-function parsePubkeyRevealedMaybe(pubkeyResult: any): boolean | null {
-  if (pubkeyResult && typeof pubkeyResult === "object" && "revealed" in pubkeyResult) {
-    return pubkeyResult.revealed === 1;
-  }
-  return null;
 }
 
 export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) {
@@ -97,8 +103,8 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   const [selectedAsset, setSelectedAsset] = React.useState<string | null>(null);
   const [selectedAddress, setSelectedAddress] = React.useState<string | null>(null);
   const [isConnected, setIsConnected] = React.useState(false);
-  const [validityStatus, setValidityStatus] = React.useState<any>(null);
-  const [msgInfo, setMsgInfo] = React.useState<any>(null);
+  const [validityStatus, setValidityStatus] = React.useState<AssetValidityStatus | null>(null);
+  const [msgInfo, setMsgInfo] = React.useState<MsgInfo | null>(null);
   const [messageExpiryHours, setMessageExpiryHours] = React.useState<number | null>(null);
   const messagesEndRef = React.useRef<Map<string, HTMLDivElement | null>>(new Map());
   const chatInputRef = React.useRef<HTMLTextAreaElement>(null);
@@ -126,6 +132,13 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   const depinAddressQrSrc = depinAddressText
     ? "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=" + encodeURIComponent(depinAddressText)
     : "";
+  const canBurnDepinPubkey =
+    !isBurningDepinPubkey &&
+    depinChatPubkeyRevealed === false &&
+    !!chatAddress &&
+    !!depinChatIdentity?.wif;
+  const canShowDepinQr = !!depinAddressText;
+  const canCopyDepinAddress = !!chatAddress;
 
   // Poll getpubkey for the DePIN chat address until revealed on-chain.
   React.useEffect(() => {
@@ -144,7 +157,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
     const checkOnce = async () => {
       try {
-        const res: any = await wallet.rpc('getpubkey', [chatAddress]);
+        const res = await wallet.rpc('getpubkey', [chatAddress]) as PubkeyResponse | string | null;
         const revealed = parsePubkeyRevealedMaybe(res);
 
         if (cancelled) return;
@@ -211,93 +224,9 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     createPrivateConversation,
   } = useDePINChat(wallet, selectedAsset, selectedAddress, recipientInfoList, depinChatIdentity ?? null);
 
-  const shortenAddress = React.useCallback((address?: string) => {
-    const a = (address ?? '').trim();
-    if (a.length <= 12) return a;
-    return `${a.slice(0, 4)}...${a.slice(-4)}`;
-  }, []);
-
-  const formatUnixTimestampNoSeconds = React.useCallback((unixTimestamp: number) => {
-    const d = new Date(unixTimestamp * 1000);
-    return d.toLocaleString(undefined, {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  }, []);
-
-  const formatUnixTimestampNoSecondsShortYear = React.useCallback((unixTimestamp: number) => {
-    const d = new Date(unixTimestamp * 1000);
-    return d.toLocaleString(undefined, {
-      year: "2-digit",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  }, []);
-
-  const copyToClipboard = React.useCallback(async (text: string) => {
-    const value = (text ?? "").trim();
-    if (!value) return;
-
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(value);
-      } else {
-        const el = document.createElement("textarea");
-        el.value = value;
-        el.style.position = "fixed";
-        el.style.left = "-9999px";
-        el.style.top = "-9999px";
-        document.body.appendChild(el);
-        el.focus();
-        el.select();
-        document.execCommand("copy");
-        document.body.removeChild(el);
-      }
-      betterToast("✓ Address copied");
-    } catch (e) {
-      console.error("Copy failed", e);
-      betterAlert("Error", "Unable to copy address to clipboard");
-    }
-  }, []);
-
   const burnDepinPubkeyAddress = React.useMemo(() => {
     return "NbURNXXXXXXXXXXXXXXXXXXXXXXXT65Gdr";
   }, []);
-
-  const pickForcedUtxosForAmount = React.useCallback(
-    (utxos: any[], requiredSats: number) => {
-      const norm = (u: any) => {
-        const satoshis =
-          typeof u?.satoshis === "number"
-            ? u.satoshis
-            : typeof u?.value === "number"
-              ? Math.round(u.value * 1e8)
-              : 0;
-        return { ...u, satoshis };
-      };
-
-      const normalized = (utxos ?? []).map(norm).filter((u) => Number.isFinite(u.satoshis) && u.satoshis > 0);
-      normalized.sort((a, b) => b.satoshis - a.satoshis);
-
-      const picked: any[] = [];
-      let sum = 0;
-      for (const u of normalized) {
-        picked.push(u);
-        sum += u.satoshis;
-        if (sum >= requiredSats) break;
-      }
-
-      return { picked, sumSats: sum };
-    },
-    []
-  );
 
   const handleBurnDepinPubkey = React.useCallback(async () => {
     if (isBurningDepinPubkey) return;
@@ -315,14 +244,18 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
     setIsBurningDepinPubkey(true);
     try {
-      const baseUtxosAny: any = await wallet.rpc("getaddressutxos", [
+      const baseUtxosRaw = await wallet.rpc("getaddressutxos", [
         {
           addresses: [chatAddress],
         },
-      ]);
+      ]) as unknown;
 
-      const baseUtxos: any[] = Array.isArray(baseUtxosAny) ? baseUtxosAny : [];
-      const filtered = baseUtxos.filter((u) => (u?.assetName ?? wallet.baseCurrency) === wallet.baseCurrency);
+      const baseUtxos: UTXOResponse[] = Array.isArray(baseUtxosRaw)
+        ? (baseUtxosRaw as UTXOResponse[])
+        : [];
+      const filtered = baseUtxos.filter((u) =>
+        isBaseAssetName(u?.assetName ?? wallet.baseCurrency, wallet.baseCurrency)
+      );
       const { picked, sumSats } = pickForcedUtxosForAmount(filtered, requiredSats);
 
       if (!picked.length || sumSats < requiredSats) {
@@ -333,7 +266,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         return;
       }
 
-      const forcedUTXOs = picked.map((utxo) => ({
+      const forcedUTXOs: ForcedUtxo[] = picked.map((utxo) => ({
         utxo,
         address: chatAddress,
         privateKey: depinChatIdentity.wif,
@@ -346,16 +279,20 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         forcedUTXOs,
         forcedChangeAddressBaseCurrency: chatAddress,
         forcedChangeAddressAssets: chatAddress,
-      } as any);
+      } as CreateTransactionParams);
 
       // Safety: do not allow the wallet to add inputs from other addresses.
       // If it does, abort before broadcasting.
-      const debug: any = (tx as any)?.debug;
+      const debug = (tx as { debug?: TransactionDebug } | null)?.debug;
       const inputAddresses: string[] = Array.isArray(debug?.inputs)
-        ? debug.inputs.map((i: any) => i?.address).filter((a: any) => typeof a === "string")
+        ? debug.inputs
+          .map((input) => (typeof input?.address === "string" ? input.address : null))
+          .filter((address): address is string => typeof address === "string")
         : [];
       const utxoAddresses: string[] = Array.isArray(debug?.UTXOs)
-        ? debug.UTXOs.map((u: any) => u?.address).filter((a: any) => typeof a === "string")
+        ? debug.UTXOs
+          .map((utxo) => (typeof utxo?.address === "string" ? utxo.address : null))
+          .filter((address): address is string => typeof address === "string")
         : [];
       const allAddresses = Array.from(new Set([...inputAddresses, ...utxoAddresses]));
       const hasForeignInputs = allAddresses.some((a) => a !== chatAddress);
@@ -374,8 +311,8 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
       await wallet.sendRawTransaction(raw);
       betterToast("✓ Burn transaction sent");
-    } catch (e: any) {
-      console.error("Burn pubkey error", e);
+    } catch (error) {
+      console.error("Burn pubkey error", error);
       betterAlert(
         "Error",
         `Unable to burn from the DePIN address. Send at least ${minSendXna} ${wallet.baseCurrency} to the DePIN address and try again:\n\n${chatAddress}`
@@ -383,15 +320,30 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     } finally {
       setIsBurningDepinPubkey(false);
     }
-  }, [isBurningDepinPubkey, chatAddress, depinChatIdentity?.wif, wallet, burnDepinPubkeyAddress, pickForcedUtxosForAmount]);
+  }, [isBurningDepinPubkey, chatAddress, depinChatIdentity?.wif, wallet, burnDepinPubkeyAddress]);
 
-  const computeExpiresDate = React.useCallback(
-    (unixTimestamp: number) => {
-      if (!messageExpiryHours || messageExpiryHours <= 0) return undefined;
-      const expiresAt = unixTimestamp + messageExpiryHours * 60 * 60;
-      return formatUnixTimestampNoSecondsShortYear(expiresAt);
-    },
-    [messageExpiryHours, formatUnixTimestampNoSecondsShortYear]
+  // Wrapper for computeExpiresDate with local messageExpiryHours
+  const computeExpiresDateLocal = React.useCallback(
+    (unixTimestamp: number) => computeExpiresDate(unixTimestamp, messageExpiryHours, formatUnixTimestampNoSecondsShortYear),
+    [messageExpiryHours]
+  );
+
+  // Wrapper for getUnreadCount with local state
+  const getUnreadCountLocal = React.useCallback(
+    (address: string) => getUnreadCount(address, lastReadMessageByTab, messagesByTab),
+    [lastReadMessageByTab, messagesByTab]
+  );
+
+  // Wrapper for scrollToLastUnread with local refs
+  const scrollToLastUnreadLocal = React.useCallback(
+    (tabKey: string) => scrollToLastUnread(tabKey, lastReadMessageByTab, messagesByTab, messagesEndRef.current),
+    [lastReadMessageByTab, messagesByTab]
+  );
+
+  // Wrapper for isValidMessagingAsset with local chatAssets
+  const isValidMessagingAssetLocal = React.useCallback(
+    (assetName: string) => isValidMessagingAsset(assetName, chatAssets),
+    [chatAssets]
   );
 
   // Update message cache when DePIN data changes
@@ -427,7 +379,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         deliveryKey: `${selectedAsset}|${msg.sender}|${unixTimestamp}|${msg.message}`,
         senderAddress: msg.sender,
         sendDate: formatUnixTimestampNoSeconds(unixTimestamp),
-        expiresDate: computeExpiresDate(unixTimestamp) ?? msg.expires,
+        expiresDate: computeExpiresDateLocal(unixTimestamp) ?? msg.expires,
         isDePIN: true,
         delivery: "confirmed" as const,
       };
@@ -448,7 +400,11 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     // Process private conversations
     for (const [address, conversation] of privateConversations.entries()) {
       const privateDepinMessages = conversation.messages.map((msg) => {
-        const senderType: "user" | "bot" = msg.sender === selectedAddress ? "user" : "bot";
+        // En una conversación con uno mismo (notas personales), mostrar los mensajes confirmados
+        // a la izquierda (como "bot") para que parezca que "vienen de fuera" tras ser grabados en el pool.
+        const isSelfChat = address === selectedAddress;
+        const senderType: "user" | "bot" = (msg.sender === selectedAddress && !isSelfChat) ? "user" : "bot";
+        
         const unixTimestamp = msg.timestamp;
         const messageHash = msg.messageHash || '';
         const stableId = messageHash ? parseInt(messageHash.substring(0, 8), 16) : Date.now();
@@ -509,49 +465,10 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
       return hasChanges ? updatedClosed : prevClosed;
     });
-  }, [groupMessages, privateConversations, selectedAddress, selectedAsset, pendingMessagesByTab, messageExpiryHours, formatUnixTimestampNoSeconds, computeExpiresDate]);
-
-  // Calcular unreadCount para cada conversación privada
-  const getUnreadCount = React.useCallback((address: string): number => {
-    const lastRead = lastReadMessageByTab.get(address);
-    const tabMessages = messagesByTab.get(address) || [];
-
-    if (!lastRead || tabMessages.length === 0) {
-      return tabMessages.length;
-    }
-
-    const lastReadIndex = tabMessages.findIndex(m => m.deliveryKey === lastRead);
-    if (lastReadIndex === -1) {
-      return tabMessages.length;
-    }
-
-    return Math.max(0, tabMessages.length - lastReadIndex - 1);
-  }, [lastReadMessageByTab, messagesByTab]);
+  }, [groupMessages, privateConversations, selectedAddress, selectedAsset, pendingMessagesByTab, messageExpiryHours, computeExpiresDateLocal]);
 
   // Get messages for current tab from cache
   const messages = messagesByTab.get(activeTab) || [];
-
-
-
-  const extractBotModel = (text: string): { cleanText: string; model: string | null } => {
-    // Expected formats (at the start):
-    // [BOT]: [google/gemma-3-1b]
-    // [BOT]: google/gemma-3-1b
-    // [BOT] google/gemma-3-1b
-    const trimmed = text ?? "";
-    const bracketed = /^\s*\[BOT\]\s*:?\s*\[([^\]]+)\]\s*\n?/i.exec(trimmed);
-    if (bracketed) {
-      return { cleanText: trimmed.slice(bracketed[0].length).trimStart(), model: bracketed[1].trim() };
-    }
-
-    const plain = /^\s*\[BOT\]\s*:?\s*([^\n]+)\s*\n?/i.exec(trimmed);
-    if (plain) {
-      const maybeModel = plain[1].trim();
-      return { cleanText: trimmed.slice(plain[0].length).trimStart(), model: maybeModel || null };
-    }
-
-    return { cleanText: trimmed, model: null };
-  };
 
   const renderBotMarkdown = (text: string) => {
     const html = DOMPurify.sanitize(
@@ -564,53 +481,11 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     return <div className="chat-md" dangerouslySetInnerHTML={{ __html: html }} />;
   };
 
-  const scrollToLastUnread = React.useCallback((tabKey: string) => {
-    const lastReadId = lastReadMessageByTab.get(tabKey);
-    const tabMessages = messagesByTab.get(tabKey) || [];
-
-    if (!lastReadId || tabMessages.length === 0) {
-      // No hay último leído, ir al final
-      const endRef = messagesEndRef.current.get(tabKey);
-      if (endRef) {
-        endRef.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-      return;
-    }
-
-    // Buscar el primer mensaje no leído
-    const lastReadIndex = tabMessages.findIndex(m => m.deliveryKey === lastReadId);
-    if (lastReadIndex === -1 || lastReadIndex === tabMessages.length - 1) {
-      // No encontrado o es el último, ir al final
-      const endRef = messagesEndRef.current.get(tabKey);
-      if (endRef) {
-        endRef.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-      return;
-    }
-
-    // Hacer scroll al primer mensaje no leído
-    const firstUnreadId = tabMessages[lastReadIndex + 1]?.id;
-    if (firstUnreadId) {
-      const element = document.getElementById(`message-${firstUnreadId}`);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    }
-  }, [lastReadMessageByTab, messagesByTab]);
-
-  const autoResizeChatInput = React.useCallback((textarea: HTMLTextAreaElement) => {
-    // Reset height to allow shrinking
-    textarea.style.height = "auto";
-    const scrollHeight = textarea.scrollHeight;
-    const minHeight = textarea.value.trim() ? scrollHeight : 48;
-    textarea.style.height = `${minHeight}px`;
-  }, []);
-
   React.useEffect(() => {
     if (chatInputRef.current) {
-      autoResizeChatInput(chatInputRef.current);
+      autoResizeTextarea(chatInputRef.current, 48);
     }
-  }, [inputText, autoResizeChatInput]);
+  }, [inputText]);
 
   // Marcar mensajes como leídos y hacer scroll cuando cambia la pestaña o llegan mensajes
   const prevMessagesStateRef = React.useRef<{ tab: string, length: number, lastHash: string }>({
@@ -625,7 +500,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
     // Si cambiamos de pestaña, hacer scroll al último no leído
     if (prev.tab !== activeTab && messages.length > 0) {
-      setTimeout(() => scrollToLastUnread(activeTab), 100);
+      setTimeout(() => scrollToLastUnreadLocal(activeTab), 100);
     }
 
     // Si llegan nuevos mensajes en la pestaña actual, scroll al final
@@ -682,7 +557,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
     (async () => {
       try {
-        const info: any = await getMsgInfo();
+        const info: MsgInfo | null = await getMsgInfo();
         const hours = typeof info?.messageexpiryhours === 'number' ? info.messageexpiryhours : null;
         if (!cancelled) setMsgInfo(info ?? null);
         if (!cancelled) setMessageExpiryHours(hours);
@@ -810,8 +685,9 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         await refreshMessages();
       }, 1000);
 
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error sending message:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       // Rollback optimistic message if send fails
       if (deliveryKey) {
         setPendingMessagesByTab((prev) => {
@@ -822,7 +698,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           return updated;
         });
       }
-      alert(`Failed to send message: ${error.message}`);
+      alert(`Failed to send message: ${errorMessage}`);
     }
   };
 
@@ -855,13 +731,13 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       const addresses: Record<string, string> = {};
 
 
-      let balance: any = null;
+      let balance: Record<string, unknown> | null = null;
       try {
         balance = await wallet.rpc('listassetbalancesbyaddress', [chatAddress]);
 
-      } catch (e: any) {
+      } catch (error) {
         console.error('❌ RPC ERROR: listassetbalancesbyaddress failed for chat address');
-        console.error(e);
+        console.error(error);
         alert(`Failed to load chat assets for ${chatAddress}.\n\nMake sure your RPC supports listassetbalancesbyaddress and try again.`);
         return;
       }
@@ -869,7 +745,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       const nextChatAssets: Record<string, number> = {};
       if (balance && typeof balance === 'object') {
         for (const assetName of Object.keys(balance)) {
-          if (assetName === wallet.baseCurrency) continue;
+          if (isBaseAssetName(assetName, wallet.baseCurrency)) continue;
           const amount = normalizeAssetAmountMaybe(balance[assetName]);
           if (amount <= 0) continue;
           nextChatAssets[assetName] = amount;
@@ -934,45 +810,6 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     }
   };
 
-  // Determinar el tipo de asset basado en su prefijo
-  const getAssetType = (assetName: string): 'depin' | 'qualifier' | 'normal' => {
-    if (assetName.startsWith('&')) return 'depin';
-    if (assetName.startsWith('#')) return 'qualifier';
-    return 'normal';
-  };
-
-  // Verificar si es un asset válido para mensajería (cualquier asset con balance > 0)
-  const isValidMessagingAsset = (assetName: string) => {
-    return !!(assetName && chatAssets[assetName] && chatAssets[assetName] > 0);
-  };
-
-  // Obtener el icono según el tipo de asset
-  const getAssetIcon = (assetName: string): React.ReactNode => {
-    const type = getAssetType(assetName);
-    switch (type) {
-      case 'depin': return '🔒';
-      case 'qualifier': return '#';
-      default:
-        return (
-          <FaUserGroup
-            size={16}
-            style={{ verticalAlign: "-0.15em" }}
-            {...decorativeIconProps}
-          />
-        );
-    }
-  };
-
-  // Obtener etiqueta del tipo de asset
-  const getAssetTypeLabel = (assetName: string) => {
-    const type = getAssetType(assetName);
-    switch (type) {
-      case 'depin': return 'DePIN';
-      case 'qualifier': return 'Qualifier';
-      default: return 'Asset';
-    }
-  };
-
   // Internal function that accepts asset parameter for auto-loading
   const loadAddressesWithPubkeysInternal = async (assetName: string) => {
     if (!assetName) return;
@@ -984,7 +821,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       // OPTIMIZACIÓN: Usar listdepinaddresses para obtener todas las pubkeys en una sola llamada RPC
 
 
-      const depinAddressesData: Array<{ address: string, pubkey: string }> = await wallet.rpc("listdepinaddresses", [assetName]) as Array<{ address: string, pubkey: string }>;
+      const depinAddressesData = await wallet.rpc("listdepinaddresses", [assetName]) as Array<{ address: string; pubkey?: string }>;
 
 
 
@@ -1021,9 +858,10 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       setAddressList(results);
 
 
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading addresses with pubkeys:", error);
-      alert(`Failed to load addresses: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(`Failed to load addresses: ${errorMessage}`);
     } finally {
       setLoadingAddressList(false);
     }
@@ -1037,20 +875,10 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
   return (
     <article>
-      <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <h3 className="rebel-chat__header">
         <span />
-        <span
-          style={{
-            display: "grid",
-            gridTemplateColumns: "auto auto auto",
-            gridTemplateRows: "auto auto",
-            columnGap: "0.5rem",
-            rowGap: "0.25rem",
-            justifyItems: "end",
-            textAlign: "right",
-          }}
-        >
-          <span style={{ fontWeight: "bold", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+        <span className="rebel-chat__depin-status">
+          <span className="rebel-chat__depin-status-bold">
             <span
               aria-label="DePIN pubkey status"
               title={
@@ -1060,35 +888,21 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                     ? "PubKey not revealed on-chain"
                     : "Checking pubkey status"
               }
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                display: "inline-block",
-                backgroundColor:
-                  depinChatPubkeyRevealed === true
-                    ? "#22c55e"
-                    : depinChatPubkeyRevealed === false
-                      ? "#ef4444"
-                      : "#9ca3af",
-              }}
+              className={`rebel-chat__depin-indicator ${
+                depinChatPubkeyRevealed === true
+                  ? "rebel-chat__depin-indicator--revealed"
+                  : depinChatPubkeyRevealed === false
+                    ? "rebel-chat__depin-indicator--not-revealed"
+                    : "rebel-chat__depin-indicator--checking"
+              }`}
             />
             DePIN Address
           </span>
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "24px",
-              height: "24px",
-              justifySelf: "center",
-              alignSelf: "center",
-            }}
-          >
-            <button
-              type="button"
+          <span className="rebel-chat__icon-button-container">
+            <span
+              role="button"
               aria-label="Burn 0.1 XNA to reveal pubkey"
+              aria-disabled={!canBurnDepinPubkey}
               title={
                 depinChatPubkeyRevealed === true
                   ? "PubKey already revealed"
@@ -1096,91 +910,64 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                     ? `Burn 0.1 ${wallet.baseCurrency} from ${shortenAddress(chatAddress ?? undefined)} to reveal pubkey`
                     : "Checking pubkey status"
               }
-              disabled={
-                isBurningDepinPubkey ||
-                depinChatPubkeyRevealed !== false ||
-                !chatAddress ||
-                !depinChatIdentity?.wif
-              }
-              onClick={handleBurnDepinPubkey}
-              style={{
-                padding: 0,
-                margin: 0,
-                border: 0,
-                background: "transparent",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "100%",
-                height: "100%",
-                cursor: depinChatPubkeyRevealed === false && !isBurningDepinPubkey ? "pointer" : "default",
-                opacity: isBurningDepinPubkey ? 0.6 : 1,
+              tabIndex={canBurnDepinPubkey ? 0 : -1}
+              onClick={canBurnDepinPubkey ? handleBurnDepinPubkey : undefined}
+              onKeyDown={(event) => {
+                if (!canBurnDepinPubkey) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleBurnDepinPubkey();
+                }
               }}
+              className={`rebel-chat__burn-button ${isBurningDepinPubkey ? 'rebel-chat__burn-button--burning' : ''} ${depinChatPubkeyRevealed === false && !isBurningDepinPubkey ? 'rebel-chat__burn-button--active' : ''}`}
             >
               <FaFireFlameCurved
                 className={
                   depinChatPubkeyRevealed === false
-                    ? "depin-flame depin-flame-lit"
-                    : "depin-flame depin-flame-done"
+                    ? "depin-flame depin-flame-lit rebel-chat__icon--block"
+                    : "depin-flame depin-flame-done rebel-chat__icon--block"
                 }
-                style={{ width: "100%", height: "100%", display: "block" }}
                 {...decorativeIconProps}
               />
-            </button>
+            </span>
           </span>
-          <button
-            type="button"
-            aria-label="Show DePIN address QR"
-            disabled={!depinAddressText}
-            onClick={() => setShowDepinAddressQr((v) => !v)}
-            style={{
-              width: "24px",
-              height: "24px",
-              padding: 0,
-              margin: 0,
-              border: 0,
-              background: "transparent",
-              color: "inherit",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              lineHeight: 1,
-              cursor: depinAddressText ? "pointer" : "default",
-              opacity: depinAddressText ? 0.9 : 0.35,
-            }}
-          >
-            <FaQrcode style={{ fontSize: "1em" }} {...decorativeIconProps} />
-          </button>
           <span
-            style={{
-              gridColumn: "1 / 4",
-              fontSize: "0.9rem",
-              fontWeight: "normal",
-              wordBreak: "break-all",
+            role="button"
+            aria-label="Show DePIN address QR"
+            aria-disabled={!canShowDepinQr}
+            tabIndex={canShowDepinQr ? 0 : -1}
+            onClick={canShowDepinQr ? () => setShowDepinAddressQr((v) => !v) : undefined}
+            onKeyDown={(event) => {
+              if (!canShowDepinQr) return;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setShowDepinAddressQr((v) => !v);
+              }
             }}
+            className={`rebel-chat__qr-button ${canShowDepinQr ? 'rebel-chat__qr-button--active' : ''}`}
           >
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-              <button
-                type="button"
+            <FaQrcode className="rebel-chat__icon--inline" {...decorativeIconProps} />
+          </span>
+          <span className="rebel-chat__depin-address">
+            <span className="rebel-chat__address-copy-wrapper">
+              <span
+                role="button"
                 aria-label="Copy DePIN chat address"
                 title="Copy"
-                disabled={!chatAddress}
-                onClick={() => copyToClipboard(chatAddress ?? "")}
-                style={{
-                  padding: 0,
-                  margin: 0,
-                  border: 0,
-                  background: "transparent",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "inherit",
-                  cursor: chatAddress ? "pointer" : "default",
-                  opacity: chatAddress ? 0.9 : 0.35,
+                aria-disabled={!canCopyDepinAddress}
+                tabIndex={canCopyDepinAddress ? 0 : -1}
+                onClick={canCopyDepinAddress ? () => copyToClipboard(chatAddress ?? "") : undefined}
+                onKeyDown={(event) => {
+                  if (!canCopyDepinAddress) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    copyToClipboard(chatAddress ?? "");
+                  }
                 }}
+                className={`rebel-chat__copy-button ${canCopyDepinAddress ? 'rebel-chat__copy-button--active' : ''}`}
               >
-                <FaRegCopy style={{ fontSize: "1em", lineHeight: 1 }} {...decorativeIconProps} />
-              </button>
+                <FaRegCopy className="rebel-chat__icon--inline" {...decorativeIconProps} />
+              </span>
               <span>{depinAddressText || "-"}</span>
             </span>
           </span>
@@ -1188,71 +975,50 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       </h3>
 
       {showDepinAddressQr && depinAddressText && (
-        <div style={{ display: "flex", justifyContent: "center", marginTop: "0.75rem" }}>
+        <div className="rebel-chat__qr-container">
           <img
             alt="DePIN address QR"
             src={depinAddressQrSrc}
-            style={{
-              width: "90%",
-              maxWidth: "400px",
-              marginBottom: 20,
-              padding: "10px",
-              background: "white",
-              borderRadius: "10px",
-            }}
+            className="rebel-chat__qr-image"
           />
         </div>
       )}
 
-      <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <h3 className="rebel-chat__asset-header">
         <span>Asset Messaging</span>
         {selectedAsset && (
-          <span style={{ fontSize: "0.9rem", fontWeight: "normal" }}>
+          <span className="rebel-chat__asset-current">
             {getAssetIcon(selectedAsset)} {selectedAsset}
           </span>
         )}
       </h3>
 
       {depinChatIdentity?.path && (
-        <div
-          style={{
-            marginTop: "-0.85rem",
-            marginBottom: "0",
-            fontSize: "0.8rem",
-            fontWeight: "normal",
-            wordBreak: "break-all",
-          }}
-        >
-          <span style={{ fontWeight: "bold" }}>Derivation:</span>{" "}
+        <div className="rebel-chat__derivation-path">
+          <strong>Derivation:</strong>{" "}
           <span>{depinChatIdentity.path}</span>
         </div>
       )}
 
       {/* Messaging Connection Controls - available for all asset types */}
-      {selectedAsset && isValidMessagingAsset(selectedAsset) && (
-        <div className="depin-control-panel" style={{
-          marginTop: "1rem",
-          padding: "1rem",
-          border: "2px solid #e5e7eb",
-          borderRadius: "12px",
-          backgroundColor: "#f9fafb",
-        }}>
+      {selectedAsset && isValidMessagingAssetLocal(selectedAsset) && (
+        <div className="rebel-chat__control-panel">
           {/* Status indicators */}
-          <div style={{ display: "flex", gap: "1rem", fontSize: "0.8rem", flexWrap: "wrap" }}>
+          <div className="rebel-chat__status-row">
             <div>
               <strong>Status:</strong>{" "}
-              <span style={{ color: isConnected ? "#22c55e" : "#6b7280" }}>
+              <span className={`rebel-chat__status-text ${isConnected ? 'rebel-chat__status-text--connected' : 'rebel-chat__status-text--disconnected'}`}>
                 {isConnected ? "● Connected" : "○ Disconnected"}
               </span>
             </div>
             <div>
               <strong>Privacy:</strong>{" "}
               {msgInfo?.depinpoolpkey && msgInfo.depinpoolpkey !== "0" ? (
-                <span style={{ color: "#22c55e", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
-                  ● Active <span style={{ fontSize: "0.7em", fontFamily: "monospace", color: "#6b7280" }}>({msgInfo.depinpoolpkey.substring(0, 6)}...{msgInfo.depinpoolpkey.substring(60)})</span>
+                <span className="rebel-chat__privacy-active">
+                  ● Active <span className="rebel-chat__privacy-key">({msgInfo.depinpoolpkey.substring(0, 6)}...{msgInfo.depinpoolpkey.substring(60)})</span>
                 </span>
               ) : (
-                <span style={{ color: "#ef4444" }}>
+                <span className="rebel-chat__privacy-inactive">
                   ● Inactive
                 </span>
               )}
@@ -1295,28 +1061,14 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
           {/* Error display - hide 'no messages' type errors */}
           {depinError && !depinError.toLowerCase().includes('no message') && !depinError.toLowerCase().includes('empty') && (
-            <div className="depin-error" style={{
-              marginTop: "0.5rem",
-              padding: "0.5rem",
-              backgroundColor: "#fee2e2",
-              color: "#991b1b",
-              borderRadius: "6px",
-              fontSize: "0.8rem",
-            }}>
+            <div className="rebel-chat__error">
               ⚠ {depinError}
             </div>
           )}
 
           {/* Validity status */}
           {validityStatus && (
-            <div className={validityStatus.valid === 1 && !validityStatus.blocked ? "depin-success" : "depin-error"} style={{
-              marginTop: "0.5rem",
-              padding: "0.5rem",
-              backgroundColor: validityStatus.valid === 1 && !validityStatus.blocked ? "#d1fae5" : "#fee2e2",
-              color: validityStatus.valid === 1 && !validityStatus.blocked ? "#065f46" : "#991b1b",
-              borderRadius: "6px",
-              fontSize: "0.8rem",
-            }}>
+            <div className={validityStatus.valid === 1 && !validityStatus.blocked ? "rebel-chat__success" : "rebel-chat__error"}>
               {validityStatus.valid === 1 && !validityStatus.blocked
                 ? `✓ Valid DePIN asset${typeof msgInfo?.cipher === "string" && msgInfo.cipher.trim() ? ` | Cipher: ${msgInfo.cipher.trim()}` : ""}`
                 : `✗ Invalid or blocked DePIN asset`}
@@ -1326,34 +1078,17 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       )}
 
       {/* Top Asset Selector & Chat Container */}
-      <div style={{ position: "relative", marginTop: "0.5rem" }}>
+      <div className="rebel-chat__asset-selector-wrapper">
 
         {/* Asset List Button (Top) */}
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "0.5rem",
-          padding: "0 0.5rem"
-        }}>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div className="rebel-chat__asset-selector-header">
+          <div className="rebel-chat__button-group">
             <button
               onClick={() => {
                 setShowAssets(!showAssets);
                 loadAssetAddresses();
               }}
-              style={{
-                fontSize: "0.9rem",
-                padding: "0.4rem 1rem",
-                borderRadius: "20px",
-                backgroundColor: "#3b82f6",
-                color: "white",
-                border: "none",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem"
-              }}
+              className="rebel-chat__select-asset-button"
             >
               {showAssets ? <FaArrowUp /> : <FaArrowDown />}
               {showAssets ? "Hide Asset List" : "Select Asset"}
@@ -1365,14 +1100,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           {selectedAsset && (
             <button
               onClick={handleDisconnect}
-              style={{
-                fontSize: "0.8rem",
-                padding: "0.3rem 0.8rem",
-                borderRadius: "6px",
-                backgroundColor: "#ef4444",
-                color: "white",
-                border: "none"
-              }}
+              className="rebel-chat__disconnect-button"
             >
               Disconnect
             </button>
@@ -1380,37 +1108,20 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         </div>
 
         {/* Asset List Slider Overlay */}
-        <div
-          className={`asset-slider ${showAssets ? "open" : "closed"}`}
-          style={{
-            position: "absolute",
-            top: "50px", // Adjust based on header height
-            left: 0,
-            right: 0,
-            backgroundColor: "#ffffff",
-            zIndex: 100,
-            borderBottom: showAssets ? "2px solid #e5e7eb" : "none",
-            boxShadow: showAssets ? "0 10px 15px -3px rgba(0, 0, 0, 0.1)" : "none",
-            transition: "all 0.3s ease-in-out",
-            maxHeight: showAssets ? "500px" : "0px",
-            overflow: "hidden",
-            borderTopLeftRadius: "16px",
-            borderTopRightRadius: "16px",
-          }}
-        >
-          <div style={{ padding: "1rem", overflowY: "auto", maxHeight: "480px" }}>
-            <h4 style={{ marginTop: 0 }}>Select an Asset to Chat</h4>
+        <div className={`rebel-chat__asset-slider ${showAssets ? "rebel-chat__asset-slider--open" : "rebel-chat__asset-slider--closed"}`}>
+          <div className="rebel-chat__asset-slider-content">
+            <h4 className="rebel-chat__asset-slider-title">Select an Asset to Chat</h4>
             <table role="grid">
               <thead>
                 <tr>
-                  <th style={{ width: "50px", textAlign: "center" }}>Select</th>
+                  <th className="rebel-chat__asset-table-select">Select</th>
                   <th>Asset Name</th>
                   <th>Address</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.keys(chatAssets).map((assetName) => {
-                  if (assetName === wallet.baseCurrency) return null;
+                  if (isBaseAssetName(assetName, wallet.baseCurrency)) return null;
                   if (chatAssets[assetName] === 0) return null;
 
                   const address = assetAddresses[assetName] || "Loading...";
@@ -1422,10 +1133,9 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                         handleAssetSelection(assetName);
                         setShowAssets(false); // Auto-close on selection
                       }}
-                      style={{ cursor: "pointer", backgroundColor: selectedAsset === assetName ? "#eff6ff" : "transparent" }}
-                      className="asset-row"
+                      className={`rebel-chat__asset-row ${selectedAsset === assetName ? 'rebel-chat__asset-row--selected' : ''}`}
                     >
-                      <td style={{ textAlign: "center" }}>
+                      <td className="rebel-chat__asset-table-select">
                         <input
                           type="radio"
                           name="selected-asset"
@@ -1434,18 +1144,14 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                             handleAssetSelection(assetName);
                             setShowAssets(false);
                           }}
-                          style={{ cursor: "pointer" }}
+                          className="rebel-chat__asset-radio"
                         />
                       </td>
                       <td>
                         <span title={getAssetTypeLabel(assetName)}>{getAssetIcon(assetName)} </span>
                         {assetName}
                       </td>
-                      <td style={{
-                        fontFamily: "monospace",
-                        fontSize: "0.85rem",
-                        wordBreak: "break-all"
-                      }}>
+                      <td className="rebel-chat__asset-address">
                         {address}
                       </td>
                     </tr>
@@ -1456,76 +1162,47 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           </div>
         </div>
 
-        <div
-          style={{
-            marginTop: "0.5rem",
-            display: "flex",
-            flexDirection: "row", // Changed to row for sidebar layout
-            height: "600px",
-            border: "2px solid #e5e7eb",
-            borderRadius: "16px",
-            overflow: "hidden",
-            backgroundColor: "#ffffff",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-          }}
-          className="chat-container"
-        >
+        <div className="rebel-chat__container">
           {/* Sidebar */}
           {isConnected && (
-            <div
-              className={`chat-sidebar ${isSidebarOpen ? "open" : "closed"}`}
-              style={{
-                width: isSidebarOpen ? "280px" : "0px",
-                borderRight: isSidebarOpen ? "1px solid #e5e7eb" : "none",
-                backgroundColor: "#f9fafb",
-                display: "flex",
-                flexDirection: "column",
-                transition: "all 0.3s ease",
-                overflow: "hidden",
-                flexShrink: 0,
-              }}
-            >
+            <div className={`rebel-chat__sidebar ${isSidebarOpen ? "rebel-chat__sidebar--open" : "rebel-chat__sidebar--closed"}`}>
               {/* Sidebar Header */}
-              <div style={{ padding: "1rem", borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>Contacts</span>
-                <button
-                  className="chat-icon-button"
+              <div className="rebel-chat__sidebar-header">
+                <span className="rebel-chat__sidebar-title">Contacts</span>
+                <span
+                  role="button"
+                  aria-label="Close contacts"
+                  tabIndex={0}
                   onClick={() => setSidebarOpen(false)}
-                  style={{ background: "transparent", border: "none", cursor: "pointer", color: "#666" }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setSidebarOpen(false);
+                    }
+                  }}
+                  className="rebel-chat__copy-button rebel-chat__copy-button--active"
                 >
-                  <FaXmark size={18} />
-                </button>
+                  <FaXmark className="rebel-chat__icon--inline" {...decorativeIconProps} />
+                </span>
               </div>
 
               {/* Sidebar Content */}
-              <div style={{ overflowY: "auto", flex: 1 }}>
+              <div className="rebel-chat__sidebar-content">
                 {/* Group Item */}
                 <div
                   onClick={() => { setActiveTab("group"); if (window.innerWidth < 768) setSidebarOpen(false); }}
-                  className={`chat-sidebar-item ${activeTab === "group" ? "active" : ""}`}
-                  style={{
-                    padding: "0.75rem 1rem",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.75rem",
-                    borderBottom: "1px solid #f3f4f6",
-                  }}
+                  className={`rebel-chat__sidebar-item ${activeTab === "group" ? "rebel-chat__sidebar-item--active" : ""}`}
                 >
-                  <div style={{
-                    width: "40px", height: "40px", borderRadius: "50%",
-                    backgroundColor: "#3b82f6", color: "white",
-                    display: "flex", alignItems: "center", justifyContent: "center"
-                  }}>
+                  <div className="rebel-chat__sidebar-avatar rebel-chat__sidebar-avatar--group">
                     <FaUserGroup size={18} />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600 }}>Public Group</div>
-                    <div style={{ fontSize: "0.8rem", color: "#6b7280" }}>Everyone</div>
+                  <div className="rebel-chat__sidebar-info">
+                    <div className="rebel-chat__sidebar-name">Public Group</div>
+                    <div className="rebel-chat__sidebar-subtitle">Everyone</div>
                   </div>
-                  {getUnreadCount("group") > 0 && (
-                    <span style={{ backgroundColor: "#ef4444", color: "white", borderRadius: "99px", padding: "0.1rem 0.6rem", fontSize: "0.75rem", fontWeight: "bold" }}>
-                      {getUnreadCount("group")}
+                  {getUnreadCountLocal("group") > 0 && (
+                    <span className="rebel-chat__unread-badge">
+                      {getUnreadCountLocal("group")}
                     </span>
                   )}
                 </div>
@@ -1538,48 +1215,35 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                     <div
                       key={address}
                       onClick={() => { setActiveTab(address); if (window.innerWidth < 768) setSidebarOpen(false); }}
-                      className={`chat-sidebar-item ${activeTab === address ? "active" : ""}`}
-                      style={{
-                        padding: "0.75rem 1rem",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.75rem",
-                        borderBottom: "1px solid #f3f4f6",
-                      }}
+                      className={`rebel-chat__sidebar-item ${activeTab === address ? "rebel-chat__sidebar-item--active" : ""}`}
                     >
-                      <div style={{
-                        width: "40px", height: "40px", borderRadius: "50%",
-                        backgroundColor: "#10b981", color: "white",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: "0.9rem", fontWeight: "bold"
-                      }}>
+                      <div className="rebel-chat__sidebar-avatar rebel-chat__sidebar-avatar--private rebel-chat__sidebar-avatar--initials">
                         {conversation.displayName.substring(0, 2).toUpperCase()}
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div className="rebel-chat__sidebar-info">
+                        <div className="rebel-chat__sidebar-name">
                           {conversation.displayName}
                         </div>
-                        <div style={{ fontSize: "0.8rem", color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div className="rebel-chat__sidebar-subtitle">
                           {shortenAddress(address)}
                         </div>
                       </div>
-                      {getUnreadCount(address) > 0 && (
-                        <span style={{ backgroundColor: "#ef4444", color: "white", borderRadius: "99px", padding: "0.1rem 0.6rem", fontSize: "0.75rem", fontWeight: "bold" }}>
-                          {getUnreadCount(address)}
+                      {getUnreadCountLocal(address) > 0 && (
+                        <span className="rebel-chat__unread-badge">
+                          {getUnreadCountLocal(address)}
                         </span>
                       )}
                     </div>
                   ))}
 
                 {/* Other Contacts (Holders) */}
-                {addressList.length > 0 && addressList.some(item => item.address !== chatAddress && !privateConversations.has(item.address) && item.pubkey) && (
+                {addressList.length > 0 && addressList.some(item => !privateConversations.has(item.address) && item.pubkey) && (
                   <>
-                    <div style={{ padding: "1rem 1rem 0.5rem", fontSize: "0.75rem", fontWeight: "bold", color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      Other Contacts
+                    <div className="rebel-chat__sidebar-section-header">
+                      Contacts
                     </div>
                     {addressList
-                      .filter(item => item.address !== chatAddress && !privateConversations.has(item.address) && item.pubkey)
+                      .filter(item => !privateConversations.has(item.address) && item.pubkey)
                       .map((item) => (
                         <div
                           key={item.address}
@@ -1588,30 +1252,15 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                             setActiveTab(item.address);
                             if (window.innerWidth < 768) setSidebarOpen(false);
                           }}
-                          className={`chat-sidebar-item`}
-                          style={{
-                            padding: "0.75rem 1rem",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.75rem",
-                            borderBottom: "1px solid #f3f4f6",
-                            opacity: 0.8,
-                          }}
+                          className={`rebel-chat__sidebar-item ${item.address === chatAddress ? "rebel-chat__sidebar-item--self" : "rebel-chat__sidebar-item--other"}`}
                         >
-                          <div style={{
-                            width: "36px", height: "36px", borderRadius: "50%",
-                            backgroundColor: "#9ca3af", color: "white",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            fontSize: "0.85rem", fontWeight: "bold"
-                          }}>
-                            {(item.pubkey ? "👤" : "?")}
+                          <div className="rebel-chat__sidebar-avatar rebel-chat__sidebar-avatar--other">
+                            {item.address === chatAddress ? "⭐" : (item.pubkey ? "👤" : "?")}
                           </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 600, fontSize: "0.95rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {shortenAddress(item.address)}
+                          <div className="rebel-chat__sidebar-info">
+                            <div className="rebel-chat__sidebar-name rebel-chat__sidebar-name--small">
+                              {item.address === chatAddress ? "Me (Private Notes)" : shortenAddress(item.address)}
                             </div>
-
                           </div>
                         </div>
                       ))}
@@ -1622,27 +1271,18 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           )}
 
           {/* Main Content Area */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <div className="rebel-chat__main-content">
             {/* Chat Header for Main Content */}
-            <div style={{
-              height: "60px",
-              borderBottom: "1px solid #e5e7eb",
-              display: "flex",
-              alignItems: "center",
-              padding: "0 1rem",
-              backgroundColor: "#ffffff",
-              gap: "1rem"
-            }} className="chat-main-header">
+            <div className="rebel-chat__main-header">
               {isConnected && !isSidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "0.5rem" }}
-                  className="chat-toggle-btn"
+                  className="rebel-chat__sidebar-toggle-btn"
                 >
                   <FaBars size={20} />
                 </button>
               )}
-              <div style={{ fontWeight: 700, fontSize: "1.1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <div className="rebel-chat__main-header-title">
                 {activeTab === "group" ? (
                   <>
                     <FaUserGroup className="text-blue-500" />
@@ -1650,7 +1290,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                   </>
                 ) : (
                   <>
-                    <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#10b981" }}></div>
+                    <div className="rebel-chat__online-indicator"></div>
                     {privateConversations.get(activeTab)?.displayName || shortenAddress(activeTab)}
                   </>
                 )}
@@ -1658,157 +1298,59 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
             </div>
 
             {/* Messages area - todas las pestañas siempre renderizadas */}
-            <div style={{ flex: 1, position: "relative", backgroundColor: "#f9fafb" }}>
+            <div className="rebel-chat__messages-area">
               {/* Pestaña General */}
               <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  overflowY: "auto",
-                  padding: "1.5rem",
-                  display: activeTab === "group" ? "flex" : "none",
-                  flexDirection: "column",
-                  gap: "1rem",
-                  backgroundColor: "#f9fafb",
-                  backgroundImage: "linear-gradient(to bottom, #f9fafb 0%, #f3f4f6 100%)",
-                }}
-                className="chat-messages"
+                className={`rebel-chat__messages-container ${activeTab === "group" ? "rebel-chat__messages-container--active" : ""}`}
               >
                 {(messagesByTab.get("group") || []).map((message) => (
                   <div key={message.id} id={`message-${message.id}`}>
-                    <div
-                      key={message.id}
-                      style={{
-                        display: "flex",
-                        justifyContent:
-                          message.sender === "user" ? "flex-end" : "flex-start",
-                        animation: "slideIn 0.3s ease-out",
-                      }}
-                    >
-                      <div
-                        className={message.sender === "user" ? "chat-message-user" : "chat-message-bot"}
-                        style={{
-                          maxWidth: "90%",
-                          padding: "0.5rem 0.5rem",
-                          borderRadius: message.sender === "user"
-                            ? "16px 16px 4px 16px"
-                            : "16px 16px 16px 4px",
-                          backgroundColor:
-                            message.sender === "user"
-                              ? "rgb(247 232 209)"
-                              : "rgb(239 239 239)",
-                          color:
-                            message.sender === "user"
-                              ? "rgb(63 54 54)"
-                              : "#1f2937",
-                          boxShadow: message.sender === "user"
-                            ? "rgb(42 47 55 / 74%) 0px 2px 8px"
-                            : "rgb(42 47 55 / 74%) 0px 2px 8px",
-                          border: message.sender === "user"
-                            ? "none"
-                            : "1px solid #e5e7eb",
-                        }}
-                      >
+                    <div className={`rebel-chat__message rebel-chat__message--${message.sender}`}>
+                      <div className={`rebel-chat__message-bubble rebel-chat__message-bubble--${message.sender}`}>
                         {/* DePIN Message Format */}
                         {message.isDePIN && (
                           <>
                             {/* Sender (left) + Expires (right) */}
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "baseline",
-                                gap: "0.75rem",
-                                margin: "0",
-                                opacity: message.sender === "user" ? 0.95 : 0.8,
-                              }}
-                            >
-                              <span style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
+                            <div className={`rebel-chat__message-header rebel-chat__message-header--${message.sender}`}>
+                              <span className="rebel-chat__message-sender">
                                 {shortenAddress(message.senderAddress)}
                               </span>
                               {message.expiresDate && (
-                                <span
-                                  style={{
-                                    fontSize: "0.75rem",
-                                    textAlign: "right",
-                                    whiteSpace: "nowrap",
-                                    color: "#000",
-                                    display: "inline-flex",
-                                    alignItems: "baseline",
-                                    gap: "0.3rem",
-                                  }}
-                                >
-                                  <FaBomb style={{ color: "#000", fontSize: "1em", lineHeight: 1 }} {...decorativeIconProps} />
-                                  <span style={{ fontStyle: "italic" }}>{message.expiresDate}</span>
+                                <span className="rebel-chat__message-expires">
+                                  <FaBomb className="rebel-chat__icon--inline" {...decorativeIconProps} />
+                                  <span className="rebel-chat__message-expires-text">{message.expiresDate}</span>
                                 </span>
                               )}
                             </div>
                             {/* BOT model (if present in prefix) */}
                             {message.sender === "bot" && extractBotModel(message.text).model && (
-                              <p
-                                style={{
-                                  margin: "0 0 0.75rem 0",
-                                  fontSize: "0.75rem",
-                                  fontWeight: "bold",
-                                  opacity: 0.6,
-                                }}
-                              >
+                              <p className="rebel-chat__bot-model">
                                 <FaRobot
                                   size={14}
-                                  style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                                  className="rebel-chat__icon--copy"
                                   {...decorativeIconProps}
                                 />
                                 {extractBotModel(message.text).model}
                               </p>
                             )}
                             {/* Message Content */}
-                            <div
-                              style={{
-                                margin: 0,
-                                wordWrap: "break-word",
-                                lineHeight: "1.5",
-                                fontSize: "0.95rem",
-                                padding: "0.5rem",
-                                whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
-                                backgroundColor: "transparent",
-                                borderRadius: "8px",
-                              }}
-                            >
+                            <div className={`rebel-chat__message-body rebel-chat__message-body--${message.sender}`}>
                               {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
                             </div>
                           </>
                         )}
                         {/* Regular Message Format */}
                         {!message.isDePIN && (
-                          <div
-                            style={{
-                              margin: 0,
-                              wordWrap: "break-word",
-                              lineHeight: "1.5",
-                              fontSize: "0.95rem",
-                              whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
-                            }}
-                          >
+                          <div className={`rebel-chat__message-body rebel-chat__message-body--${message.sender}`}>
                             {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
                           </div>
                         )}
-                        <small
-                          style={{
-                            display: "block",
-                            marginTop: "0.375rem",
-                            opacity: message.sender === "user" ? 0.9 : 0.6,
-                            fontSize: "0.7rem",
-                            textAlign: "right",
-                          }}
-                        >
+                        <small className={`rebel-chat__message-timestamp rebel-chat__message-timestamp--${message.sender}`}>
                           {message.sender === "user" && message.delivery === "pending" && (
                             <FaRegClock
                               size={15}
                               color="#835608ff"
-                              style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                              className="rebel-chat__delivery-icon"
                               {...decorativeIconProps}
                             />
                           )}
@@ -1816,7 +1358,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                             <FaRegCircleCheck
                               size={15}
                               color="#22c55e"
-                              style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                              className="rebel-chat__delivery-icon"
                               {...decorativeIconProps}
                             />
                           )}
@@ -1837,154 +1379,56 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                 .map((address) => (
                   <div
                     key={address}
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      overflowY: "auto",
-                      padding: "1.5rem",
-                      display: activeTab === address ? "flex" : "none",
-                      flexDirection: "column",
-                      gap: "1rem",
-                      backgroundColor: "#f9fafb",
-                      backgroundImage: "linear-gradient(to bottom, #f9fafb 0%, #f3f4f6 100%)",
-                    }}
-                    className="chat-messages"
+                    className={`rebel-chat__messages-container ${activeTab === address ? "rebel-chat__messages-container--active" : ""}`}
                   >
                     {(messagesByTab.get(address) || []).map((message) => (
                       <div key={message.id} id={`message-${message.id}`}>
-                        <div
-                          key={message.id}
-                          style={{
-                            display: "flex",
-                            justifyContent:
-                              message.sender === "user" ? "flex-end" : "flex-start",
-                            animation: "slideIn 0.3s ease-out",
-                          }}
-                        >
-                          <div
-                            className={message.sender === "user" ? "chat-message-user" : "chat-message-bot"}
-                            style={{
-                              maxWidth: "90%",
-                              padding: "0.5rem 0.5rem",
-                              borderRadius: message.sender === "user"
-                                ? "16px 16px 4px 16px"
-                                : "16px 16px 16px 4px",
-                              backgroundColor:
-                                message.sender === "user"
-                                  ? "rgb(247 232 209)"
-                                  : "rgb(239 239 239)",
-                              color:
-                                message.sender === "user"
-                                  ? "rgb(63 54 54)"
-                                  : "#1f2937",
-                              boxShadow: message.sender === "user"
-                                ? "rgb(42 47 55 / 74%) 0px 2px 8px"
-                                : "rgb(42 47 55 / 74%) 0px 2px 8px",
-                              border: message.sender === "user"
-                                ? "none"
-                                : "1px solid #e5e7eb",
-                            }}
-                          >
+                        <div className={`rebel-chat__message rebel-chat__message--${message.sender}`}>
+                          <div className={`rebel-chat__message-bubble rebel-chat__message-bubble--${message.sender}`}>
                             {/* DePIN Message Format */}
                             {message.isDePIN && (
                               <>
                                 {/* Sender (left) + Expires (right) */}
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "baseline",
-                                    gap: "0.75rem",
-                                    margin: "0",
-                                    opacity: message.sender === "user" ? 0.95 : 0.8,
-                                  }}
-                                >
-                                  <span style={{ fontWeight: "bold", fontSize: "0.85rem" }}>
+                                <div className={`rebel-chat__message-header rebel-chat__message-header--${message.sender}`}>
+                                  <span className="rebel-chat__message-sender">
                                     {shortenAddress(message.senderAddress)}
                                   </span>
                                   {message.expiresDate && (
-                                    <span
-                                      style={{
-                                        fontSize: "0.75rem",
-                                        textAlign: "right",
-                                        whiteSpace: "nowrap",
-                                        color: "#000",
-                                        display: "inline-flex",
-                                        alignItems: "baseline",
-                                        gap: "0.3rem",
-                                      }}
-                                    >
-                                      <FaBomb style={{ color: "#000", fontSize: "1em", lineHeight: 1 }} {...decorativeIconProps} />
-                                      <span style={{ fontStyle: "italic" }}>{message.expiresDate}</span>
+                                    <span className="rebel-chat__message-expires">
+                                      <FaBomb className="rebel-chat__icon--inline" {...decorativeIconProps} />
+                                      <span className="rebel-chat__message-expires-text">{message.expiresDate}</span>
                                     </span>
                                   )}
                                 </div>
                                 {/* BOT model (if present in prefix) */}
                                 {message.sender === "bot" && extractBotModel(message.text).model && (
-                                  <p
-                                    style={{
-                                      margin: "0 0 0.75rem 0",
-                                      fontSize: "0.75rem",
-                                      fontWeight: "bold",
-                                      opacity: 0.6,
-                                    }}
-                                  >
+                                  <p className="rebel-chat__bot-model">
                                     <FaRobot
                                       size={14}
-                                      style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                                      className="rebel-chat__icon--copy"
                                       {...decorativeIconProps}
                                     />
                                     {extractBotModel(message.text).model}
                                   </p>
                                 )}
                                 {/* Message Content */}
-                                <div
-                                  style={{
-                                    margin: 0,
-                                    wordWrap: "break-word",
-                                    lineHeight: "1.5",
-                                    fontSize: "0.95rem",
-                                    padding: "0.5rem",
-                                    whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
-                                    backgroundColor: "transparent",
-                                    borderRadius: "8px",
-                                  }}
-                                >
+                                <div className={`rebel-chat__message-body rebel-chat__message-body--${message.sender}`}>
                                   {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
                                 </div>
                               </>
                             )}
                             {/* Regular Message Format */}
                             {!message.isDePIN && (
-                              <div
-                                style={{
-                                  margin: 0,
-                                  wordWrap: "break-word",
-                                  lineHeight: "1.5",
-                                  fontSize: "0.95rem",
-                                  whiteSpace: message.sender === "user" ? "pre-wrap" : "normal",
-                                }}
-                              >
+                              <div className={`rebel-chat__message-body rebel-chat__message-body--${message.sender}`}>
                                 {message.sender === "bot" ? renderBotMarkdown(extractBotModel(message.text).cleanText) : message.text}
                               </div>
                             )}
-                            <small
-                              style={{
-                                display: "block",
-                                marginTop: "0.375rem",
-                                opacity: message.sender === "user" ? 0.9 : 0.6,
-                                fontSize: "0.7rem",
-                                textAlign: "right",
-                              }}
-                            >
+                            <small className={`rebel-chat__message-timestamp rebel-chat__message-timestamp--${message.sender}`}>
                               {message.sender === "user" && message.delivery === "pending" && (
                                 <FaRegClock
                                   size={15}
                                   color="#835608ff"
-                                  style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                                  className="rebel-chat__delivery-icon"
                                   {...decorativeIconProps}
                                 />
                               )}
@@ -1992,7 +1436,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                                 <FaRegCircleCheck
                                   size={15}
                                   color="#22c55e"
-                                  style={{ marginRight: "0.35rem", verticalAlign: "middle" }}
+                                  className="rebel-chat__delivery-icon"
                                   {...decorativeIconProps}
                                 />
                               )}
@@ -2010,117 +1454,42 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
             </div>
 
             {/* Input area */}
-            <div
-              style={{
-                borderTop: "2px solid #e5e7eb",
-                padding: "1rem 1.25rem",
-                backgroundColor: "#ffffff",
-              }}
-              className="chat-input-area"
-            >
-              <div style={{
-                display: "flex",
-                gap: "0.75rem",
-                alignItems: "flex-end",
-              }}>
+            <div className="rebel-chat__input-area">
+              <div className="rebel-chat__input-wrapper">
                 <textarea
                   ref={chatInputRef}
                   value={inputText}
                   onChange={(e) => {
                     setInputText(e.target.value);
-                    autoResizeChatInput(e.target);
+                    autoResizeTextarea(e.target, 48);
                   }}
                   onInput={(e) => {
-                    autoResizeChatInput(e.currentTarget);
+                    autoResizeTextarea(e.currentTarget, 48);
                   }}
                   onKeyDown={handleKeyPress}
                   placeholder=""
                   disabled={!isConnected}
                   rows={1}
-                  style={{
-                    flex: 1,
-                    padding: "0.875rem 1rem",
-                    borderRadius: "24px",
-                    border: "2px solid #d1d5db",
-                    backgroundColor: isConnected ? "#ffffff" : "#e5e7eb",
-                    margin: 0,
-                    fontSize: "0.95rem",
-                    outline: "none",
-                    transition: "all 0.2s",
-                    opacity: isConnected ? 1 : 0.6,
-                    resize: "none",
-                    overflow: "hidden",
-                    lineHeight: "1.35",
-                    minHeight: "48px",
-                    fontFamily: "inherit",
-                  }}
+                  className={`rebel-chat__textarea ${isConnected ? 'rebel-chat__textarea--active' : 'rebel-chat__textarea--disabled'}`}
                   onFocus={(e) => {
                     if (isConnected) {
-                      // Softer focus styling (avoid strong blue border)
-                      e.target.style.border = "2px solid rgba(59, 130, 246, 0.35)";
-                      e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.12)";
-                      e.target.style.backgroundColor = "#ffffff";
+                      e.target.classList.add('rebel-chat__textarea--focused');
                     }
                   }}
                   onBlur={(e) => {
-                    e.target.style.border = "2px solid #d1d5db";
-                    e.target.style.boxShadow = "none";
-                    e.target.style.backgroundColor = isConnected ? "#ffffff" : "#e5e7eb";
+                    e.target.classList.remove('rebel-chat__textarea--focused');
                   }}
                 />
-                <div
+                <IconSend
                   onClick={handleSend}
-                  className={inputText.trim() && isConnected ? "chat-send-button-active" : "chat-send-button-inactive"}
-                  style={{
-                    cursor: inputText.trim() && isConnected ? "pointer" : "not-allowed",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: "48px",
-                    height: "48px",
-                    borderRadius: "50%",
-                    backgroundColor: inputText.trim() && isConnected
-                      ? "#3b82f6"
-                      : "#d1d5db",
-                    color: "#ffffff",
-                    transition: "all 0.2s",
-                    boxShadow: inputText.trim() && isConnected
-                      ? "0 4px 12px rgba(59, 130, 246, 0.4)"
-                      : "none",
-                    transform: "scale(1)",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (inputText.trim() && isConnected) {
-                      e.currentTarget.style.transform = "scale(1.05)";
-                      e.currentTarget.style.backgroundColor = "#2563eb";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "scale(1)";
-                    if (inputText.trim() && isConnected) {
-                      e.currentTarget.style.backgroundColor = "#3b82f6";
-                    }
-                  }}
+                  className="rebel-chat__send-icon rebel-chat__icon--block"
                   title={!isConnected ? "Select an asset first" : "Send message"}
-                >
-                  <IconSend />
-                </div>
+                />
               </div>
               {/* Private command indicator */}
               {inputText.trim().match(/^\/private\s+(N[a-zA-Z0-9]{33,34})$/) && (
-                <div style={{
-                  marginTop: "0.5rem",
-                  padding: "0.5rem 0.75rem",
-                  backgroundColor: "#f0f9ff",
-                  border: "1px solid #bae6fd",
-                  borderRadius: "8px",
-                  fontSize: "0.85rem",
-                  color: "#0369a1",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem"
-                }}>
-                  <span style={{ fontSize: "1rem" }}>💬</span>
+                <div className="rebel-chat__private-command-indicator">
+                  <span className="rebel-chat__private-command-emoji">💬</span>
                   <span>Press Enter to open private conversation with {inputText.trim().match(/^\/private\s+(N[a-zA-Z0-9]{33,34})$/)?.[1]?.slice(0, 8)}...</span>
                 </div>
               )}

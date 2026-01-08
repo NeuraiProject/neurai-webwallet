@@ -9,12 +9,12 @@ export function triggerEvent(event: Events) {
   console.log("Dispatch event", eventName);
   document.body.dispatchEvent(new Event(eventName));
 }
-export function removeEventListener(name: string, listener: any) {
+export function removeEventListener(name: Events | string, listener: EventListenerOrEventListenerObject) {
   console.log("Remove event listener", name);
-  document.body.removeEventListener(name + "", listener);
+  document.body.removeEventListener(String(name), listener);
 }
-export function addEventListener(name: string, listener: any) {
+export function addEventListener(name: Events | string, listener: EventListenerOrEventListenerObject) {
   console.log("Adding event listener for", name);
 
-  document.body.addEventListener(name + "", listener);
+  document.body.addEventListener(String(name), listener);
 }
