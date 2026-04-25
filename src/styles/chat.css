@@ -1,0 +1,550 @@
+@reference "./tailwind.css";
+
+/*
+ * Chat component styles. Rewritten on top of Tailwind/DaisyUI tokens — the
+ * `rebel-chat__*` BEM class names stay (so Chat.tsx JSX is unchanged) but
+ * everything inside uses semantic theme tokens (`base-100`, `base-200`,
+ * `primary`, etc.) so dark mode adapts automatically. No more hardcoded
+ * #ffffff / #1f2937 / `[data-theme="dark"]` overrides.
+ */
+
+@layer components {
+  /* ──────────────────────────────────────────────────────────────────────
+   * 1. HEADER & STATUS
+   * ────────────────────────────────────────────────────────────────────── */
+  .rebel-chat__header {
+    @apply flex justify-between items-start;
+  }
+
+  .rebel-chat__depin-status {
+    @apply grid grid-cols-[auto_auto_auto] gap-x-2 gap-y-1 justify-items-end text-right;
+  }
+
+  .rebel-chat__depin-status-bold {
+    @apply font-bold inline-flex items-center gap-1.5;
+  }
+
+  .rebel-chat__depin-indicator {
+    @apply w-2.5 h-2.5 rounded-full inline-block;
+  }
+  .rebel-chat__depin-indicator--revealed {
+    @apply bg-success;
+  }
+  .rebel-chat__depin-indicator--not-revealed {
+    @apply bg-error;
+  }
+  .rebel-chat__depin-indicator--checking {
+    @apply bg-base-content/40;
+  }
+
+  .rebel-chat__depin-label {
+    @apply font-normal text-sm text-base-content/70 inline-flex items-center gap-1.5;
+  }
+
+  .rebel-chat__depin-address {
+    @apply col-span-3 text-sm font-normal break-all;
+  }
+
+  .rebel-chat__address-copy-wrapper {
+    @apply inline-flex items-center gap-1.5;
+  }
+
+  .rebel-chat__derivation-path {
+    @apply -mt-3 mb-0 text-xs font-normal break-all text-base-content/70;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * 2. ACTION BUTTONS (burn / qr / copy)
+   * ────────────────────────────────────────────────────────────────────── */
+  .rebel-chat__icon-button-container {
+    @apply flex items-center justify-center w-6 h-6 self-center justify-self-center;
+  }
+
+  .rebel-chat__burn-button,
+  .rebel-chat__qr-button,
+  .rebel-chat__copy-button {
+    appearance: none;
+    -webkit-appearance: none;
+    @apply inline-flex items-center justify-center p-0 m-0 border-0 bg-transparent shadow-none cursor-default text-current;
+  }
+
+  .rebel-chat__burn-button {
+    @apply w-full h-full;
+  }
+  .rebel-chat__qr-button,
+  .rebel-chat__copy-button {
+    @apply w-6 h-6 leading-none opacity-35;
+  }
+
+  .rebel-chat__burn-button--active {
+    @apply cursor-pointer;
+  }
+  .rebel-chat__burn-button--burning {
+    @apply opacity-60;
+  }
+  .rebel-chat__qr-button--active,
+  .rebel-chat__copy-button--active {
+    @apply cursor-pointer opacity-90;
+  }
+
+  .rebel-chat__button-group {
+    @apply inline-flex items-center gap-1.5;
+  }
+
+  .rebel-chat__icon,
+  .rebel-chat__icon--inline {
+    font-size: 1em;
+    @apply leading-none;
+  }
+  .rebel-chat__icon--block {
+    @apply w-full h-full block;
+  }
+  .rebel-chat__icon--copy {
+    font-size: 1em;
+    @apply leading-none mr-1.5 align-middle;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * 3. QR CODE DISPLAY
+   * ────────────────────────────────────────────────────────────────────── */
+  .rebel-chat__qr-container {
+    @apply flex justify-center mt-3;
+  }
+  .rebel-chat__qr-image {
+    @apply w-[90%] max-w-[400px] mb-5 p-2.5 bg-white rounded-lg;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * 4. ASSET MESSAGING SECTION
+   * ────────────────────────────────────────────────────────────────────── */
+  .rebel-chat__asset-header {
+    @apply flex justify-between items-center;
+  }
+  .rebel-chat__asset-current {
+    @apply text-sm font-normal;
+  }
+  .rebel-chat__asset-icon {
+    @apply mr-1.5 align-middle;
+  }
+  .rebel-chat__asset-name {
+    @apply inline-flex items-center gap-2;
+  }
+  .rebel-chat__asset-name-bold {
+    @apply font-bold;
+  }
+  .rebel-chat__derivation {
+    @apply text-xs text-base-content/70;
+  }
+  .rebel-chat__derivation-label {
+    @apply font-bold;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * 5. CONTROL PANEL
+   * ────────────────────────────────────────────────────────────────────── */
+  .rebel-chat__control-panel {
+    @apply mt-4 p-4 border-2 border-base-300 rounded-xl bg-base-200;
+  }
+
+  .rebel-chat__status-row {
+    @apply flex gap-4 text-sm flex-wrap;
+  }
+  .rebel-chat__status-item {
+    @apply flex items-center gap-1;
+  }
+  .rebel-chat__status-text {
+    @apply inline;
+  }
+  .rebel-chat__status-text--connected {
+    @apply text-success;
+  }
+  .rebel-chat__status-text--disconnected {
+    @apply text-base-content/60;
+  }
+
+  .rebel-chat__privacy-active {
+    @apply text-success inline-flex items-center gap-2;
+  }
+  .rebel-chat__privacy-inactive {
+    @apply text-error;
+  }
+  .rebel-chat__privacy-key {
+    font-size: 0.7em;
+    @apply font-mono text-base-content/60;
+  }
+
+  .rebel-chat__error {
+    @apply mt-2 px-3 py-2 bg-error/10 border border-error/30 rounded text-sm text-error;
+  }
+  .rebel-chat__success {
+    @apply mt-2 px-3 py-2 bg-success/15 border border-success/30 rounded text-sm text-success;
+  }
+  .rebel-chat__stats {
+    @apply text-sm text-base-content/70;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * 6. ASSET SELECTOR & LIST
+   * ────────────────────────────────────────────────────────────────────── */
+  .rebel-chat__asset-selector-wrapper {
+    @apply relative mt-2;
+  }
+  .rebel-chat__asset-selector-header {
+    @apply flex justify-between items-center mb-2 px-2;
+  }
+  .rebel-chat__select-asset-button {
+    @apply text-sm py-1.5 px-4 rounded-full bg-primary text-primary-content border-0 shadow-md flex items-center gap-2 cursor-pointer;
+  }
+  .rebel-chat__disconnect-button {
+    @apply text-xs py-1 px-3 rounded-md bg-error text-error-content border-0 cursor-pointer;
+  }
+
+  .rebel-chat__asset-slider {
+    @apply absolute top-12 left-0 right-0 bg-base-200 z-[100] overflow-hidden rounded-t-2xl transition-all duration-300 ease-in-out;
+  }
+  .rebel-chat__asset-slider--open {
+    @apply border-b-2 border-base-300 max-h-[500px] shadow-lg;
+  }
+  .rebel-chat__asset-slider--closed {
+    @apply border-b-0 max-h-0 shadow-none;
+  }
+  .rebel-chat__asset-slider-content {
+    @apply p-4 overflow-y-auto max-h-[480px];
+  }
+  .rebel-chat__asset-slider-title {
+    @apply mt-0;
+  }
+
+  .rebel-chat__asset-table-select {
+    @apply w-12 text-center;
+  }
+  .rebel-chat__asset-row {
+    @apply cursor-pointer bg-transparent;
+  }
+  .rebel-chat__asset-row--selected {
+    @apply bg-primary/10;
+  }
+  .rebel-chat__asset-radio {
+    @apply cursor-pointer;
+  }
+  .rebel-chat__asset-address {
+    @apply font-mono text-sm break-all;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * 7. CHAT CONTAINER & SIDEBAR
+   * ────────────────────────────────────────────────────────────────────── */
+  .rebel-chat__container {
+    @apply mt-2 flex flex-row h-[600px] border-2 border-base-300 rounded-2xl overflow-hidden bg-base-200 shadow-md;
+  }
+
+  .rebel-chat__sidebar {
+    @apply bg-base-200 flex flex-col overflow-hidden shrink-0 transition-all duration-300 ease-out;
+  }
+  .rebel-chat__sidebar--open {
+    @apply w-[280px] border-r border-base-300;
+  }
+  .rebel-chat__sidebar--closed {
+    @apply w-0 border-r-0;
+  }
+
+  .rebel-chat__sidebar-header {
+    @apply p-4 border-b border-base-300 flex justify-between items-center;
+  }
+  .rebel-chat__sidebar-title {
+    @apply font-bold text-lg;
+  }
+  .rebel-chat__sidebar-content {
+    @apply overflow-y-auto flex-1;
+  }
+
+  .rebel-chat__sidebar-item {
+    @apply px-4 py-3 cursor-pointer flex items-center gap-3 border-b border-base-300/50 transition-colors;
+  }
+  .rebel-chat__sidebar-item:hover {
+    @apply bg-base-300/40;
+  }
+  .rebel-chat__sidebar-item--active {
+    @apply bg-primary/10 text-primary;
+  }
+  .rebel-chat__sidebar-item--other {
+    @apply opacity-80;
+  }
+  .rebel-chat__sidebar-item--self {
+    @apply bg-secondary/10;
+  }
+
+  .rebel-chat__sidebar-avatar {
+    @apply w-10 h-10 rounded-full flex items-center justify-center shrink-0;
+  }
+  .rebel-chat__sidebar-avatar--group {
+    @apply bg-primary text-primary-content;
+  }
+  .rebel-chat__sidebar-avatar--private {
+    @apply bg-success text-success-content;
+  }
+  .rebel-chat__sidebar-avatar--initials {
+    @apply text-sm font-bold;
+  }
+  .rebel-chat__sidebar-avatar--other {
+    @apply w-9 h-9 bg-base-content/40 text-base-200 text-sm font-bold;
+  }
+
+  .rebel-chat__sidebar-section-header {
+    @apply px-4 pt-4 pb-2 text-xs font-bold text-base-content/60 uppercase tracking-wider;
+  }
+
+  .rebel-chat__sidebar-info {
+    @apply flex-1 min-w-0;
+  }
+  .rebel-chat__sidebar-name {
+    @apply font-semibold overflow-hidden text-ellipsis whitespace-nowrap;
+  }
+  .rebel-chat__sidebar-name--small {
+    @apply text-[0.95rem];
+  }
+  .rebel-chat__sidebar-subtitle {
+    @apply text-sm text-base-content/60 overflow-hidden text-ellipsis whitespace-nowrap;
+  }
+
+  .rebel-chat__unread-badge {
+    @apply bg-error text-error-content rounded-full px-2 py-[1px] text-xs font-bold min-w-6 text-center shrink-0;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * 8. MAIN CONTENT AREA
+   * ────────────────────────────────────────────────────────────────────── */
+  .rebel-chat__main-content {
+    @apply flex-1 flex flex-col min-w-0;
+  }
+
+  .rebel-chat__main-header {
+    @apply h-[60px] border-b border-base-300 flex items-center px-4 bg-base-200 gap-4;
+  }
+
+  .rebel-chat__sidebar-toggle-btn {
+    @apply bg-transparent border-0 cursor-pointer text-base-content/60 p-2 hover:text-primary transition-colors;
+  }
+
+  .rebel-chat__main-header-title {
+    @apply font-bold text-lg flex items-center gap-2;
+  }
+
+  .rebel-chat__online-indicator {
+    @apply w-2.5 h-2.5 rounded-full bg-success;
+  }
+
+  .rebel-chat__messages-area {
+    @apply flex-1 relative bg-base-100;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * 9. MESSAGES CONTAINER
+   * ────────────────────────────────────────────────────────────────────── */
+  .rebel-chat__messages-container {
+    @apply absolute inset-0 overflow-y-auto p-6 hidden flex-col gap-4 bg-transparent;
+  }
+  .rebel-chat__messages-container--active {
+    @apply flex;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * 10. MESSAGE BUBBLES
+   * ────────────────────────────────────────────────────────────────────── */
+  .rebel-chat__message {
+    @apply flex;
+    animation: rebelChatSlideIn 0.3s ease-out;
+  }
+  .rebel-chat__message--user {
+    @apply justify-end;
+  }
+  .rebel-chat__message--bot {
+    @apply justify-start;
+  }
+
+  .rebel-chat__message-bubble {
+    @apply max-w-[90%] p-2 shadow-md;
+  }
+  .rebel-chat__message-bubble--user {
+    @apply rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl rounded-br-md bg-primary/10 text-base-content border-0;
+  }
+  .rebel-chat__message-bubble--bot {
+    @apply rounded-tl-2xl rounded-tr-2xl rounded-br-2xl rounded-bl-md bg-base-200 text-base-content border border-base-300;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * 11. MESSAGE CONTENT
+   * ────────────────────────────────────────────────────────────────────── */
+  .rebel-chat__message-header {
+    @apply flex justify-between items-baseline gap-3 m-0;
+  }
+  .rebel-chat__message-header--user {
+    @apply opacity-95;
+  }
+  .rebel-chat__message-header--bot {
+    @apply opacity-80;
+  }
+
+  .rebel-chat__message-sender {
+    @apply font-bold text-sm;
+  }
+  .rebel-chat__message-expires {
+    @apply text-xs text-right whitespace-nowrap text-base-content inline-flex items-baseline gap-1;
+  }
+  .rebel-chat__message-expires-text {
+    @apply italic;
+  }
+
+  .rebel-chat__bot-model {
+    @apply m-0 mb-3 text-xs font-bold opacity-60;
+  }
+
+  .rebel-chat__message-body {
+    @apply m-0 break-words leading-relaxed text-[0.95rem];
+  }
+  .rebel-chat__message-body--user,
+  .rebel-chat__message-body--bot {
+    @apply whitespace-pre-wrap p-2 bg-transparent rounded-lg;
+  }
+  .rebel-chat__message-body--bot {
+    @apply whitespace-normal;
+  }
+
+  .rebel-chat__message-timestamp {
+    @apply block mt-1.5 text-[0.7rem] text-right;
+  }
+  .rebel-chat__message-timestamp--user {
+    @apply opacity-90;
+  }
+  .rebel-chat__message-timestamp--bot {
+    @apply opacity-60;
+  }
+
+  .rebel-chat__delivery-icon {
+    @apply mr-1.5 align-middle;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * 12. INPUT AREA
+   * ────────────────────────────────────────────────────────────────────── */
+  .rebel-chat__input-area {
+    @apply border-t-2 border-base-300 px-5 py-4 bg-base-200;
+  }
+  .rebel-chat__input-wrapper {
+    @apply flex gap-3 items-end relative;
+  }
+
+  .rebel-chat__textarea {
+    @apply flex-1 px-4 py-3.5 pr-11 rounded-md border-2 border-base-300 bg-base-100 m-0 text-[0.95rem] outline-none transition-all opacity-100 resize-none overflow-hidden leading-snug min-h-12 font-[inherit];
+  }
+  .rebel-chat__textarea--disabled {
+    @apply bg-base-300 opacity-60;
+  }
+  .rebel-chat__textarea--focused {
+    @apply !border-primary/40 !bg-base-100 ring-4 ring-primary/15;
+  }
+
+  .rebel-chat__send-icon {
+    @apply absolute right-4 top-1/2 -translate-y-1/2 block w-6 h-6 bg-transparent border-0 p-0 shadow-none text-base-content/60 cursor-pointer transition-colors hover:text-primary;
+    line-height: 1;
+  }
+  .rebel-chat__send-icon path,
+  .rebel-chat__send-icon polygon,
+  .rebel-chat__send-icon line {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .rebel-chat__private-command-indicator {
+    @apply mt-2 px-3 py-2 bg-info/10 border border-info/30 rounded-lg text-sm text-info flex items-center gap-2;
+  }
+  .rebel-chat__private-command-emoji {
+    @apply text-base;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * Markdown content inside chat messages (legacy class kept in JSX)
+   * ────────────────────────────────────────────────────────────────────── */
+  .chat-md p {
+    @apply mb-2.5 last:mb-0;
+  }
+  .chat-md ol,
+  .chat-md ul {
+    @apply mb-2.5 ml-5 p-0;
+  }
+  .chat-md li {
+    @apply my-1;
+  }
+  .chat-md a {
+    @apply underline text-inherit;
+  }
+  .chat-md code {
+    @apply font-mono text-[0.9em];
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Animations & legacy DePIN flame button (kept outside @layer because they
+ * reference @keyframes and class-as-state hooks tied to JSX behaviour).
+ * ────────────────────────────────────────────────────────────────────────── */
+@keyframes rebelChatSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes rebelChatFlameFlicker {
+  0%   { color: var(--color-error); }
+  50%  { color: var(--color-warning); }
+  100% { color: var(--color-error); }
+}
+
+.depin-flame {
+  font-size: 1.05em;
+  line-height: 1;
+}
+.depin-flame-lit {
+  animation: rebelChatFlameFlicker 700ms infinite;
+}
+.depin-flame-done {
+  color: var(--color-base-content);
+  opacity: 0.4;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Responsive
+ * ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .rebel-chat__container {
+    position: relative;
+  }
+  .rebel-chat__sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -100%;
+    width: 100%;
+    z-index: 10;
+  }
+  .rebel-chat__sidebar--open {
+    left: 0;
+    border-right: 0;
+  }
+  .rebel-chat__sidebar--closed {
+    left: -100%;
+    border-right: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .rebel-chat__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .rebel-chat__depin-status {
+    width: 100%;
+  }
+}

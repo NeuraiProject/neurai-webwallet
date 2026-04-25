@@ -25,20 +25,6 @@ body {
   flex-direction: column;
 }
 
-/*
- * Back-compat aliases. A few legacy spots (Chat inline <style>, etc.) still
- * reference the old `--neurai-*` token names. We map them to the current
- * DaisyUI v5 theme variables so they keep working without touching those
- * components. Safe to remove once Chat is fully migrated.
- */
-:root,
-[data-theme] {
-  --neurai-primary: var(--color-primary);
-  --neurai-primary-hover: var(--color-secondary);
-  --neurai-accent: var(--color-accent);
-  --neurai-text: var(--color-base-content);
-  --neurai-text-secondary: oklch(from var(--color-base-content) l c h / 0.7);
-}
 
 @font-face {
   font-family: Quicksand;
