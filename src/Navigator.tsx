@@ -5,6 +5,7 @@ import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { useNodeStatus } from "./hooks/useNodeStatus";
 import { usePersistentState } from "./hooks/usePersistentState";
 import {
+  IconAsset,
   IconChat,
   IconHistory,
   IconHome,
@@ -40,6 +41,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   { type: "route", route: Routes.HOME, title: "Home" },
   { type: "route", route: Routes.SEND, title: "Send" },
   { type: "route", route: Routes.RECEIVE, title: "Receive" },
+  { type: "route", route: Routes.ASSET, title: "Asset" },
   { type: "route", route: Routes.SWEEP, title: "Sweep" },
   { type: "route", route: Routes.HISTORY, title: "History" },
   { type: "route", route: Routes.SIGN, title: "Sign" },
@@ -427,6 +429,7 @@ const iconMapper: Record<Routes, JSX.Element> = {
   [Routes.HISTORY]: <IconHistory />,
   [Routes.IOT]: <IconIoT />,
   [Routes.RECEIVE]: <IconReceive />,
+  [Routes.ASSET]: <IconAsset />,
   [Routes.SEND]: <IconSend />,
   [Routes.CHAT]: <IconChat />,
   [Routes.SETTINGS]: <IconSettings />,

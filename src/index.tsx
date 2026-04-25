@@ -28,6 +28,7 @@ import { ReceiveAddress } from "./ReceiveAddress";
 import { Balance } from "./Balance";
 import { Send } from "./Send";
 import { Sweep } from "./Sweep";
+import { Asset } from "./Asset";
 import { Sign } from "./sign/Sign";
 import { Settings } from "./Settings";
 
@@ -644,6 +645,8 @@ function App() {
               wallet={wallet}
             />
           )}
+
+          {currentRoute === Routes.ASSET && <Asset wallet={wallet} />}
 
           {currentRoute === Routes.SWEEP && <Sweep wallet={wallet} />}
 
