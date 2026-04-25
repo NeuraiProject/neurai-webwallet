@@ -1,5 +1,4 @@
 import React from "react";
-import "./Settings.css";
 
 interface RPCConfig {
   url: string;
@@ -24,7 +23,6 @@ export function Settings({
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
 
-  // Load saved settings on mount
   React.useEffect(() => {
     const savedConfig = localStorage.getItem("rpc_config");
     if (savedConfig) {
@@ -46,28 +44,21 @@ export function Settings({
         alert("Please enter a valid RPC URL");
         return;
       }
-
       const config: RPCConfig = {
         url: rpcUrl.trim(),
         username: rpcUsername.trim(),
         password: rpcPassword.trim(),
       };
-
       localStorage.setItem("rpc_config", JSON.stringify(config));
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-
-      // Prompt to reload
       if (confirm("RPC configuration saved. The wallet needs to reload to apply changes. Reload now?")) {
         window.location.reload();
       }
     } else {
-      // Remove custom config
       localStorage.removeItem("rpc_config");
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-
-      // Prompt to reload
       if (confirm("Custom RPC configuration removed. The wallet needs to reload to apply changes. Reload now?")) {
         window.location.reload();
       }
@@ -82,22 +73,16 @@ export function Settings({
       setRpcPassword("");
       setUseCustomRPC(false);
       setSaveSuccess(false);
-
       if (confirm("Settings reset. The wallet needs to reload to apply changes. Reload now?")) {
         window.location.reload();
       }
     }
   };
 
-  // Resolve the active network using the same precedence as index.tsx:
-  // explicit `wallet_network` first, then the legacy URL/derivation_type
-  // fallback. We don't allow changing it from here — the user picks the
-  // network from the Login screen.
   const resolveNetwork = (): string => {
     const stored = localStorage.getItem("wallet_network");
     const valid = ["xna", "xna-test", "xna-legacy", "xna-legacy-test", "xna-pq", "xna-pq-test"];
     if (stored && valid.includes(stored)) return stored;
-
     const params = new URLSearchParams(window.location.search);
     const isTestnetParam = params.get("network") === "xna-test";
     const useLegacy = localStorage.getItem("derivation_type") === "legacy";
@@ -125,10 +110,7 @@ export function Settings({
   const mnemonicOnly = safeMnemonic.includes("|||") ? safeMnemonic.split("|||")[0] : safeMnemonic;
   const hasPassphrase = safeMnemonic.includes("|||");
   const wordCount = mnemonicOnly
-    ? mnemonicOnly
-      .trim()
-      .split(/\s+/)
-      .filter((word: string) => word.length > 0).length
+    ? mnemonicOnly.trim().split(/\s+/).filter((w: string) => w.length > 0).length
     : 0;
   const wordsText = wordCount === 24 ? "24 words" : "12 words";
 
@@ -137,119 +119,111 @@ export function Settings({
   const showWalletSection = canSignOut || canCopyMnemonic;
 
   return (
-    <article>
-      <h3>Network</h3>
-      <div className="rebel-settings__card">
-        <p>
+    <div className="neurai-card neurai-stack">
+      <h3 className="text-xl font-bold m-0">Network</h3>
+      <div className="rounded-md bg-base-100 border border-base-300 p-3">
+        <p className="m-0">
           <strong>Current network:</strong> {networkLabel}{" "}
-          <small className="rebel-settings__hint">({network})</small>
+          <small className="text-base-content/60">({network})</small>
         </p>
-        <small className="rebel-settings__hint">
+        <small className="block mt-2 text-base-content/70">
           To switch networks, sign out and pick a different one on the login screen.
           Each network keeps its own seed file in this browser.
         </small>
       </div>
 
-      <hr className="rebel-settings__divider" />
+      <hr className="neurai-divider" />
 
-      <h3>RPC Server Configuration</h3>
+      <h3 className="text-xl font-bold m-0">RPC Server Configuration</h3>
 
-      <div className="rebel-settings__toggle-row">
-        <label>
-          <input
-            type="checkbox"
-            checked={useCustomRPC}
-            onChange={(e) => setUseCustomRPC(e.target.checked)}
-            className="rebel-settings__toggle-checkbox"
-          />
-          Use custom RPC server
-        </label>
-      </div>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={useCustomRPC}
+          onChange={(e) => setUseCustomRPC(e.target.checked)}
+          className="checkbox checkbox-sm checkbox-primary"
+        />
+        <span>Use custom RPC server</span>
+      </label>
 
       {useCustomRPC ? (
         <>
-          <div className="rebel-settings__field">
-            <label htmlFor="rpcUrl">
-              RPC URL
-              <input
-                type="text"
-                id="rpcUrl"
-                placeholder="https://your-rpc-server.com/rpc"
-                value={rpcUrl}
-                onChange={(e) => setRpcUrl(e.target.value)}
-                required
-              />
-            </label>
-            <small className="rebel-settings__hint">
-              Enter the full URL of your custom RPC server (including /rpc path)
-            </small>
+          <div>
+            <label htmlFor="rpcUrl" className="neurai-label">RPC URL</label>
+            <input
+              type="text"
+              id="rpcUrl"
+              className="neurai-input"
+              placeholder="https://your-rpc-server.com/rpc"
+              value={rpcUrl}
+              onChange={(e) => setRpcUrl(e.target.value)}
+              required
+            />
+            <p className="neurai-hint">Enter the full URL of your custom RPC server (including /rpc path)</p>
           </div>
 
-          <div className="rebel-settings__field">
-            <label htmlFor="rpcUsername">
-              RPC Username (optional)
-              <input
-                type="text"
-                id="rpcUsername"
-                placeholder="username"
-                value={rpcUsername}
-                onChange={(e) => setRpcUsername(e.target.value)}
-              />
-            </label>
+          <div>
+            <label htmlFor="rpcUsername" className="neurai-label">RPC Username (optional)</label>
+            <input
+              type="text"
+              id="rpcUsername"
+              className="neurai-input"
+              placeholder="username"
+              value={rpcUsername}
+              onChange={(e) => setRpcUsername(e.target.value)}
+            />
           </div>
 
-          <div className="rebel-settings__field">
-            <label htmlFor="rpcPassword">
-              RPC Password (optional)
-              <input
-                type="password"
-                id="rpcPassword"
-                placeholder="password"
-                value={rpcPassword}
-                onChange={(e) => setRpcPassword(e.target.value)}
-              />
-            </label>
+          <div>
+            <label htmlFor="rpcPassword" className="neurai-label">RPC Password (optional)</label>
+            <input
+              type="password"
+              id="rpcPassword"
+              className="neurai-input"
+              placeholder="password"
+              value={rpcPassword}
+              onChange={(e) => setRpcPassword(e.target.value)}
+            />
           </div>
         </>
       ) : (
-        <div className="rebel-settings__card">
-          <p>
+        <div className="rounded-md bg-base-100 border border-base-300 p-3">
+          <p className="m-0">
             <strong>Default RPC for {networkLabel}:</strong>{" "}
             {isTestnetNetwork ? DEFAULT_RPC_TESTNET : DEFAULT_RPC_MAINNET}
           </p>
         </div>
       )}
 
-      <div className="rebel-settings__actions">
-        <button onClick={handleSave}>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="neurai-btn--primary" onClick={handleSave}>
           Save Configuration
         </button>
-        <button onClick={handleReset} className="secondary">
+        <button type="button" className="neurai-btn--secondary" onClick={handleReset}>
           Reset to Default
         </button>
       </div>
 
       {saveSuccess && (
-        <div className="rebel-settings__success">
+        <div className="rounded-md bg-success/15 text-success px-3 py-2 text-sm">
           Configuration saved successfully!
         </div>
       )}
 
       {showWalletSection && (
         <>
-          <hr className="rebel-settings__divider" />
-
-          <h3>Wallet</h3>
-          <div className="grid">
+          <hr className="neurai-divider" />
+          <h3 className="text-xl font-bold m-0">Wallet</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {canSignOut && (
-              <button onClick={signOut}>
+              <button type="button" className="neurai-btn--primary" onClick={signOut}>
                 Sign out
               </button>
             )}
-
             {canCopyMnemonic && (
               <button
-                className="secondary"
+                type="button"
+                className="neurai-btn--secondary"
                 onClick={() => {
                   navigator.clipboard.writeText(safeMnemonic);
                   setCopied(true);
@@ -266,9 +240,9 @@ export function Settings({
         </>
       )}
 
-      <div className="rebel-settings__notes">
-        <h4>Important Notes:</h4>
-        <ul>
+      <div className="text-sm text-base-content/80 mt-2">
+        <h4 className="font-semibold mb-1">Important Notes:</h4>
+        <ul className="list-disc pl-6 space-y-1">
           <li>Make sure your custom RPC server is compatible with Neurai</li>
           <li>The wallet will need to reload after changing RPC settings</li>
           <li>If you cannot connect, reset to default settings</li>
@@ -278,6 +252,6 @@ export function Settings({
           </li>
         </ul>
       </div>
-    </article>
+    </div>
   );
 }

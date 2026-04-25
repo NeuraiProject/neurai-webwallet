@@ -4,7 +4,7 @@ import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { AssetLink } from "./AssetLink";
 import { AssetName } from "./AssetName";
 import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
-import "./Mempool.css";
+
 export interface IMempoolProps {
   mempool: IDelta[];
   wallet: Wallet;
@@ -13,24 +13,26 @@ export interface IMempoolProps {
 export function Mempool({ mempool, wallet }: IMempoolProps) {
   const history = getHistory(mempool);
 
-  //OK check the mempool objects and sort by tx id
-  //If a transaction say that I send and at he sametime receive, that means that Im sending
   if (history.length > 0) {
     return (
-      <article id="mempool" tabIndex={0} aria-busy="true">
-        <ul>
+      <div
+        id="mempool"
+        tabIndex={0}
+        aria-busy="true"
+        className="neurai-card neurai-card--compact"
+      >
+        <ul className="list-none m-0 p-0 flex flex-col gap-2">
           {history.map((item, index: number) => {
             const asset = item.assets[0];
             const name = asset.assetName;
             const amount = Math.abs(asset.satoshis) / 1e8;
             return (
               <li key={index}>
-                <div className="rebel-mempool__row">
-                  <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm">
                     {item.isSent === true ? "sending" : "receiving"}{" "}
                     {formatNumberWith8Decimals(amount)} <AssetName name={name} />
                   </div>
-
                   <div>
                     <AssetLink wallet={wallet} assetName={name} />
                   </div>
@@ -39,7 +41,7 @@ export function Mempool({ mempool, wallet }: IMempoolProps) {
             );
           })}
         </ul>
-      </article>
+      </div>
     );
   }
   return <span id="mempool" tabIndex={0} />;

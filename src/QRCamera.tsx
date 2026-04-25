@@ -25,18 +25,22 @@ export function useQRReader(
                 }
               }}
             />
-            <div className="grid">
+            <div className="flex gap-2 mt-2">
               <button
-                className="secondary"
+                type="button"
+                className="neurai-btn--secondary flex-1"
                 onClick={() => {
                   const newMode = mode === "environment" ? "user" : "environment";
-
                   setMode(newMode);
                 }}
               >
                 Toggle mode
               </button>
-              <button onClick={() => onResult("")} className="secondary">
+              <button
+                type="button"
+                onClick={() => onResult("")}
+                className="neurai-btn--secondary flex-1"
+              >
                 Close camera
               </button>
             </div>

@@ -5,30 +5,25 @@ import { AssetName } from "./AssetName";
 
 import networkInfo from "./networkInfo";
 import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
-import "./Assets.css";
 import { AssetPlaceholder } from "./components/AssetPlaceholder";
 
-interface IAsset {
-  assetName: string;
-  balance: number;
-}
 export function Assets({ wallet, assets, mempool }) {
   const allAssets = getAssetBalanceIncludingMempool(wallet, assets, mempool);
 
   return (
-    <article>
-      <h5>Assets / Tokens</h5>
-      <table role="grid">
+    <div className="neurai-card">
+      <h5 className="neurai-card__title mb-3">Assets / Tokens</h5>
+      <table className="table w-full">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Amount</th>
+            <th className="text-left">Name</th>
+            <th className="text-right">Amount</th>
           </tr>
         </thead>
         <tbody>
           {Object.keys(allAssets).map((assetName: string) => {
             if (isBaseAssetName(assetName, wallet.baseCurrency)) {
-              return null; //Exclude base currency XNA
+              return null;
             }
             const balance = allAssets[assetName];
             if (balance === 0) {
@@ -36,10 +31,10 @@ export function Assets({ wallet, assets, mempool }) {
             }
             return (
               <tr key={assetName || Math.random()}>
-                <td className="rebel-assets__cell">
+                <td>
                   <LinkToIPFS wallet={wallet} assetName={assetName} />
                 </td>
-                <td className="rebel-assets__cell">
+                <td className="text-right tabular-nums">
                   {formatNumberWith8Decimals(balance)}
                 </td>
               </tr>
@@ -47,7 +42,7 @@ export function Assets({ wallet, assets, mempool }) {
           })}
         </tbody>
       </table>
-    </article>
+    </div>
   );
 }
 
@@ -59,6 +54,10 @@ interface IAsset {
   ipfs_hash: string;
   assetName: string;
 }
+
+const linkClass = "inline-flex items-center gap-2 no-underline hover:text-primary";
+const thumbClass = "w-10 h-10 rounded-md bg-white object-contain";
+
 function LinkToIPFS({ wallet, assetName }: LinkToIPFSProps) {
   const [assetData, setAssetData] = React.useState<IAsset | null>(null);
 
@@ -77,10 +76,10 @@ function LinkToIPFS({ wallet, assetName }: LinkToIPFSProps) {
 
     return (
       <div>
-        <a href={url} target="asset" className="rebel-assets__link">
+        <a href={url} target="asset" className={linkClass}>
           <img
             src={imageURL}
-            className="rebel-assets__thumb"
+            className={thumbClass}
             onError={(event) => {
               const target = event.target as HTMLImageElement;
               target.style.display = "none";
@@ -92,7 +91,7 @@ function LinkToIPFS({ wallet, assetName }: LinkToIPFSProps) {
     );
   }
   return (
-    <span className="rebel-assets__link">
+    <span className={linkClass}>
       <AssetPlaceholder />
       <AssetName name={assetName} />
     </span>

@@ -1,6 +1,5 @@
 import React from "react";
 import { FaImage } from "react-icons/fa6";
-import "./AssetPlaceholder.css";
 
 type AssetPlaceholderProps = {
   size?: number;
@@ -10,6 +9,7 @@ type AssetPlaceholderProps = {
 export function AssetPlaceholder({
   size = 32,
   title = "Asset placeholder",
+  className,
   ...props
 }: AssetPlaceholderProps) {
   return (
@@ -17,7 +17,7 @@ export function AssetPlaceholder({
       size={size}
       title={title}
       aria-hidden={title ? undefined : true}
-      data-asset-placeholder="true"
+      className={`inline-flex items-center justify-center text-base-content/60 align-middle ${className ?? ""}`.trim()}
       {...props}
     />
   );

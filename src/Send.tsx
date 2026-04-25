@@ -2,7 +2,6 @@ import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "./Types";
 import { Scanner } from "@yudiel/react-qr-scanner";
-import "./Send.css";
 import {
   getAssetBalanceFromMempool,
   getAssetBalanceIncludingMempool,
@@ -20,8 +19,12 @@ type ValidateAddressResponse = {
 
 type CreateTransactionResult = {
   debug: {
+    amount: number;
+    assetName: string;
     fee: number;
     signedTransaction?: string;
+    sentMax?: boolean;
+    dustAbsorbedSats?: number;
   };
 };
 
@@ -42,6 +45,10 @@ export function Send({
   const [asset, setAsset] = React.useState(defaultValueAssets);
   const [showQRCode, setShowQRCode] = React.useState(false);
   const [isBusy, setIsBusy] = React.useState(false);
+  // True when the user pressed "Max" and hasn't manually edited the amount
+  // since. Tells onSubmit to compute (balance − fee) at send time so the
+  // wallet drains without leaving dust.
+  const [isMaxIntent, setIsMaxIntent] = React.useState(false);
   const walletBaseCurrency =
     typeof wallet.baseCurrency === "string" && wallet.baseCurrency.trim().length > 0
       ? wallet.baseCurrency
@@ -60,7 +67,6 @@ export function Send({
 
   async function onSubmit(event: React.SyntheticEvent) {
     event.preventDefault();
-    //Validate amount
     if (isNaN(parseFloat(amount)) === true) {
       betterAlert(
         "Not a valid number",
@@ -73,6 +79,7 @@ export function Send({
       setTo("");
       setAmount("");
       setAsset(defaultValueAssets);
+      setIsMaxIntent(false);
       triggerEvent(Events.INFO__TRANSFER_IN_PROCESS);
       betterToast("✓ Success");
     };
@@ -100,7 +107,21 @@ export function Send({
     }
 
     setIsBusy(true);
-    const promise = send({ wallet, to, asset: assetToSend, amount, clearForm });
+
+    // When the user pressed "Max" on the base currency, delegate the drain
+    // logic to the wallet via `sendMax: true`. jswallet ≥0.14 builds a
+    // single-output tx with `amount = balance − fee` computed in satoshis
+    // (no float drift), absorbs sub-dust residue into the miner fee, and
+    // returns the actual amount + fee in `debug` for the confirm dialog.
+    const useSendMax = isMaxIntent && assetToSend === walletBaseCurrency;
+    const promise = send({
+      wallet,
+      to,
+      asset: assetToSend,
+      amount,
+      clearForm,
+      sendMax: useSendMax,
+    });
     promise.catch(() => {
       //Do nothing);
     });
@@ -115,32 +136,30 @@ export function Send({
   const displayBalance =
     balance + getAssetBalanceFromMempool(baseCurrencyLabel, mempool);
 
+  function formatAmountForInput(n: number): string {
+    if (typeof n !== "number" || Number.isNaN(n)) return "";
+    const safe = Math.max(0, n);
+    const str = "" + safe;
+    return str.indexOf("e") > -1 ? safe.toFixed(8) : str;
+  }
+
+  // Max is only an intent: we put the full balance in the input and remember
+  // that the user wants to drain. The actual (balance − fee) calculation
+  // happens at send time, when we already have the destination address.
   function maxButtonEventHandler(event: React.MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
-    if (!hasSelectedAsset) {
-      return;
-    }
-    const newAmount = isBaseAssetName(asset, baseCurrencyLabel)
-      ? displayBalance
-      : allAssets[asset];
-    if (typeof newAmount !== "number" || Number.isNaN(newAmount)) {
-      return;
-    }
-    const str = "" + newAmount;
-    //Check for exponential notation
-    //The value 1e8 should be displayed to the user as 0.00000001
+    if (!hasSelectedAsset || isBusy) return;
 
-    if (str.indexOf("e") > -1) {
-      setAmount(newAmount.toFixed(8));
-    } else {
-      setAmount(str);
-    }
+    const isBase = isBaseAssetName(asset, baseCurrencyLabel);
+    const newAmount = isBase ? balance : allAssets[asset];
+    setAmount(formatAmountForInput(newAmount));
+    setIsMaxIntent(isBase);
   }
   function MaxButton() {
     return (
       <a
         href="#"
-        className="rebel-send__max-link"
+        className="ml-2 text-sm text-primary underline"
         onClick={maxButtonEventHandler}
       >
         Max
@@ -148,22 +167,23 @@ export function Send({
     );
   }
   return (
-    <article>
-      <h5>Send / transfer / pay</h5>
+    <div className="neurai-card neurai-stack">
+      <h5 className="neurai-card__title">Send / transfer / pay</h5>
       {qr}
       {showQRCode === false && (
         <button
-          className="secondary"
-          className="secondary rebel-send__scan-qr-button"
+          type="button"
+          className="neurai-btn--secondary self-start"
           onClick={() => setShowQRCode(true)}
         >
           Scan QR code
         </button>
       )}
-      <form onSubmit={onSubmit}>
-        <label>
-          Asset
+      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+        <div>
+          <label className="neurai-label">Asset</label>
           <select
+            className="neurai-select"
             onChange={(event) => setAsset(event.target.value || defaultValueAssets)}
             value={asset}
           >
@@ -173,30 +193,42 @@ export function Send({
             </option>
             {options}
           </select>
-        </label>
-        <label>
-          Amount <MaxButton />
+        </div>
+        <div>
+          <label className="neurai-label">
+            Amount <MaxButton />
+          </label>
           <input
-            onChange={(event) => setAmount(event.target.value)}
+            className="neurai-input"
+            onChange={(event) => {
+              setAmount(event.target.value);
+              setIsMaxIntent(false);
+            }}
             type="text"
             value={amount}
-          ></input>
-        </label>
-        <label>
-          To
+          />
+        </div>
+        <div>
+          <label className="neurai-label">To</label>
           <input
             name="to"
+            className="neurai-input"
             onChange={(event) => setTo(event.target.value)}
             value={to}
             type="text"
           />
-        </label>
+        </div>
 
-        <button disabled={isSendButtenDisabled} aria-busy={isBusy}>
+        <button
+          type="submit"
+          className="neurai-btn--primary"
+          disabled={isSendButtenDisabled}
+          aria-busy={isBusy}
+        >
           Send
         </button>
       </form>
-    </article>
+    </div>
   );
 }
 
@@ -248,18 +280,22 @@ function useQRReader(showQRCode: boolean, onResult: (value: string | null) => vo
               }
             }}
           />
-          <div className="grid">
+          <div className="flex gap-2 mt-2">
             <button
-              className="secondary"
+              type="button"
+              className="neurai-btn--secondary flex-1"
               onClick={() => {
                 const newMode = mode === "environment" ? "user" : "environment";
-
                 setMode(newMode);
               }}
             >
               Toggle mode
             </button>
-            <button onClick={() => onResult("")} className="secondary">
+            <button
+              type="button"
+              onClick={() => onResult("")}
+              className="neurai-btn--secondary flex-1"
+            >
               Close camera
             </button>
           </div>
@@ -287,18 +323,27 @@ async function send({
   asset,
   amount,
   clearForm,
+  sendMax,
 }: {
   wallet: Wallet;
   to: string;
   asset: string;
   amount: string;
   clearForm: () => void;
+  sendMax?: boolean;
 }) {
-  const promise = wallet.createTransaction({
-    toAddress: to,
-    assetName: asset,
-    amount: parseFloat(amount),
-  });
+  // For `sendMax` mode the wallet computes the amount itself
+  // (balance − fee in satoshis, no float drift) so we don't pass `amount`.
+  const txOptions: {
+    toAddress: string;
+    assetName: string;
+    amount?: number;
+    sendMax?: boolean;
+  } = sendMax
+    ? { toAddress: to, assetName: asset, sendMax: true }
+    : { toAddress: to, assetName: asset, amount: parseFloat(amount) };
+
+  const promise = wallet.createTransaction(txOptions as any);
 
   try {
     await promise;
@@ -309,11 +354,20 @@ async function send({
   }
 
   const sendResult = (await promise) as CreateTransactionResult;
-  //Yes template literals combined, to avoid the headache of new lines getting indented
-  const confirmText = `Do you want to send ${amount} ${asset} to 
+  // For sendMax, use the wallet-computed amount (the actual amount that
+  // lands at the recipient = balance − fee). For regular sends, echo what
+  // the user typed.
+  const displayedAmount = sendMax
+    ? sendResult.debug.amount.toString()
+    : amount;
+  const dustLine =
+    sendMax && sendResult.debug.dustAbsorbedSats
+      ? `\n(Dust ${sendResult.debug.dustAbsorbedSats} sats absorbed into fee)`
+      : "";
+  const confirmText = `Do you want to send ${displayedAmount} ${asset} to
 ${to}?
 
-Transaction fee: ${sendResult.debug.fee.toFixed(4)} ${wallet.baseCurrency}`;
+Transaction fee: ${sendResult.debug.fee.toFixed(4)} ${wallet.baseCurrency}${dustLine}`;
   // const c = confirm(confirmText);
   const c = await betterConfirm("About to send", confirmText);
   if (c === true) {

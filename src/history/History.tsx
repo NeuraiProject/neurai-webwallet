@@ -4,7 +4,6 @@ import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { AssetName } from "../AssetName";
 import { useTransaction } from "../useTransaction";
 import networkInfo from "../networkInfo";
-import "./History.css";
 
 type RawHistoryItem = {
   satoshis?: number;
@@ -92,7 +91,7 @@ export function History({ blockCount, wallet }: IProps) {
   const network = networkInfo[networkKey] ?? networkInfo.xna;
 
   return (
-    <div className="rebel-history">
+    <div className="flex flex-col gap-3">
       {items.slice(0, 21).map((item) => (
         <TransactionCard
           key={item.transactionId}
@@ -204,23 +203,25 @@ function TransactionCard({
   const toggle = () => setExpanded((v) => !v);
 
   return (
-    <article className="rebel-history__tx">
-      <header className="rebel-history__tx-header">
-        <div className="rebel-history__tx-header-row">
-          <div className="rebel-history__tx-header-main">
-            {time && <time className="rebel-history__tx-time">{time}</time>}
+    <article className="neurai-card neurai-card--compact text-base-content text-[0.95rem] leading-snug">
+      <header className="flex flex-col gap-1 pb-2.5 border-b border-base-300">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-baseline gap-3 flex-wrap min-w-0">
+            {time && <time className="font-semibold">{time}</time>}
             {blockHeight !== undefined && (
-              <span className="rebel-history__tx-block">block {blockHeight}</span>
+              <span className="text-sm text-base-content/70 font-mono">
+                block {blockHeight}
+              </span>
             )}
           </div>
           {fee !== null && (
-            <span className="rebel-history__tx-fee">
+            <span className="text-sm text-base-content/70 whitespace-nowrap">
               fee {formatAmount(fee)} XNA
             </span>
           )}
         </div>
         <a
-          className="rebel-history__tx-id"
+          className="block font-mono text-sm text-primary hover:underline break-all leading-tight"
           href={txURL}
           target="_blank"
           rel="noreferrer"
@@ -233,16 +234,13 @@ function TransactionCard({
 
       <button
         type="button"
-        className="rebel-history__tx-summary"
         onClick={toggle}
         aria-expanded={expanded}
         aria-controls={`rebel-history-detail-${transactionId}`}
+        className="w-full flex items-center gap-2 py-2 m-0 bg-transparent border-0 text-base-content text-[0.95rem] text-left cursor-pointer hover:text-primary transition-colors"
       >
         <span
-          className={
-            "rebel-history__tx-summary-chevron" +
-            (expanded ? " rebel-history__tx-summary-chevron--open" : "")
-          }
+          className={`inline-flex items-center justify-center w-3.5 text-base-content/70 transition-transform ${expanded ? "rotate-90" : ""}`}
           aria-hidden="true"
         >
           ▸
@@ -250,12 +248,12 @@ function TransactionCard({
         {summary ? (
           <SummaryLine summary={summary} assetName={primaryAsset.assetName} />
         ) : (
-          <span className="rebel-history__tx-summary-text">—</span>
+          <span>—</span>
         )}
       </button>
 
       {expanded && !detailReady && (
-        <div className="rebel-history__tx-detail-loading">
+        <div className="py-2 italic text-base-content/70">
           <small>Loading details…</small>
         </div>
       )}
@@ -263,63 +261,71 @@ function TransactionCard({
       {expanded && detailReady && (
         <div
           id={`rebel-history-detail-${transactionId}`}
-          className="rebel-history__io"
+          className="grid grid-cols-1 md:grid-cols-[1fr_2rem_1fr] gap-2 items-start"
         >
-        <section className="rebel-history__io-col">
-          <h6 className="rebel-history__io-title">
-            Inputs <span className="rebel-history__io-count">({inputs.length})</span>
-          </h6>
-          <ul className="rebel-history__io-list">
-            {inputs.map((i, idx) => (
-              <li
-                key={`${i.parentTxid}:${i.parentVout}:${idx}`}
-                className="rebel-history__io-row rebel-history__io-row--in"
-              >
-                <div className="rebel-history__io-row-amount">
-                  <span className="rebel-history__io-value">
-                    {formatAmount(i.value)}
-                  </span>
-                  <AssetName name={i.assetName} />
-                </div>
-                <div className="rebel-history__io-row-addr">
-                  {i.address ?? "(unknown address)"}
-                </div>
-                <div className="rebel-history__io-row-meta">
-                  from{" "}
-                  <span className="rebel-history__io-utxo" title={`${i.parentTxid}:${i.parentVout}`}>
-                    {shortenTxid(i.parentTxid, 6)}:{i.parentVout}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+          <section className="min-w-0 flex flex-col">
+            <h6 className="m-0 mb-2 text-xs font-bold uppercase tracking-wider text-base-content/70">
+              Inputs <span className="font-normal normal-case tracking-normal">({inputs.length})</span>
+            </h6>
+            <ul className="list-none m-0 p-0 flex flex-col gap-2 flex-1">
+              {inputs.map((i, idx) => (
+                <li
+                  key={`${i.parentTxid}:${i.parentVout}:${idx}`}
+                  className="flex flex-col gap-0.5 py-2 border-b border-base-300 last:border-b-0"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold tabular-nums text-base">
+                      {formatAmount(i.value)}
+                    </span>
+                    <AssetName name={i.assetName} />
+                  </div>
+                  <div className="font-mono text-sm text-base-content break-all leading-tight">
+                    {i.address ?? "(unknown address)"}
+                  </div>
+                  <div className="font-mono text-xs text-base-content/70">
+                    from{" "}
+                    <span className="cursor-help" title={`${i.parentTxid}:${i.parentVout}`}>
+                      {shortenTxid(i.parentTxid, 6)}:{i.parentVout}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-        <div className="rebel-history__io-flow" aria-hidden="true">
-          <FlowArrow />
-        </div>
+          <div
+            className="hidden md:flex items-start justify-center pt-8 text-primary opacity-70"
+            aria-hidden="true"
+          >
+            <FlowArrow />
+          </div>
 
-        <section className="rebel-history__io-col">
-          <h6 className="rebel-history__io-title">
-            Outputs <span className="rebel-history__io-count">({outputs.length})</span>
-          </h6>
-          <ul className="rebel-history__io-list">
-            {outputs.map((o) => (
-              <li key={o.index} className="rebel-history__io-row rebel-history__io-row--out">
-                <div className="rebel-history__io-row-amount">
-                  <span className="rebel-history__io-value">
-                    {formatAmount(o.value)}
-                  </span>
-                  <AssetName name={o.assetName} />
-                </div>
-                <div className="rebel-history__io-row-addr">
-                  {o.address ?? "(unknown address)"}
-                </div>
-                <div className="rebel-history__io-row-meta">vout {o.index}</div>
-              </li>
-            ))}
-          </ul>
-        </section>
+          <section className="min-w-0 flex flex-col">
+            <h6 className="m-0 mb-2 text-xs font-bold uppercase tracking-wider text-base-content/70">
+              Outputs <span className="font-normal normal-case tracking-normal">({outputs.length})</span>
+            </h6>
+            <ul className="list-none m-0 p-0 flex flex-col gap-2 flex-1">
+              {outputs.map((o) => (
+                <li
+                  key={o.index}
+                  className="flex flex-col gap-0.5 py-2 border-b border-base-300 last:border-b-0"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold tabular-nums text-base">
+                      {formatAmount(o.value)}
+                    </span>
+                    <AssetName name={o.assetName} />
+                  </div>
+                  <div className="font-mono text-sm text-base-content break-all leading-tight">
+                    {o.address ?? "(unknown address)"}
+                  </div>
+                  <div className="font-mono text-xs text-base-content/70">
+                    vout {o.index}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
         </div>
       )}
     </article>
@@ -341,14 +347,16 @@ function SummaryLine({
         : "—";
 
   return (
-    <span className="rebel-history__tx-summary-text">
-      <span className="rebel-history__tx-summary-verb">{verb}</span>{" "}
-      <span className="rebel-history__tx-summary-amount">
+    <span className="inline-flex items-center flex-wrap gap-1 min-w-0">
+      <span className="font-semibold uppercase tracking-wider text-xs text-base-content/70">
+        {verb}
+      </span>
+      <span className="font-semibold tabular-nums">
         {formatAmount(summary.amount)}
-      </span>{" "}
+      </span>
       <AssetName name={assetName} />
       {summary.isSelfSend && (
-        <span className="rebel-history__tx-summary-flag"> · to self</span>
+        <span className="text-sm text-base-content/70 italic"> · to self</span>
       )}
     </span>
   );
@@ -365,7 +373,6 @@ function FlowArrow() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="rebel-history__io-flow-icon"
     >
       <line x1="5" y1="12" x2="19" y2="12" />
       <polyline points="13 6 19 12 13 18" />

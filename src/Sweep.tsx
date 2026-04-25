@@ -1,8 +1,6 @@
-//Note this is the CLASS Wallet, not an instance of the class
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import React, { SyntheticEvent } from "react";
 import { QRCameraContainer } from "./QRCameraContainer";
-import "./Sweep.css";
 
 export function Sweep({ wallet }: { wallet: Wallet }) {
   const [privateKey, setPrivateKey] = React.useState("");
@@ -17,7 +15,6 @@ export function Sweep({ wallet }: { wallet: Wallet }) {
         alert(asdf.errorDescription);
         return;
       }
-
       const text = JSON.stringify(asdf.outputs, null, 4);
       alert("SUCCESS " + text);
       document.getElementById("mempool")?.focus();
@@ -27,28 +24,32 @@ export function Sweep({ wallet }: { wallet: Wallet }) {
     }
   };
   return (
-    <article>
-      <h5>Sweep (experimental)</h5>
-      <p>Transfer the entire balance of a private key to your wallet</p>
+    <div className="neurai-card neurai-stack">
+      <h5 className="neurai-card__title">Sweep (experimental)</h5>
+      <p className="m-0 text-sm text-base-content/80">
+        Transfer the entire balance of a private key to your wallet
+      </p>
       <QRCameraContainer onChange={setPrivateKey} />
-      <form onSubmit={onSubmit}>
-        <label className="rebel-sweep__label">
-          Private Key (not address)
+      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+        <label>
+          <span className="neurai-label">Private Key (not address)</span>
           <input
             type="text"
             name="privateKey"
+            className="neurai-input"
             value={privateKey}
-            onChange={(event) => {
-              const value = event.target.value;
-              setPrivateKey(value);
-            }}
-          ></input>
+            onChange={(event) => setPrivateKey(event.target.value)}
+          />
         </label>
-
-        <button onClick={sweep} disabled={!privateKey}>
+        <button
+          type="button"
+          className="neurai-btn--primary"
+          onClick={sweep}
+          disabled={!privateKey}
+        >
           Sweep
         </button>
       </form>
-    </article>
+    </div>
   );
 }

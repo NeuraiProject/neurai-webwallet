@@ -1,5 +1,4 @@
 import React from "react";
-import "./Footer.css";
 import {
   LiaDiscord,
   LiaGithub,
@@ -9,73 +8,67 @@ import {
 } from "react-icons/lia";
 import { FaSquareXTwitter } from "react-icons/fa6";
 
+const SOCIAL_LINKS: { href: string; label: string; title: string; Icon: React.ComponentType }[] = [
+  {
+    href: "https://twitter.com/neuraiproject",
+    label: "Neurai on X (Twitter)",
+    title: "X (Twitter)",
+    Icon: FaSquareXTwitter,
+  },
+  {
+    href: "https://t.me/neuraiproject",
+    label: "Neurai on Telegram",
+    title: "Telegram",
+    Icon: LiaTelegramPlane,
+  },
+  {
+    href: "https://discord.gg/neurai-project-1062678996208336896",
+    label: "Neurai on Discord",
+    title: "Discord",
+    Icon: LiaDiscord,
+  },
+  {
+    href: "https://www.reddit.com/r/neuraiproject",
+    label: "Neurai on Reddit",
+    title: "Reddit",
+    Icon: LiaReddit,
+  },
+  {
+    href: "https://github.com/neuraiproject",
+    label: "Neurai on GitHub",
+    title: "GitHub",
+    Icon: LiaGithub,
+  },
+  {
+    href: "https://www.npmjs.com/~neuraiproject",
+    label: "Neurai on npm",
+    title: "npm",
+    Icon: LiaNpm,
+  },
+];
+
 export function Footer() {
   return (
-    <footer className="rebel-footer">
-      <div className="rebel-footer__meta">
-        <p className="rebel-footer__title">Neurai Webwallet &copy; 2025</p>
+    <footer className="mt-auto pt-8 border-t border-base-300/60">
+      <div className="text-center max-w-7xl mx-auto">
+        <p className="m-0 text-sm font-semibold uppercase tracking-widest text-base-content/70">
+          Neurai Webwallet &copy; 2025
+        </p>
 
-        <nav className="rebel-footer__social" aria-label="Neurai social links">
-          <a
-            className="rebel-footer__social-link"
-            href="https://twitter.com/neuraiproject"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Neurai on X (Twitter)"
-            title="X (Twitter)"
-          >
-            <FaSquareXTwitter />
-          </a>
-          <a
-            className="rebel-footer__social-link"
-            href="https://t.me/neuraiproject"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Neurai on Telegram"
-            title="Telegram"
-          >
-            <LiaTelegramPlane />
-          </a>
-          <a
-            className="rebel-footer__social-link"
-            href="https://discord.gg/neurai-project-1062678996208336896"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Neurai on Discord"
-            title="Discord"
-          >
-            <LiaDiscord />
-          </a>
-          <a
-            className="rebel-footer__social-link"
-            href="https://www.reddit.com/r/neuraiproject"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Neurai on Reddit"
-            title="Reddit"
-          >
-            <LiaReddit />
-          </a>
-          <a
-            className="rebel-footer__social-link"
-            href="https://github.com/neuraiproject"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Neurai on GitHub"
-            title="GitHub"
-          >
-            <LiaGithub />
-          </a>
-          <a
-            className="rebel-footer__social-link"
-            href="https://www.npmjs.com/~neuraiproject"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Neurai on npm"
-            title="npm"
-          >
-            <LiaNpm />
-          </a>
+        <nav className="mt-5 flex items-center justify-center gap-5 flex-wrap sm:flex-nowrap" aria-label="Neurai social links">
+          {SOCIAL_LINKS.map(({ href, label, title, Icon }) => (
+            <a
+              key={href}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={label}
+              title={title}
+              className="inline-flex items-center justify-center w-10 h-10 text-base-content/70 hover:text-primary hover:-translate-y-0.5 transition-all [&_svg]:w-8 [&_svg]:h-8"
+            >
+              <Icon />
+            </a>
+          ))}
         </nav>
       </div>
     </footer>

@@ -6,13 +6,12 @@ import { useUniqueAssets } from "./useUniqueAssets";
 import { useSignature } from "./useSignature";
 import { useAddressObject } from "./useAddressObject";
 import { CopyIcon } from "../icons";
-import "./Sign.css";
+
 export function Sign({ assets, wallet }: { assets: IAsset[]; wallet: Wallet }) {
   const [text, setText] = React.useState("");
   const [selectedAsset, setSelectedAsset] = React.useState<string>("");
 
   const uniqueAssets = useUniqueAssets(wallet, assets);
-
   const addressObject = useAddressObject(wallet, selectedAsset);
   const signature = useSignature(addressObject, text);
 
@@ -24,76 +23,85 @@ export function Sign({ assets, wallet }: { assets: IAsset[]; wallet: Wallet }) {
 
   if (!uniqueAssets || uniqueAssets.length === 0) {
     return (
-      <article>
-        <h5>Sign</h5>
-        <p>
+      <div className="neurai-card">
+        <h5 className="neurai-card__title">Sign</h5>
+        <p className="text-sm text-base-content/80 mt-2">
           You do not have any unique assets.
-          <br /> You need a unique asset to sign messages
+          <br />
+          You need a unique asset to sign messages
         </p>
-      </article>
+      </div>
     );
   }
   return (
-    <article>
-      <h5>Sign</h5>
-      <label>
-        Select asset
-        <select
-          onChange={(event) => {
-            const name = event.target.value;
-            setSelectedAsset(name);
-          }}
-        >
-          <option>-</option>
-          {uniqueAssets &&
-            uniqueAssets.map((asset) => {
-              return (
-                <option
-                  key={asset.assetName}
-                  selected={asset.assetName === selectedAsset}
-                >
-                  {asset.assetName}
-                </option>
-              );
-            })}
-        </select>
-      </label>
-      <CopyButton value={selectedAsset} title="Copy asset name" />
-      <hr />
-      <label>
-        Address{" "}
-        <input disabled value={addressObject && addressObject.address}></input>
-      </label>
-      <CopyButton
-        value={addressObject && addressObject.address}
-        title="Copy address"
-      />
-      <hr />
-      <label>
-        Message to sign{" "}
-        <textarea
-          onChange={(event) => {
-            const value = event.target.value;
-            setText(value);
-          }}
-        >
-          {text}
-        </textarea>
-      </label>
-      <CopyButton value={text} title="Copy message" />
-      <hr />
-      <label>
-        Signature
-        <textarea value={signature}></textarea>
-      </label>
+    <div className="neurai-card neurai-stack">
+      <h5 className="neurai-card__title">Sign</h5>
+
+      <div>
+        <label className="neurai-label">Select asset</label>
+        <div className="flex items-center gap-2">
+          <select
+            className="neurai-select flex-1"
+            onChange={(event) => setSelectedAsset(event.target.value)}
+            value={selectedAsset}
+          >
+            <option>-</option>
+            {uniqueAssets.map((asset) => (
+              <option key={asset.assetName} value={asset.assetName}>
+                {asset.assetName}
+              </option>
+            ))}
+          </select>
+          <CopyButton value={selectedAsset} title="Copy asset name" />
+        </div>
+      </div>
+
+      <hr className="neurai-divider" />
+
+      <div>
+        <label className="neurai-label">Address</label>
+        <div className="flex items-center gap-2">
+          <input
+            className="neurai-input flex-1"
+            disabled
+            value={(addressObject && addressObject.address) || ""}
+          />
+          <CopyButton
+            value={(addressObject && addressObject.address) || ""}
+            title="Copy address"
+          />
+        </div>
+      </div>
+
+      <hr className="neurai-divider" />
+
+      <div>
+        <label className="neurai-label">Message to sign</label>
+        <div className="flex items-start gap-2">
+          <textarea
+            className="neurai-textarea flex-1"
+            onChange={(event) => setText(event.target.value)}
+            value={text}
+          />
+          <CopyButton value={text} title="Copy message" />
+        </div>
+      </div>
+
+      <hr className="neurai-divider" />
+
+      <div>
+        <label className="neurai-label">Signature</label>
+        <textarea className="neurai-textarea" value={signature} readOnly />
+      </div>
 
       <button
-        className="rebel-sign__copy-signature"
-        onClick={(event) => navigator.clipboard.writeText(signature)}
+        type="button"
+        className="neurai-btn--primary inline-flex items-center gap-2 self-start"
+        onClick={() => navigator.clipboard.writeText(signature)}
       >
         <CopyIcon />
-        &nbsp;&nbsp;Copy signature
+        Copy signature
       </button>
-    </article>
+    </div>
   );
 }

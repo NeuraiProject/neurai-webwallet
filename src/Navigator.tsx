@@ -4,7 +4,6 @@ import { LightModeToggle } from "./components/LightModeToggle";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { useNodeStatus } from "./hooks/useNodeStatus";
 import { usePersistentState } from "./hooks/usePersistentState";
-import "./Navigator.css";
 import {
   IconChat,
   IconHistory,
@@ -17,7 +16,6 @@ import {
   IconSweep,
 } from "./icons";
 import { FaAnglesDown, FaAnglesUp } from "react-icons/fa6";
-import networkInfo, { INetworks } from "./networkInfo";
 import { BUILD_DATE } from "./buildDate";
 
 type StatusTone = "ok" | "warn" | "error" | "muted";
@@ -67,7 +65,6 @@ export function Navigator({
   navLocked?: boolean;
   hasPassphrase?: boolean;
 }) {
-  // const networkDisplayName = networkInfo[wallet.network].displayName; // unused for now
   const { syncHealth, syncHint } = useNodeStatus(wallet);
 
   const syncTone: StatusTone =
@@ -82,8 +79,6 @@ export function Navigator({
   const [isCompact, setIsCompact] = usePersistentState<boolean>("rebelNavigatorCompact", false);
 
   const passphraseTone: StatusTone = hasPassphrase ? "ok" : "error";
-
-  // HW wallet status — kept disabled (red) until the new ESP32 integration lands.
   const hwTone: StatusTone = "error";
 
   const onClickHome = (event: React.MouseEvent) => {
@@ -92,58 +87,58 @@ export function Navigator({
     return false;
   };
 
-  const statusEntries = [
+  const statusEntries: Array<{
+    key: string;
+    title: string;
+    label: string;
+    tone: StatusTone;
+    labelTone?: StatusTone;
+    live?: boolean;
+  }> = [
     {
       key: "sync",
-      props: {
-        title: syncHint,
-        label: "Syncr",
-        tone: syncTone,
-        labelTone: syncHealth === "offline" ? "error" : undefined,
-        live: true,
-      },
+      title: syncHint,
+      label: "Syncr",
+      tone: syncTone,
+      labelTone: syncHealth === "offline" ? "error" : undefined,
+      live: true,
     },
     {
       key: "passphrase",
-      props: {
-        title: hasPassphrase ? "Passphrase set" : "No passphrase",
-        label: "Passphrase",
-        tone: passphraseTone,
-      },
+      title: hasPassphrase ? "Passphrase set" : "No passphrase",
+      label: "Passphrase",
+      tone: passphraseTone,
     },
     {
       key: "hardware",
-      props: {
-        title: "No hardware wallet connected",
-        label: "HW",
-        tone: hwTone,
-      },
+      title: "No hardware wallet connected",
+      label: "HW",
+      tone: hwTone,
     },
   ];
 
-  const renderStatusItems = (variant: "compact" | "full") => {
-    const baseClass =
-      "rebel-navigator__status-list" +
-      (variant === "compact" ? " rebel-navigator__status-list--singleline" : "") +
-      (variant === "full" ? " rebel-navigator__status-list--stacked" : "");
+  const renderStatusItems = (variant: "compact" | "full") => (
+    <div
+      className={
+        variant === "compact"
+          ? "flex items-center gap-3 flex-nowrap whitespace-nowrap text-xs"
+          : "flex flex-col items-start gap-2 my-2 text-xs"
+      }
+    >
+      {statusEntries.map(({ key, ...rest }) => (
+        <StatusItem key={key} {...rest} />
+      ))}
+    </div>
+  );
+
+  const renderNavList = (variant: "full" | "icon") => {
+    const wrapperClass =
+      variant === "full"
+        ? "grid grid-cols-3 md:grid-cols-6 gap-1 list-none m-0 p-0 text-center"
+        : "flex items-center justify-center gap-8 list-none m-0 p-0 flex-nowrap w-full";
 
     return (
-      <div className={baseClass}>
-        {statusEntries.map(({ key, props }) => (
-          <StatusItem key={key} {...props} />
-        ))}
-      </div>
-    );
-  };
-
-  const renderNavList = (variant: "full" | "icon", extraClassName = "") => {
-    const baseClass =
-      "rebel-navigator__list" +
-      (variant === "icon" ? " rebel-navigator__list--icononly" : "") +
-      (extraClassName ? ` ${extraClassName}` : "");
-
-    return (
-      <ul className={baseClass}>
+      <ul className={wrapperClass}>
         {NAV_ITEMS.map((item) => {
           if (item.type === "placeholder") {
             return (
@@ -155,9 +150,7 @@ export function Navigator({
               />
             );
           }
-
           const disabled = navLocked && (item.lockable ?? true);
-
           return (
             <NavItem
               key={item.route}
@@ -174,41 +167,31 @@ export function Navigator({
     );
   };
 
-  const renderCompactIconMenu = () =>
-    renderNavList("icon", "rebel-navigator__list--icononly-singleline");
-
   return (
-    <article
-      className={
-        "rebel-navigator__container" + (isCompact ? " rebel-navigator__container--compact" : "")
-      }
-    >
+    <div className={isCompact ? "neurai-card neurai-card--compact" : "neurai-card"}>
       {isCompact ? (
         <>
-          <div className="rebel-navigator__compact-grid">
-            <div className="rebel-navigator__compact-left">
-              <a href="#" className="primary" onClick={onClickHome}>
-                <h2 className="rebel-headline rebel-navigator__brand">
-                  <img
-                    src={neuraiLogo.href}
-                    alt="Neurai logo"
-                    className="rebel-navigator__brand-logo"
-                  />
-                  Neurai
-                </h2>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Brand + status */}
+            <div className="flex flex-col gap-1 shrink-0">
+              <a href="#" onClick={onClickHome} className="flex items-center gap-1.5 text-primary font-semibold no-underline">
+                <img src={neuraiLogo.href} alt="Neurai logo" className="w-8 h-8 object-contain" />
+                <span className="text-xl">Neurai</span>
               </a>
-
               {renderStatusItems("compact")}
             </div>
 
-            <nav className="rebel-navigator rebel-navigator--icononly rebel-navigator__compact-center">
-              {renderCompactIconMenu()}
+            {/* Icon menu — visible only on wide screens, hidden on narrow */}
+            <nav className="flex-1 min-w-0 hidden xl:block">
+              {renderNavList("icon")}
             </nav>
 
-            <div className="rebel-navigator__controls rebel-navigator__compact-right">
-              <div className="rebel-navigator__controls rebel-navigator__compact-right-controls">
+            {/* Right-side controls + balance */}
+            <div className="flex flex-col items-end gap-1 ml-auto">
+              <div className="flex items-center gap-1">
                 <button
-                  className="outline rebel-navigator__compact-toggle"
+                  type="button"
+                  className="neurai-btn--icon"
                   title="Expand menu"
                   aria-label="Expand menu"
                   onClick={() => setIsCompact(false)}
@@ -217,35 +200,29 @@ export function Navigator({
                 </button>
                 <LightModeToggle />
               </div>
-              <div className="rebel-navigator__compact-balance">
+              <div className="text-right text-base font-bold leading-tight [&_.balance-amount]:!text-base [&_.balance-amount]:!font-bold [&_.balance-amount]:!mb-0 [&_.balance-price]:!hidden [&_small]:!hidden">
                 {balance}
               </div>
             </div>
           </div>
 
-          <div className="rebel-navigator__compact-mobile-icons" aria-label="Compact menu">
-            <nav className="rebel-navigator rebel-navigator--icononly">
-              {renderCompactIconMenu()}
-            </nav>
+          {/* Mobile-only icon row (visible <1280px) */}
+          <div className="xl:hidden mt-3" aria-label="Compact menu">
+            <nav>{renderNavList("icon")}</nav>
           </div>
         </>
       ) : (
         <>
-          <div className="rebel-navigator__topbar">
-            <a href="#" className="primary" onClick={onClickHome}>
-              <h2 className="rebel-headline rebel-navigator__brand">
-                <img
-                  src={neuraiLogo.href}
-                  alt="Neurai logo"
-                  className="rebel-navigator__brand-logo"
-                />
-                Neurai
-              </h2>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <a href="#" onClick={onClickHome} className="flex items-center gap-1.5 text-primary font-semibold no-underline">
+              <img src={neuraiLogo.href} alt="Neurai logo" className="w-8 h-8 object-contain" />
+              <span className="text-xl">Neurai</span>
             </a>
 
-            <div className="rebel-navigator__controls">
+            <div className="flex items-center gap-1">
               <button
-                className="outline rebel-navigator__compact-toggle"
+                type="button"
+                className="neurai-btn--icon"
                 title="Compact menu"
                 aria-label="Compact menu"
                 onClick={() => setIsCompact(true)}
@@ -256,50 +233,19 @@ export function Navigator({
             </div>
           </div>
 
-          <h5>Rebel Wallet 1.0.9 - {BUILD_DATE}</h5>
+          <h5 className="text-sm text-base-content/60 mt-3 mb-2 font-normal">
+            Rebel Wallet 1.0.9 - {BUILD_DATE}
+          </h5>
 
-          <div className="rebel-navigator__status-balance-row">
-            {renderStatusItems("full")}
-            <div className="rebel-navigator__balance-slot">{balance}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] items-center gap-4 my-3">
+            <div>{renderStatusItems("full")}</div>
+            <div className="text-center sm:col-start-2">{balance}</div>
           </div>
 
-          <nav className="rebel-navigator">{renderNavList("full")}</nav>
+          <nav className="mt-3">{renderNavList("full")}</nav>
         </>
       )}
-      {/* <small>
-        <NetworkSelect wallet={wallet} networks={networkInfo}></NetworkSelect>
-      </small> */}
-    </article>
-  );
-}
-
-type NetworkInfoProps = {
-  wallet: Wallet;
-  networks: INetworks;
-};
-
-function NetworkSelect({ wallet, networks }: NetworkInfoProps) {
-  const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newNetwork = event.target.value;
-
-    // Update the URL and reload the page with the new network query parameter
-    const newUrl = `${window.location.pathname}?network=${newNetwork}`;
-    window.location.href = newUrl;
-  };
-
-  const options = Object.keys(networks).map((network: string) => {
-    const info = networks[network];
-    return (
-      <option key={network} value={network}>
-        {info.displayName}
-      </option>
-    );
-  });
-
-  return (
-    <select value={wallet.network} onChange={handleChange}>
-      {options}
-    </select>
+    </div>
   );
 }
 
@@ -316,19 +262,22 @@ interface NavItemProps {
 
 function NavItem({ currentRoute, route, setRoute, title, variant, disabled }: NavItemProps) {
   const isCurrent = currentRoute === route;
-  const classes =
-    "rebel-navigator__list-item" +
-    (variant === "icon" ? " rebel-navigator__list-item--icononly" : "") +
-    (variant === "full" && isCurrent ? " rebel-navigator__list-item--active" : "");
-  const linkClassName =
-    "primary rebel-navigator__list-item-link" +
-    (disabled ? " rebel-navigator__list-item-link--disabled" : "");
+
+  const liClass = variant === "icon" ? "px-1 py-1" : "p-3";
+
+  const baseLink =
+    "flex flex-col items-center justify-center gap-1 rounded-md transition-colors no-underline relative";
+  const stateLink = disabled
+    ? "text-base-content/40 cursor-not-allowed pointer-events-none"
+    : isCurrent
+      ? "text-primary after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:-bottom-1.5 after:h-0.5 after:w-6 after:rounded-full after:bg-primary"
+      : "text-base-content hover:text-primary";
 
   return (
-    <li className={classes}>
+    <li className={liClass}>
       <a
         href="#"
-        className={linkClassName}
+        className={`${baseLink} ${stateLink} ${variant === "full" ? "py-2 text-sm font-light" : "py-1"}`}
         onClick={(event) => {
           event.preventDefault();
           if (disabled) return false;
@@ -355,13 +304,11 @@ function PlaceholderNavItem({
   icon?: ReactNode;
   variant: NavItemVariant;
 }) {
-  const classes =
-    "rebel-navigator__list-item" +
-    (variant === "icon" ? " rebel-navigator__list-item--icononly" : "");
+  const liClass = variant === "icon" ? "px-1 py-1" : "p-3";
   return (
-    <li className={classes}>
+    <li className={liClass}>
       <div
-        className="primary rebel-navigator__list-item-link rebel-navigator__list-item-link--placeholder"
+        className="flex flex-col items-center justify-center gap-1 text-base-content/45 cursor-default pointer-events-none"
         title={variant === "icon" ? title : undefined}
         aria-label={variant === "icon" ? title : undefined}
       >
@@ -385,28 +332,25 @@ function StatusItem({
   labelTone?: StatusTone;
   live?: boolean;
 }) {
+  const toneClass =
+    tone === "ok" ? "is-ok" : tone === "warn" ? "is-warn" : tone === "error" ? "is-error" : "";
+  const labelToneClass =
+    labelTone === "error" ? "text-error" : "text-base-content/80";
+
   return (
     <div
-      className={`rebel-navigator__status-item rebel-navigator__status-item--${tone}`}
+      className={`neurai-status ${toneClass}`}
       title={title}
       role={live ? "status" : undefined}
       aria-live={live ? "polite" : undefined}
       aria-label={`${label}: ${title}`}
     >
-      <span className="rebel-navigator__status-dot" />
-      <span
-        className={
-          "rebel-navigator__status-label" +
-          (labelTone ? ` rebel-navigator__status-label--${labelTone}` : "")
-        }
-      >
-        {label}
-      </span>
+      <span className="neurai-status__dot" />
+      <span className={labelToneClass}>{label}</span>
     </div>
   );
 }
 
-//Icons from https://feathericons.com/
 const iconMapper: Record<Routes, JSX.Element> = {
   [Routes.HOME]: <IconHome />,
   [Routes.HISTORY]: <IconHistory />,
@@ -418,6 +362,7 @@ const iconMapper: Record<Routes, JSX.Element> = {
   [Routes.SIGN]: <IconSign />,
   [Routes.SWEEP]: <IconSweep />,
 };
+
 function Icon({ route }: { route: Routes }) {
   return <div>{iconMapper[route]}</div>;
 }

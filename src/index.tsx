@@ -12,6 +12,8 @@ import {
   splitMnemonicAndPassphrase,
 } from "./utils";
 import { createRoot } from "react-dom/client";
+import "./styles/tailwind.css";
+import "./styles/primitives.css";
 import "./App.css";
 
 import { Loader } from "./Loader";
@@ -746,91 +748,100 @@ function PinDialog({
   }, []);
 
   return (
-    <article>
-      <dialog open>
-        <article>
-          <div className="rebel-pin-banner">
-            <img
-              className="rebel-pin-banner__logo"
-              src={neuraiLogo.href}
-              alt="Neurai"
-            />
-            <h3 className="rebel-pin-banner__text">Neurai Wallet</h3>
-          </div>
-          <hr className="rebel-pin-divider" />
-          {mode === "unlock" ? (
-            <span className="rebel-pin-title">{title}</span>
-          ) : (
-            <h3 className="rebel-pin-title">{title}</h3>
-          )}
-	          <p className="rebel-pin__hint">
-	            {mode === "setup"
-	              ? `Create a PIN (${minLen} to ${maxLen} characters) to protect your wallet on this device.`
-	              : `Enter your PIN to unlock the wallet (${minLen} to ${maxLen} characters).`}
-	          </p>
+    <dialog open className="modal modal-open">
+      <div className="modal-box">
+        <div className="flex items-center gap-2 mb-4">
+          <img className="w-10 h-10" src={neuraiLogo.href} alt="Neurai" />
+          <h3 className="m-0 font-bold">Neurai Wallet</h3>
+        </div>
+        <hr className="border-t border-base-300 my-2" />
+        {mode === "unlock" ? (
+          <span className="block font-bold mb-2">{title}</span>
+        ) : (
+          <h3 className="font-bold mb-2 mt-0">{title}</h3>
+        )}
+        <p className="text-sm text-base-content/80 mb-3">
+          {mode === "setup"
+            ? `Create a PIN (${minLen} to ${maxLen} characters) to protect your wallet on this device.`
+            : `Enter your PIN to unlock the wallet (${minLen} to ${maxLen} characters).`}
+        </p>
 
-          <label>
-            PIN
+        <form
+          autoComplete="off"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (canSubmit) onSubmit(pin1);
+          }}
+        >
+          <label className="block mb-3">
+            <span className="neurai-label">PIN</span>
             <input
               type="password"
+              className="neurai-input"
               value={pin1}
               onChange={(e) => setPin1(e.target.value)}
               autoFocus
+              autoComplete="new-password"
+              spellCheck={false}
               maxLength={maxLen}
               placeholder={`${minLen} to ${maxLen} characters`}
             />
           </label>
 
           {mode === "setup" && (
-            <label>
-              Repeat PIN
+            <label className="block mb-3">
+              <span className="neurai-label">Repeat PIN</span>
               <input
                 type="password"
+                className="neurai-input"
                 value={pin2}
                 onChange={(e) => setPin2(e.target.value)}
+                autoComplete="new-password"
+                spellCheck={false}
                 maxLength={maxLen}
                 placeholder="Repeat PIN"
               />
             </label>
           )}
 
-	          {caps && (
-	            <p className="rebel-pin__inline-status">
-	              Caps Lock is ON
-	            </p>
-	          )}
+          {caps && <p className="text-warning text-sm my-1">Caps Lock is ON</p>}
 
-	          {mode === "setup" && pin1 && pin2 && pin1 !== pin2 && (
-	            <p className="rebel-pin__inline-status">
-	              PINs do not match
-	            </p>
-	          )}
+          {mode === "setup" && pin1 && pin2 && pin1 !== pin2 && (
+            <p className="text-error text-sm my-1">PINs do not match</p>
+          )}
 
-	          {error && (
-	            <p className="rebel-pin__inline-status">{error}</p>
-	          )}
+          {error && <p className="text-error text-sm my-1">{error}</p>}
 
-	          <footer className="rebel-pin__footer">
-	            <button className="rebel-pin-reset-button" onClick={onReset} type="button">
-	              Reset wallet
-	            </button>
-            <button className="secondary" onClick={onCancel} type="button">
+          <div className="flex gap-2 justify-end mt-4 flex-wrap">
+            <button
+              type="button"
+              className="rebel-pin-reset-button btn"
+              onClick={onReset}
+            >
+              Reset wallet
+            </button>
+            <button
+              type="button"
+              className="neurai-btn--secondary"
+              onClick={onCancel}
+            >
               Cancel
             </button>
             <button
-              className="primary"
-              type="button"
+              type="submit"
+              className="neurai-btn--primary"
               disabled={!canSubmit}
-              onClick={() => onSubmit(pin1)}
             >
               OK
-	            </button>
-	          </footer>
-	          <p className="rebel-pin__note">
-	            If you forget your PIN, you will need to clear this site's stored data in your browser.
-	          </p>
-        </article>
-      </dialog>
-    </article>
+            </button>
+          </div>
+        </form>
+
+        <p className="text-xs text-base-content/70 mt-4">
+          If you forget your PIN, you will need to clear this site's stored data in your browser.
+        </p>
+      </div>
+      <div className="modal-backdrop" />
+    </dialog>
   );
 }

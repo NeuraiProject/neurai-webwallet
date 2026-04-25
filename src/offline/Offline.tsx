@@ -1,7 +1,6 @@
 import React from "react";
 import { key as NeuraiKey } from "@neuraiproject/neurai-jswallet/dist/index.js";
 import { Settings } from "../Settings";
-import "./Offline.css";
 
 type ChainType = "xna" | "xna-test" | "xna-legacy" | "xna-legacy-test";
 type AddressPair = {
@@ -42,40 +41,46 @@ export function Offline({
   }, [addressCount, mnemonic, network, passphrase]);
 
   return (
-    <main className="container">
-      <article className="rebel-offline__article">
-        <h3 className="rebel-offline__title">Offline mode</h3>
-        <p className="rebel-offline__subtitle">
+    <div className="neurai-stack">
+      <div className="neurai-card neurai-stack">
+        <h3 className="text-2xl font-bold m-0">Offline mode</h3>
+        <p className="text-sm text-base-content/80 m-0">
           You can view derived addresses and edit RPC settings while the node is unreachable.
         </p>
 
         {showWarning && (
-          <div className="rebel-offline__warning">
-            <strong>RPC disconnected.</strong> The app will automatically reconnect when the RPC server is back.
+          <div className="rounded-md bg-warning/15 text-warning px-3 py-2 text-sm">
+            <strong>RPC disconnected.</strong> The app will automatically reconnect when the RPC
+            server is back.
           </div>
         )}
 
-        <div className="rebel-offline__actions">
+        <div className="flex flex-wrap gap-2">
           <button
-            className="secondary"
+            type="button"
+            className="neurai-btn--secondary"
             onClick={() => setAddressCount((n) => Math.max(5, n - 5))}
             disabled={addressCount <= 5}
           >
             Show fewer
           </button>
-          <button className="secondary" onClick={() => setAddressCount((n) => Math.min(50, n + 5))}>
+          <button
+            type="button"
+            className="neurai-btn--secondary"
+            onClick={() => setAddressCount((n) => Math.min(50, n + 5))}
+          >
             Show more
           </button>
-          <button onClick={signOut} className="rebel-offline__signout">
+          <button type="button" className="neurai-btn--primary ml-auto" onClick={signOut}>
             Sign out
           </button>
         </div>
 
-        <h4 className="rebel-offline__section-title">Derived addresses</h4>
-        <table role="grid">
+        <h4 className="text-lg font-semibold m-0 mt-2">Derived addresses</h4>
+        <table className="table table-sm w-full">
           <thead>
             <tr>
-              <th className="rebel-offline__col-index">Index</th>
+              <th className="w-16">Index</th>
               <th>Address</th>
             </tr>
           </thead>
@@ -83,15 +88,15 @@ export function Offline({
             {addresses.map((a) => (
               <tr key={a.index}>
                 <td>{a.index}</td>
-                <td className="rebel-offline__address">{a.address}</td>
+                <td className="font-mono text-sm break-all">{a.address}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        <hr className="rebel-offline__divider" />
+        <hr className="neurai-divider" />
         <Settings />
-      </article>
-    </main>
+      </div>
+    </div>
   );
 }

@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@plugin "daisyui" {
+  themes:
+    light --default,
+    dark --prefersdark;
+}
+
+/*
+ * Custom DaisyUI themes — Neurai palette ported from the faucet design.
+ * Themes are named `light` / `dark` so the wallet's existing
+ * `<html data-theme="light|dark">` mechanism keeps working without changes.
+ */
+@plugin "daisyui/theme" {
+  name: "light";
+  default: true;
+  prefersdark: false;
+  color-scheme: "light";
+
+  --color-base-100: #f4f4f6;       /* page bg */
+  --color-base-200: #ffffff;       /* card / surface */
+  --color-base-300: #e5e7eb;       /* border / divider */
+  --color-base-content: #111827;   /* primary text */
+
+  --color-primary: #f97316;        /* orange-500 */
+  --color-primary-content: #ffffff;
+  --color-secondary: #ea6c10;      /* orange hover */
+  --color-secondary-content: #ffffff;
+  --color-accent: #fff7ed;         /* orange-50 — accent surface */
+  --color-accent-content: #f97316;
+  --color-neutral: #111827;
+  --color-neutral-content: #ffffff;
+
+  --color-info: #38bdf8;
+  --color-info-content: #082f49;
+  --color-success: #22c55e;
+  --color-success-content: #052e16;
+  --color-warning: #f59e0b;
+  --color-warning-content: #2a1a00;
+  --color-error: #ef4444;
+  --color-error-content: #ffffff;
+
+  --radius-box: 0.75rem;    /* card radius (12px) */
+  --radius-field: 0.625rem; /* input radius (10px) */
+  --radius-selector: 0.5rem;
+}
+
+@plugin "daisyui/theme" {
+  name: "dark";
+  default: false;
+  prefersdark: true;
+  color-scheme: "dark";
+
+  --color-base-100: #111827;       /* page bg */
+  --color-base-200: #1f2937;       /* card */
+  --color-base-300: #374151;       /* border */
+  --color-base-content: #f9fafb;
+
+  --color-primary: #f97316;
+  --color-primary-content: #ffffff;
+  --color-secondary: #ea6c10;
+  --color-secondary-content: #ffffff;
+  --color-accent: rgba(249, 115, 22, 0.12);
+  --color-accent-content: #f97316;
+  --color-neutral: #1f2937;
+  --color-neutral-content: #f9fafb;
+
+  --color-info: #38bdf8;
+  --color-info-content: #082f49;
+  --color-success: #22c55e;
+  --color-success-content: #052e16;
+  --color-warning: #f59e0b;
+  --color-warning-content: #2a1a00;
+  --color-error: #ef4444;
+  --color-error-content: #ffffff;
+
+  --radius-box: 0.75rem;
+  --radius-field: 0.625rem;
+  --radius-selector: 0.5rem;
+}
+
+@source "../../public/index.html";
+@source "../**/*.{ts,tsx,js,jsx}";

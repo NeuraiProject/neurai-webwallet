@@ -11,13 +11,16 @@
       content="
         default-src 'self';
         script-src 'self' 'unsafe-inline';
-        style-src 'self' 'unsafe-inline';
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         img-src 'self' data: https: http:;
         connect-src 'self' https: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*;
-        font-src 'self';
+        font-src 'self' https://fonts.gstatic.com;
         child-src 'none';
       "
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- End of headStart -->
     <meta name="viewport" content="width=device-width">
     <meta name="generator" content="Neurai webwallet for Neurai (XNA) with assets NFT & FT">
@@ -37,7 +40,6 @@
     <meta name="twitter:image" content="header.jpg">
 
 
-    <link rel="stylesheet" href="./pico.min.css" />
     <title>Neurai Wallet</title>
     <link rel="stylesheet" href="./style.css" />
 
@@ -48,8 +50,8 @@
     </script>
   </head>
   <body>
-    <main class="container">
-      <div id="app"></div>
+    <main class="mx-auto max-w-7xl w-full px-4 py-6 md:px-6 flex-1 flex flex-col">
+      <div id="app" class="flex flex-col gap-5 flex-1"></div>
     </main>
     <script type="module" src="../src/index.tsx"></script>
   </body>

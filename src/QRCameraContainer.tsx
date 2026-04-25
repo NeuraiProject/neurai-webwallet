@@ -1,6 +1,5 @@
 import React from "react";
 import { useQRReader } from "./QRCamera";
-import "./QRCameraContainer.css";
 
 interface IQRCameraCointainerProps {
   onChange: (value: string) => void;
@@ -18,7 +17,8 @@ export function QRCameraContainer({ onChange }: IQRCameraCointainerProps) {
       {qr}
       {showQRCode === false && (
         <button
-          className="rebel-qr-camera__button"
+          type="button"
+          className="neurai-btn--secondary"
           onClick={() => setShowQRCode(true)}
         >
           Scan QR code

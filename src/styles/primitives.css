@@ -1,0 +1,152 @@
+@reference "./tailwind.css";
+
+/*
+ * Neurai design primitives — built on top of DaisyUI v5 / Tailwind v4.
+ *
+ * Each `.neurai-*` class is a thin alias that wraps the DaisyUI/Tailwind
+ * vocabulary the wallet actually uses, so JSX stays readable and component
+ * styles change in one place if we ever swap the underlying library.
+ *
+ * Use these classes in JSX. Avoid mixing them with raw Pico-styled HTML
+ * elements (`<article>`, `<button>` with no class, etc.) — those are the
+ * patterns we are migrating away from.
+ */
+
+@layer components {
+  /* -----------------------------------------------------------------------
+   * Layout
+   * --------------------------------------------------------------------- */
+
+  /* Outer container for a full screen / route */
+  .neurai-page {
+    @apply container mx-auto max-w-7xl px-4 py-6 md:px-6;
+  }
+
+  /* Vertical stack with consistent gap; default spacing fits Pico's old
+     `.grid` rhythm so swap-ins look natural. */
+  .neurai-stack {
+    @apply flex flex-col gap-4;
+  }
+
+  /* -----------------------------------------------------------------------
+   * Card surfaces
+   * --------------------------------------------------------------------- */
+
+  /* Standard wallet card. Layered shadow (contact + ambient + hero) so the
+     card edges stand out clearly against the gray page background. */
+  .neurai-card {
+    @apply rounded-xl border border-base-300 bg-base-200 px-7 py-6;
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.12),
+      0 4px 8px rgba(0, 0, 0, 0.10),
+      0 16px 32px -8px rgba(0, 0, 0, 0.18);
+  }
+
+  [data-theme="dark"] .neurai-card {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.5),
+      0 8px 24px -4px rgba(0, 0, 0, 0.55);
+  }
+
+  /* Compact card — used by the navigator / login menu strip. */
+  .neurai-card--compact {
+    @apply px-4 py-3;
+  }
+
+  /* Accent card — peach background in light, tinted in dark. */
+  .neurai-card--accent {
+    @apply bg-accent border-primary/30;
+  }
+
+  /* Tiny eyebrow label that sits above titles ("CLAIM", "FAUCET BALANCE", etc.). */
+  .neurai-eyebrow {
+    @apply mb-2 text-xs font-bold uppercase tracking-widest text-base-content/55;
+  }
+
+  /* Internal section title inside a card (replaces small `<h5>` headers). */
+  .neurai-card__title {
+    @apply m-0 text-lg font-semibold text-base-content;
+  }
+
+  /* -----------------------------------------------------------------------
+   * Buttons
+   * --------------------------------------------------------------------- */
+
+  .neurai-btn {
+    @apply btn;
+  }
+
+  .neurai-btn--primary {
+    @apply btn btn-primary;
+  }
+
+  .neurai-btn--secondary {
+    @apply btn btn-ghost border border-base-300;
+  }
+
+  .neurai-btn--ghost {
+    @apply btn btn-ghost;
+  }
+
+  /* Small square icon button (used for help/settings/copy controls). */
+  .neurai-btn--icon {
+    @apply btn btn-ghost btn-square btn-sm;
+  }
+
+  /* -----------------------------------------------------------------------
+   * Form controls
+   * --------------------------------------------------------------------- */
+
+  .neurai-input {
+    @apply input w-full;
+  }
+
+  .neurai-select {
+    @apply select w-full;
+  }
+
+  .neurai-textarea {
+    @apply textarea w-full;
+  }
+
+  .neurai-label {
+    @apply mb-1 block text-sm font-semibold text-base-content;
+  }
+
+  .neurai-hint {
+    @apply mt-1 text-xs text-base-content/70;
+  }
+
+  .neurai-hint--warn {
+    @apply mt-1 rounded-md bg-warning/15 px-2 py-1 text-xs font-medium text-warning;
+  }
+
+  /* -----------------------------------------------------------------------
+   * Misc
+   * --------------------------------------------------------------------- */
+
+  .neurai-divider {
+    @apply my-3 border-t border-base-300;
+  }
+
+  /* Status dot (sync, passphrase, hardware) — color set via `.is-*` modifier. */
+  .neurai-status {
+    @apply inline-flex items-center gap-1.5 text-xs text-base-content/80;
+  }
+
+  .neurai-status__dot {
+    @apply inline-block h-2.5 w-2.5 rounded-full bg-base-content/40;
+  }
+
+  .neurai-status.is-ok .neurai-status__dot {
+    @apply bg-success;
+  }
+
+  .neurai-status.is-warn .neurai-status__dot {
+    @apply bg-warning;
+  }
+
+  .neurai-status.is-error .neurai-status__dot {
+    @apply bg-error;
+  }
+}

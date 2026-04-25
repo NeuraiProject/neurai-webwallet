@@ -1,13 +1,13 @@
 import React from "react";
-
 import { CopyIcon } from "../icons";
-import "./CopyButton.css";
+
 export function CopyButton({ value, title }: { value: string; title: string }) {
   return (
     <button
-      className="outline rebel-copy-button"
+      type="button"
+      className="neurai-btn--icon"
       title={title}
-      onClick={(event) => {
+      onClick={() => {
         navigator.clipboard.writeText(value);
       }}
     >

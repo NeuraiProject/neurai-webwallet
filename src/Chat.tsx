@@ -874,7 +874,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   };
 
   return (
-    <article>
+    <div className="neurai-card">
       <h3 className="rebel-chat__header">
         <span />
         <span className="rebel-chat__depin-status">
@@ -1788,6 +1788,6 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
       `}</style>
       </div> {/* Close wrapper div */}
-    </article >
+    </div>
   );
 }

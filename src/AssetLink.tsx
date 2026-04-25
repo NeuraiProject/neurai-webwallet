@@ -4,7 +4,6 @@ import { Wallet } from "@neuraiproject/neurai-jswallet";
 const xnaLogo = new URL("../public/neurai-xna-logo.png", import.meta.url);
 
 import networkInfo from "./networkInfo";
-import "./AssetLink.css";
 import { AssetPlaceholder } from "./components/AssetPlaceholder";
 import { isBaseAssetName, normalizeAssetName } from "./utils";
 
@@ -16,6 +15,10 @@ interface IAsset {
   ipfs_hash: string;
   assetName: string;
 }
+
+const imgClass =
+  "max-w-[80px] max-h-[80px] rounded-lg mr-2.5 bg-white";
+
 export function AssetLink({ wallet, assetName }: LinkToIPFSProps) {
   const [assetData, setAssetData] = React.useState<IAsset | null>(null);
   const isBaseAsset = isBaseAssetName(assetName, wallet.baseCurrency);
@@ -34,14 +37,13 @@ export function AssetLink({ wallet, assetName }: LinkToIPFSProps) {
   if (isXnaBase) {
     return (
       <div>
-        <img className="rebel-asset-link__image" src={xnaLogo.href}></img>
+        <img className={imgClass} src={xnaLogo.href} />
       </div>
     );
   }
 
   if (assetData && assetData.ipfs_hash) {
     const url = "https://gateway.pinata.cloud/ipfs/" + assetData.ipfs_hash;
-
     const imageURL = networkInfo[wallet.network].getThumbnailURL(assetName);
 
     return (
@@ -49,12 +51,12 @@ export function AssetLink({ wallet, assetName }: LinkToIPFSProps) {
         <a href={url} target="asset">
           <img
             src={imageURL}
-            className="rebel-asset-link__image"
+            className={imgClass}
             onError={(event) => {
               const target = event.target as HTMLImageElement;
-              target.classList.add("rebel-asset-link__image--hidden");
+              target.classList.add("hidden");
             }}
-          ></img>
+          />
         </a>
       </div>
     );

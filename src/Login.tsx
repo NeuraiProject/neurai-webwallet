@@ -16,7 +16,6 @@ import {
   IconSweep,
 } from "./icons";
 import { autoResizeTextarea } from "./utils/domUtils";
-import "./Login.css";
 
 const neuraiLogo = new URL("../public/neurai-xna-logo.png", import.meta.url);
 
@@ -81,13 +80,10 @@ export function Login({
   const renderMenuItem = (item: typeof NAV_PREVIEW_ITEMS[number]) => {
     if (item.key === "settings") {
       return (
-        <li
-          key={item.key}
-          className="rebel-navigator__list-item rebel-navigator__list-item--icononly"
-        >
+        <li key={item.key} className="flex-1 min-w-0 flex justify-center">
           <a
             href="#"
-            className="primary rebel-navigator__list-item-link rebel-login__menu-link--active"
+            className="flex items-center justify-center p-1.5 text-base-content hover:text-primary transition-colors"
             onClick={(event) => {
               event.preventDefault();
               setShowSettings(true);
@@ -95,22 +91,19 @@ export function Login({
             title="RPC settings"
             aria-label="RPC settings"
           >
-            <div>{item.icon}</div>
+            {item.icon}
           </a>
         </li>
       );
     }
     return (
-      <li
-        key={item.key}
-        className="rebel-navigator__list-item rebel-navigator__list-item--icononly"
-      >
+      <li key={item.key} className="flex-1 min-w-0 flex justify-center">
         <span
-          className="primary rebel-navigator__list-item-link rebel-navigator__list-item-link--disabled"
+          className="flex items-center justify-center p-1.5 text-base-content/40 cursor-not-allowed"
           title={`${item.title} (sign in to activate)`}
           aria-disabled="true"
         >
-          <div>{item.icon}</div>
+          {item.icon}
         </span>
       </li>
     );
@@ -145,8 +138,8 @@ export function Login({
       const entropy = new Uint8Array(32);
       crypto.getRandomValues(entropy);
       const entropyHex = Array.from(entropy)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
       newMnemonic = NeuraiKey.entropyToMnemonic(entropyHex);
     }
 
@@ -154,7 +147,7 @@ export function Login({
 
     showDialog(
       "Backup your words",
-      `Save these ${wordCount} words somewhere safe${usePassphrase ? ' along with your passphrase' : ''}. Once you sign in, they will not be shown again.`
+      `Save these ${wordCount} words somewhere safe${usePassphrase ? " along with your passphrase" : ""}. Once you sign in, they will not be shown again.`
     );
 
     return false;
@@ -165,7 +158,7 @@ export function Login({
 
     let value = "";
 
-    if (mode === 'create') {
+    if (mode === "create") {
       if (!createdMnemonic) {
         alert("Please generate words first.");
         return false;
@@ -197,11 +190,12 @@ export function Login({
 
   if (showSettings) {
     return (
-      <div className="rebel-login">
-        <div className="rebel-login__settings-header">
+      <div>
+        <div className="flex items-center justify-between mb-6">
           <button
+            type="button"
             onClick={() => setShowSettings(false)}
-            className="secondary rebel-login__back-button"
+            className="neurai-btn--secondary"
           >
             ← Back to Login
           </button>
@@ -213,248 +207,231 @@ export function Login({
   }
 
   return (
-    <div className="rebel-login">
-      <div className="rebel-login__page">
-        <article className="rebel-login__menu-card rebel-navigator__container rebel-navigator__container--compact">
-          <div className="rebel-navigator__compact-grid">
-            <div className="rebel-navigator__compact-left">
-              <h2 className="rebel-headline rebel-navigator__brand">
-                <img
-                  src={neuraiLogo.href}
-                  alt="Neurai logo"
-                  className="rebel-navigator__brand-logo"
+    <div className="neurai-stack flex-1">
+      {/* Menu card — mirrors the navigator's compact strip */}
+      <div className="neurai-card neurai-card--compact">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Brand + status */}
+          <div className="flex flex-col gap-1 shrink-0">
+            <a href="#" className="flex items-center gap-1.5 text-primary font-semibold no-underline">
+              <img src={neuraiLogo.href} alt="Neurai logo" className="w-8 h-8 object-contain" />
+              <span className="text-xl">Neurai</span>
+            </a>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="neurai-status" title="Not connected (sign in to sync)">
+                <span className="neurai-status__dot" />
+                Syncr
+              </span>
+              <span className="neurai-status" title="Wallet locked">
+                <span className="neurai-status__dot" />
+                Passphrase
+              </span>
+              <span className="neurai-status" title="No hardware wallet connected">
+                <span className="neurai-status__dot" />
+                HW
+              </span>
+            </div>
+          </div>
+
+          {/* Disabled menu icons (preview) */}
+          <nav className="flex-1 min-w-0 hidden xl:block" aria-label="Wallet menu preview">
+            <ul className="flex items-center gap-1 list-none m-0 p-0 [&_svg]:w-5 [&_svg]:h-5">
+              {NAV_PREVIEW_ITEMS.map(renderMenuItem)}
+            </ul>
+          </nav>
+
+          {/* Right controls */}
+          <div className="flex items-center gap-1 ml-auto">
+            <button
+              type="button"
+              onClick={() => setShowHelp(true)}
+              className="neurai-btn--icon"
+              aria-label="Help"
+              title="How it works"
+            >
+              <IconHelp />
+            </button>
+            <LightModeToggle />
+          </div>
+        </div>
+
+        {/* Mobile / narrow icon row (visible <1280px) */}
+        <nav className="xl:hidden mt-3" aria-label="Wallet menu preview (mobile)">
+          <ul className="flex items-center justify-between gap-1 list-none m-0 p-0 [&_svg]:w-5 [&_svg]:h-5">
+            {NAV_PREVIEW_ITEMS.map(renderMenuItem)}
+          </ul>
+        </nav>
+      </div>
+
+      {/* Form card */}
+      <div className="neurai-card">
+        <h5 className="neurai-card__title mb-4">Recover or create wallet</h5>
+
+        <div className="mb-4">
+          <label htmlFor="rebel-login-network" className="neurai-label">
+            Network
+          </label>
+          <select
+            id="rebel-login-network"
+            className="neurai-select"
+            value={network}
+            onChange={(e) => handleNetworkChange(e.target.value as NetworkOption)}
+            aria-label="Network"
+          >
+            {NETWORK_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <p className="neurai-hint">Each network stores its seed separately on this device.</p>
+        </div>
+
+        {/* Mode toggle (Recover / Create) */}
+        <div role="tablist" aria-label="Sign in mode" className="join w-full mb-4">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "recover"}
+            className={`btn join-item flex-1 ${mode === "recover" ? "btn-primary" : "btn-ghost border border-base-300"}`}
+            onClick={() => setMode("recover")}
+          >
+            Recover
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "create"}
+            className={`btn join-item flex-1 ${mode === "create" ? "btn-primary" : "btn-ghost border border-base-300"}`}
+            onClick={() => setMode("create")}
+          >
+            Create new
+          </button>
+        </div>
+
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {mode === "recover" && (
+            <div>
+              <label htmlFor="mnemonic" className="neurai-label">
+                Recovery words
+              </label>
+              <div className="relative">
+                <textarea
+                  ref={textareaRef}
+                  id="mnemonic"
+                  autoComplete="off"
+                  placeholder="Type or paste your 12 or 24 words"
+                  className={`neurai-textarea pr-12 min-h-14 resize-none ${showWords ? "" : "[-webkit-text-security:disc] [text-security:disc] tracking-widest font-mono"}`}
+                  onChange={handleTextareaChange}
+                  onInput={handleTextareaInput}
+                  onFocus={(e) => autoResizeTextarea(e.currentTarget)}
+                  rows={1}
                 />
-                Neurai
-              </h2>
-
-              <div className="rebel-navigator__status-list rebel-navigator__status-list--singleline">
-                <div
-                  className="rebel-navigator__status-item rebel-navigator__status-item--muted"
-                  title="Not connected (sign in to sync)"
-                >
-                  <span className="rebel-navigator__status-dot" />
-                  <span className="rebel-navigator__status-label">Syncr</span>
-                </div>
-                <div
-                  className="rebel-navigator__status-item rebel-navigator__status-item--muted"
-                  title="Wallet locked"
-                >
-                  <span className="rebel-navigator__status-dot" />
-                  <span className="rebel-navigator__status-label">Passphrase</span>
-                </div>
-                <div
-                  className="rebel-navigator__status-item rebel-navigator__status-item--muted"
-                  title="No hardware wallet connected"
-                >
-                  <span className="rebel-navigator__status-dot" />
-                  <span className="rebel-navigator__status-label">HW</span>
-                </div>
-              </div>
-            </div>
-
-            <nav
-              className="rebel-navigator rebel-navigator--icononly rebel-navigator__compact-center"
-              aria-label="Wallet menu preview"
-            >
-              <ul className="rebel-navigator__list rebel-navigator__list--icononly rebel-navigator__list--icononly-singleline">
-                {NAV_PREVIEW_ITEMS.map(renderMenuItem)}
-              </ul>
-            </nav>
-
-            <div className="rebel-navigator__controls rebel-navigator__compact-right">
-              <div className="rebel-navigator__controls rebel-navigator__compact-right-controls">
                 <button
                   type="button"
-                  onClick={() => setShowHelp(true)}
-                  className="rebel-login__icon-btn"
-                  aria-label="Help"
-                  title="How it works"
+                  onClick={() => {
+                    setShowWords(!showWords);
+                    setTimeout(() => {
+                      if (textareaRef.current) autoResizeTextarea(textareaRef.current);
+                    }, 0);
+                  }}
+                  className="neurai-btn--icon absolute top-2 right-2"
+                  aria-label={showWords ? "Hide words" : "Show words"}
                 >
-                  <IconHelp />
+                  {showWords ? <IconEyeOff /> : <IconEye />}
                 </button>
-                <LightModeToggle />
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="rebel-navigator__compact-mobile-icons" aria-label="Compact menu">
-            <nav className="rebel-navigator rebel-navigator--icononly">
-              <ul className="rebel-navigator__list rebel-navigator__list--icononly rebel-navigator__list--icononly-singleline">
-                {NAV_PREVIEW_ITEMS.map(renderMenuItem)}
-              </ul>
-            </nav>
-          </div>
-        </article>
-
-        <article className="rebel-login__card">
-          <h5 className="rebel-login__card-title">Recover or create wallet</h5>
-
-          <div className="rebel-login__field">
-            <label htmlFor="rebel-login-network" className="rebel-login__label">
-              Network
-            </label>
-            <select
-              id="rebel-login-network"
-              className="rebel-login__select"
-              value={network}
-              onChange={(e) => handleNetworkChange(e.target.value as NetworkOption)}
-              aria-label="Network"
-            >
-              {NETWORK_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <p className="rebel-login__hint">
-              Each network stores its seed separately on this device.
-            </p>
-          </div>
-
-          <div className="rebel-login__mode-toggle" role="tablist" aria-label="Sign in mode">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'recover'}
-              className={`rebel-login__mode-btn ${mode === 'recover' ? 'is-active' : ''}`}
-              onClick={() => setMode('recover')}
-            >
-              Recover
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'create'}
-              className={`rebel-login__mode-btn ${mode === 'create' ? 'is-active' : ''}`}
-              onClick={() => setMode('create')}
-            >
-              Create new
-            </button>
-          </div>
-
-          <form onSubmit={onSubmit} className="rebel-login__form">
-            {mode === 'recover' && (
-              <div className="rebel-login__field">
-                <label htmlFor="mnemonic" className="rebel-login__label">
-                  Recovery words
-                </label>
-                <div className="rebel-login__input-wrap">
-                  <textarea
-                    ref={textareaRef}
-                    id="mnemonic"
-                    autoComplete="off"
-                    placeholder="Type or paste your 12 or 24 words"
-                    className={`rebel-login__textarea ${showWords ? "" : "rebel-login__textarea--masked"}`.trim()}
-                    onChange={handleTextareaChange}
-                    onInput={handleTextareaInput}
-                    onFocus={(e) => autoResizeTextarea(e.currentTarget)}
-                    rows={1}
-                  />
+          {mode === "create" && (
+            <>
+              <div>
+                <label className="neurai-label">Wallet strength</label>
+                <div role="tablist" className="join w-full">
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowWords(!showWords);
-                      setTimeout(() => {
-                        if (textareaRef.current) autoResizeTextarea(textareaRef.current);
-                      }, 0);
-                    }}
-                    className="rebel-login__visibility-toggle"
-                    aria-label={showWords ? "Hide words" : "Show words"}
+                    className={`btn btn-sm join-item flex-1 ${wordCount === 12 ? "btn-primary" : "btn-ghost border border-base-300"}`}
+                    onClick={() => setWordCount(12)}
                   >
-                    {showWords ? <IconEyeOff /> : <IconEye />}
+                    12 words
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm join-item flex-1 ${wordCount === 24 ? "btn-primary" : "btn-ghost border border-base-300"}`}
+                    onClick={() => setWordCount(24)}
+                  >
+                    24 words
                   </button>
                 </div>
               </div>
-            )}
 
-            {mode === 'create' && (
-              <>
-                <div className="rebel-login__field">
-                  <label className="rebel-login__label">Wallet strength</label>
-                  <div className="rebel-login__segmented">
-                    <button
-                      type="button"
-                      className={`rebel-login__segment ${wordCount === 12 ? 'is-active' : ''}`}
-                      onClick={() => setWordCount(12)}
-                    >
-                      12 words
-                    </button>
-                    <button
-                      type="button"
-                      className={`rebel-login__segment ${wordCount === 24 ? 'is-active' : ''}`}
-                      onClick={() => setWordCount(24)}
-                    >
-                      24 words
-                    </button>
+              <button
+                id="newWalletButton"
+                type="button"
+                onClick={newWallet}
+                className="btn btn-outline border-dashed border-base-300 text-primary"
+              >
+                Generate new words
+              </button>
+
+              {createdMnemonic && (
+                <div>
+                  <label className="neurai-label">Your recovery words</label>
+                  <div className="rounded-md border border-base-300 bg-base-100 p-3 font-mono text-sm leading-relaxed select-all break-words">
+                    {createdMnemonic}
                   </div>
+                  <p className="neurai-hint--warn">⚠ Save these words now. You will not see them again.</p>
                 </div>
+              )}
+            </>
+          )}
 
+          <label htmlFor="use-passphrase" className="flex items-center gap-2 cursor-pointer text-sm">
+            <input
+              type="checkbox"
+              id="use-passphrase"
+              className="checkbox checkbox-sm checkbox-primary"
+              checked={usePassphrase}
+              onChange={() => setUsePassphrase(!usePassphrase)}
+            />
+            <span>
+              Use passphrase <span className="text-base-content/60 font-normal">(advanced)</span>
+            </span>
+          </label>
+
+          {usePassphrase && (
+            <div>
+              <label htmlFor="passphrase" className="neurai-label">
+                Passphrase
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassphrase ? "text" : "password"}
+                  id="passphrase"
+                  autoComplete="off"
+                  placeholder="Enter your passphrase"
+                  className="neurai-input pr-12"
+                />
                 <button
-                  id="newWalletButton"
                   type="button"
-                  onClick={newWallet}
-                  className="secondary rebel-login__generate-btn"
+                  onClick={() => setShowPassphrase(!showPassphrase)}
+                  className="neurai-btn--icon absolute top-1/2 right-2 -translate-y-1/2"
+                  aria-label={showPassphrase ? "Hide passphrase" : "Show passphrase"}
                 >
-                  Generate new words
+                  {showPassphrase ? <IconEyeOff /> : <IconEye />}
                 </button>
-
-                {createdMnemonic && (
-                  <div className="rebel-login__field">
-                    <label className="rebel-login__label">Your recovery words</label>
-                    <div className="rebel-login__words-box">{createdMnemonic}</div>
-                    <p className="rebel-login__hint rebel-login__hint--warn">
-                      ⚠ Save these words now. You will not see them again.
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-
-            <label htmlFor="use-passphrase" className="rebel-login__passphrase-toggle">
-              <input
-                type="checkbox"
-                id="use-passphrase"
-                role="switch"
-                checked={usePassphrase}
-                onChange={() => setUsePassphrase(!usePassphrase)}
-              />
-              <span>Use passphrase <span className="rebel-login__hint-inline">(advanced)</span></span>
-            </label>
-
-            {usePassphrase && (
-              <div className="rebel-login__field">
-                <label htmlFor="passphrase" className="rebel-login__label">
-                  Passphrase
-                </label>
-                <div className="rebel-login__input-wrap">
-                  <input
-                    type={showPassphrase ? "text" : "password"}
-                    id="passphrase"
-                    autoComplete="off"
-                    placeholder="Enter your passphrase"
-                    className="rebel-login__input"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassphrase(!showPassphrase)}
-                    className="rebel-login__visibility-toggle"
-                    aria-label={showPassphrase ? "Hide passphrase" : "Show passphrase"}
-                  >
-                    {showPassphrase ? <IconEyeOff /> : <IconEye />}
-                  </button>
-                </div>
-                <p className="rebel-login__hint">
-                  Acts as a 13th/25th word. Without it, this wallet cannot be accessed.
-                </p>
               </div>
-            )}
+              <p className="neurai-hint">
+                Acts as a 13th/25th word. Without it, this wallet cannot be accessed.
+              </p>
+            </div>
+          )}
 
-            <button type="submit" className="rebel-login__submit">
-              Sign in
-            </button>
-          </form>
-        </article>
-
+          <button type="submit" className="neurai-btn--primary w-full">
+            Sign in
+          </button>
+        </form>
       </div>
 
       <Footer />
@@ -475,68 +452,68 @@ function Dialog({
   title: string;
 }) {
   return (
-    <dialog open className="rebel-login__dialog">
-      <article>
-        <header>
-          <a aria-label="Close" className="close" onClick={onClose}></a>
-          {title}
-        </header>
-        <p>{text}</p>
-        <footer>
-          <button onClick={onClose}>Close</button>
-        </footer>
-      </article>
+    <dialog open className="modal modal-open">
+      <div className="modal-box">
+        <h3 className="font-bold text-lg">{title}</h3>
+        <p className="py-4">{text}</p>
+        <div className="modal-action">
+          <button type="button" className="neurai-btn--primary" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+      <div className="modal-backdrop" onClick={onClose} />
     </dialog>
   );
 }
 
 function HelpDialog({ onClose }: { onClose: () => void }) {
   return (
-    <dialog open className="rebel-login__dialog rebel-login__dialog--help">
-      <article>
-        <header>
-          <a aria-label="Close" className="close" onClick={onClose}></a>
-          How the wallet works
-        </header>
+    <dialog open className="modal modal-open">
+      <div className="modal-box max-w-xl">
+        <h3 className="font-bold text-lg mb-2">How the wallet works</h3>
 
-        <h4>Wallet setup &amp; security</h4>
-        <p>
-          Generate a new 12 or 24-word recovery phrase or import an existing one.
-          This phrase is the master key to your funds.
+        <h4 className="font-bold text-primary mt-4 mb-1">Wallet setup &amp; security</h4>
+        <p className="text-sm text-base-content/80">
+          Generate a new 12 or 24-word recovery phrase or import an existing one. This phrase is the
+          master key to your funds.
         </p>
-        <p>
-          Optionally add a BIP39 passphrase as a "13th/25th word". The same mnemonic
-          with a different passphrase produces a completely different wallet.
+        <p className="text-sm text-base-content/80 mt-2">
+          Optionally add a BIP39 passphrase as a "13th/25th word". The same mnemonic with a different
+          passphrase produces a completely different wallet.
         </p>
 
-        <h4>Privacy first</h4>
-        <p>
-          Your recovery words and passphrase never leave this device. Encryption
-          and transaction signing happen locally in your browser.
+        <h4 className="font-bold text-primary mt-4 mb-1">Privacy first</h4>
+        <p className="text-sm text-base-content/80">
+          Your recovery words and passphrase never leave this device. Encryption and transaction
+          signing happen locally in your browser.
         </p>
 
-        <h4>DePIN &amp; IoT</h4>
-        <p>
-          Beyond standard XNA transfers, this wallet supports Decentralized Physical
-          Infrastructure Networks (DePIN) and IoT device management.
+        <h4 className="font-bold text-primary mt-4 mb-1">DePIN &amp; IoT</h4>
+        <p className="text-sm text-base-content/80">
+          Beyond standard XNA transfers, this wallet supports Decentralized Physical Infrastructure
+          Networks (DePIN) and IoT device management.
         </p>
 
-        <p className="rebel-login__hint rebel-login__hint--warn">
-          ⚠ Neurai cannot recover your wallet. If you lose your recovery words,
-          your funds are gone forever. Always keep physical backups.
+        <p className="neurai-hint--warn mt-4">
+          ⚠ Neurai cannot recover your wallet. If you lose your recovery words, your funds are gone
+          forever. Always keep physical backups.
         </p>
 
-        <footer>
-          <button onClick={onClose}>Got it</button>
-        </footer>
-      </article>
+        <div className="modal-action">
+          <button type="button" className="neurai-btn--primary" onClick={onClose}>
+            Got it
+          </button>
+        </div>
+      </div>
+      <div className="modal-backdrop" onClick={onClose} />
     </dialog>
   );
 }
 
 function IconHelp() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
       <line x1="12" y1="17" x2="12.01" y2="17" />

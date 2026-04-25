@@ -2,7 +2,6 @@ import React from "react";
 
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { getAssetBalanceFromMempool, type MempoolAsset } from "./utils";
-import "./Balance.css";
 
 function isTestnet(wallet: Wallet | null | undefined): boolean {
   const net = wallet?.network;
@@ -40,24 +39,20 @@ export function Balance({
   });
   return (
     <div>
-      {hasPending === true ? (
+      {hasPending && (
         <div>
-          <small>* includes pending transactions</small>
+          <small className="text-base-content/60">* includes pending transactions</small>
         </div>
-      ) : (
-        ""
       )}
       <h1
-        className={
-          "rebel-balance" + (onTestnet ? " rebel-balance--no-price" : "")
-        }
+        className={`balance-amount text-center font-extralight m-0 leading-tight text-4xl md:text-5xl ${onTestnet ? "mb-6" : "mb-0"}`}
       >
         {balanceText} {wallet.baseCurrency}
       </h1>
       {!onTestnet && dollarValue && (
-        <div className="rebel-balance__value-container">
-          <div className="rebel-balance__dollar-value">{dollarValue} total</div>
-          <div className="rebel-balance__base-currency-value">
+        <div className="balance-price mb-6 text-center text-lg font-extralight space-x-8">
+          <div className="inline-block">{dollarValue} total</div>
+          <div className="inline-block">
             {unitPriceText} {wallet.baseCurrency}
           </div>
         </div>
