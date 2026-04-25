@@ -50,7 +50,7 @@
   }
 
   .rebel-chat__derivation-path {
-    @apply -mt-3 mb-0 text-xs font-normal break-all text-base-content/70;
+    @apply mt-1 mb-0 text-xs font-normal break-all text-base-content/70;
   }
 
   /* ──────────────────────────────────────────────────────────────────────
@@ -215,6 +215,27 @@
     @apply mt-0;
   }
 
+  /* Style the bare <table role="grid"> inside the slider so it doesn't fall
+     back to browser defaults now that Pico is gone. */
+  .rebel-chat__asset-slider-content table {
+    @apply w-full border-collapse;
+  }
+  .rebel-chat__asset-slider-content thead tr {
+    @apply border-b border-base-300;
+  }
+  .rebel-chat__asset-slider-content th {
+    @apply text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-base-content/60;
+  }
+  .rebel-chat__asset-slider-content td {
+    @apply px-3 py-2 align-middle;
+  }
+  .rebel-chat__asset-slider-content tbody tr {
+    @apply border-b border-base-300/50 transition-colors;
+  }
+  .rebel-chat__asset-slider-content tbody tr:hover {
+    @apply bg-primary/5;
+  }
+
   .rebel-chat__asset-table-select {
     @apply w-12 text-center;
   }
@@ -223,6 +244,9 @@
   }
   .rebel-chat__asset-row--selected {
     @apply bg-primary/10;
+  }
+  .rebel-chat__asset-row--selected:hover {
+    @apply bg-primary/15;
   }
   .rebel-chat__asset-radio {
     @apply cursor-pointer;
