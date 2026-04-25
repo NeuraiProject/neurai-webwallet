@@ -328,28 +328,13 @@ export function Asset({ wallet }: { wallet: Wallet }) {
         }
 
         case "reissue": {
-          // Reissue rules in @neuraiproject/neurai-assets@1.3.1:
-          //   • `units` is read from on-chain assetData, NOT params, so we
-          //     don't pass it.
-          //   • The IPFS field is `newIpfs` (the wallet's `.d.ts` lists
-          //     `ipfsHash` but ReissueBuilder ignores that name), so we cast
-          //     through `unknown` to bypass the stale type.
-          //   • The chain's reissue output stores `asset_quantity` as the
-          //     RAW DISPLAY count, but the library calls
-          //     `toSatoshis(quantity, assetData.units)` internally — i.e. it
-          //     multiplies by `10^units`. To get the user's intended N
-          //     tokens on-chain, we pre-divide by `10^units` so the lib's
-          //     multiplication cancels out. Without this, reissuing 1 token
-          //     of an 8-decimal asset actually mints 100,000,000.
-          const userQty = parseFloat(quantity);
-          const assetData = (await wallet.rpc("getassetdata", [
-            trimmedAssetName,
-          ])) as { units?: number } | null;
-          const assetUnits = assetData?.units ?? 0;
-          const compensatedQty = userQty / Math.pow(10, assetUnits);
+          // ReissueBuilder reads `units` from on-chain assetData (we don't
+          // pass it). The IPFS field is `newIpfs` — the wallet's `.d.ts`
+          // lists `ipfsHash` but the underlying builder ignores that name,
+          // so we cast through `unknown` to bypass the stale type.
           const reissueParams = {
             assetName: trimmedAssetName,
-            quantity: compensatedQty,
+            quantity: parseFloat(quantity),
             reissuable: reissuableFlag,
             newIpfs: ipfs || undefined,
             ...opts,

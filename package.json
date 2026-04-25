@@ -24,7 +24,7 @@
   "dependencies": {
     "@neuraiproject/neurai-depin-msg": "^2.1.3",
     "@neuraiproject/neurai-history-list": "^1.2.5",
-    "@neuraiproject/neurai-jswallet": "0.14.0",
+    "@neuraiproject/neurai-jswallet": "^0.14.1",
     "@neuraiproject/neurai-message": "^0.9.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
