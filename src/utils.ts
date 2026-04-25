@@ -1,16 +1,20 @@
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "./Types";
 
-// @ts-ignore - Parcel handles this correctly
-const CryptoJS = require("crypto-js");
-
 const SEPARATOR = "|||";
 const STORAGE_KEY = "mnemonic";
 const SESSION_KEY = "mnemonic_session";
 
-// Legacy (pre-PIN) storage encryption used a static, hardcoded passphrase.
-// Keep read-only support to auto-migrate old wallets into pin-v2.
-const LEGACY_STATIC_KEY = "U2FsdGVkX1/UYDOP/PD64YU3tbCAeJBR";
+const STORAGE_KEY_PREFIX = "mnemonic:";
+const SESSION_KEY_PREFIX = "mnemonic_session:";
+
+function storageKeyFor(network: string): string {
+  return `${STORAGE_KEY_PREFIX}${network}`;
+}
+
+function sessionKeyFor(network: string): string {
+  return `${SESSION_KEY_PREFIX}${network}`;
+}
 
 const PIN_PREFIX = "pin-v2:";
 const PBKDF2_ITERATIONS = 600_000;
@@ -55,7 +59,21 @@ export function isBaseAssetName(assetName?: string | null, baseCurrency?: string
   return normalizedAsset === normalizedBase;
 }
 
-export function getStoredMnemonicRaw(): { location: StoredSecretLocation; value: string } | null {
+export function getStoredMnemonicRaw(
+  network: string
+): { location: StoredSecretLocation; value: string } | null {
+  // Prefer network-specific keys; fall back to legacy unsuffixed keys so
+  // existing users don't lose access until they re-save under the new scheme.
+  const networkSession = sessionStorage.getItem(sessionKeyFor(network));
+  if (networkSession && networkSession.length > 0) {
+    return { location: "session", value: networkSession };
+  }
+
+  const networkLocal = localStorage.getItem(storageKeyFor(network));
+  if (networkLocal && networkLocal.length > 0) {
+    return { location: "local", value: networkLocal };
+  }
+
   const sessionRaw = sessionStorage.getItem(SESSION_KEY);
   if (sessionRaw && sessionRaw.length > 0) {
     return { location: "session", value: sessionRaw };
@@ -67,21 +85,6 @@ export function getStoredMnemonicRaw(): { location: StoredSecretLocation; value:
   }
 
   return null;
-}
-
-function isProbablyCiphertext(value: string): boolean {
-  // A mnemonic will contain spaces; ciphertext typically won't.
-  return value.indexOf(" ") === -1;
-}
-
-function decryptLegacyStaticAes(ciphertext: string): string {
-  try {
-    const decryptedBytes = CryptoJS.AES.decrypt(ciphertext, LEGACY_STATIC_KEY);
-    const plaintext = decryptedBytes.toString(CryptoJS.enc.Utf8);
-    return (plaintext || "").trim();
-  } catch {
-    return "";
-  }
 }
 
 function getCryptoOrThrow(): Crypto {
@@ -150,7 +153,7 @@ async function deriveAesKeyFromPin(pin: string, salt: Uint8Array, iterations: nu
   );
 }
 
-async function encryptPinV2(plaintext: string, pin: string): Promise<string> {
+export async function encryptPinV2(plaintext: string, pin: string): Promise<string> {
   const subtle = getSubtleOrThrow();
   const cryptoObj = getCryptoOrThrow();
   const salt = cryptoObj.getRandomValues(new Uint8Array(PBKDF2_SALT_BYTES));
@@ -179,7 +182,7 @@ async function encryptPinV2(plaintext: string, pin: string): Promise<string> {
   return `${PIN_PREFIX}${utf8ToBase64(JSON.stringify(env))}`;
 }
 
-async function decryptPinV2(payload: string, pin: string): Promise<string> {
+export async function decryptPinV2(payload: string, pin: string): Promise<string> {
   const subtle = getSubtleOrThrow();
   const b64 = payload.startsWith(PIN_PREFIX) ? payload.slice(PIN_PREFIX.length) : payload;
   const json = base64ToUtf8(b64);
@@ -214,17 +217,20 @@ export function splitMnemonicAndPassphrase(fullData: string): { mnemonic: string
   return { mnemonic: trimmed, passphrase: "" };
 }
 
-export function hasStoredMnemonic(): boolean {
-  return !!getStoredMnemonicRaw();
+export function hasStoredMnemonic(network: string): boolean {
+  return !!getStoredMnemonicRaw(network);
 }
 
-export function isStoredMnemonicPinProtected(): boolean {
-  const found = getStoredMnemonicRaw();
+export function isStoredMnemonicPinProtected(network: string): boolean {
+  const found = getStoredMnemonicRaw(network);
   return !!found?.value?.startsWith(PIN_PREFIX);
 }
 
-export async function decryptStoredMnemonicDataWithPin(pin: string): Promise<string> {
-  const found = getStoredMnemonicRaw();
+export async function decryptStoredMnemonicDataWithPin(
+  pin: string,
+  network: string
+): Promise<string> {
+  const found = getStoredMnemonicRaw(network);
   if (!found) return "";
 
   const raw = found.value;
@@ -233,27 +239,20 @@ export async function decryptStoredMnemonicDataWithPin(pin: string): Promise<str
     return decryptPinV2(raw, pin);
   }
 
-  // If it looks like a plaintext mnemonic/passphrase string, allow migrating it into pin-v2.
-  // Any other encrypted format is not supported.
-  if (isProbablyCiphertext(raw)) {
-    // Attempt legacy (pre-PIN) decrypt so we can migrate into pin-v2.
-    return decryptLegacyStaticAes(raw);
-  }
-
   return raw;
 }
 
 export async function setMnemonicWithPin(
   mnemonicData: string,
   pin: string,
-  options?: { persist?: boolean }
+  options: { persist?: boolean; network: string }
 ) {
   const value = (mnemonicData || "").trim();
-  const persist = options?.persist ?? true;
+  const persist = options.persist ?? true;
   const storage = persist ? localStorage : sessionStorage;
-  const key = persist ? STORAGE_KEY : SESSION_KEY;
+  const key = persist ? storageKeyFor(options.network) : sessionKeyFor(options.network);
   const otherStorage = persist ? sessionStorage : localStorage;
-  const otherKey = persist ? SESSION_KEY : STORAGE_KEY;
+  const otherKey = persist ? sessionKeyFor(options.network) : storageKeyFor(options.network);
 
   if (!value) {
     storage.removeItem(key);
@@ -264,11 +263,41 @@ export async function setMnemonicWithPin(
   const payload = await encryptPinV2(value, pin);
   storage.setItem(key, payload);
   otherStorage.removeItem(otherKey);
-}
 
-export function clearStoredWalletSecrets() {
+  // The legacy unsuffixed key is no longer the source of truth for this
+  // network; remove it to avoid stale fallback reads.
   localStorage.removeItem(STORAGE_KEY);
   sessionStorage.removeItem(SESSION_KEY);
+}
+
+/**
+ * Clear stored wallet secrets. With a network argument, only that network's
+ * seed is removed (the user can still access other networks). Without it, all
+ * stored seeds (network-specific + legacy) are removed.
+ */
+export function clearStoredWalletSecrets(network?: string) {
+  if (network) {
+    localStorage.removeItem(storageKeyFor(network));
+    sessionStorage.removeItem(sessionKeyFor(network));
+    // Legacy keys acted as a fallback for this network — drop them so they
+    // don't reappear after a sign-out.
+    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
+    return;
+  }
+
+  // No network → wipe everything.
+  const removeMatching = (storage: Storage, prefix: string, exact: string) => {
+    const keys: string[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const k = storage.key(i);
+      if (!k) continue;
+      if (k === exact || k.startsWith(prefix)) keys.push(k);
+    }
+    keys.forEach((k) => storage.removeItem(k));
+  };
+  removeMatching(localStorage, STORAGE_KEY_PREFIX, STORAGE_KEY);
+  removeMatching(sessionStorage, SESSION_KEY_PREFIX, SESSION_KEY);
 }
 
 // Legacy exports kept to avoid breaking older imports (use the PIN-based helpers above).

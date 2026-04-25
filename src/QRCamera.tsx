@@ -1,30 +1,27 @@
 import React from "react";
-import { QrReader } from "react-qr-reader";
+import { Scanner } from "@yudiel/react-qr-scanner";
 export function useQRReader(
     showQRCode: boolean,
     onResult: (value: string | null) => void
   ) {
     const [qr, setQR] = React.useState(<></>);
-    const [mode, setMode] = React.useState("environment");
+    const [mode, setMode] = React.useState<"environment" | "user">("environment");
     React.useEffect(() => {
       if (showQRCode === false) {
         setQR(<></>);
       } else {
         const q = (
           <div>
-            <QrReader
+            <Scanner
               key={"qr" + new Date().toISOString()}
               constraints={{
                 facingMode: mode,
               }}
               scanDelay={100}
-              onResult={(result, error) => {
-                if (!!result) {
-                    //@ts-ignore
-                  onResult(result?.text);
-                }
-  
-                if (!!error) {
+              onScan={(codes) => {
+                const value = codes[0]?.rawValue;
+                if (value) {
+                  onResult(value);
                 }
               }}
             />
@@ -33,7 +30,7 @@ export function useQRReader(
                 className="secondary"
                 onClick={() => {
                   const newMode = mode === "environment" ? "user" : "environment";
-  
+
                   setMode(newMode);
                 }}
               >
@@ -48,7 +45,6 @@ export function useQRReader(
         setQR(q);
       }
     }, [showQRCode, mode]);
-  
+
     return qr;
   }
-  

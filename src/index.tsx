@@ -1,4 +1,5 @@
 import NeuraiWallet, { Wallet } from "@neuraiproject/neurai-jswallet";
+import type { ChainType } from "@neuraiproject/neurai-jswallet/dist/Types";
 console.log("NeuraiWallet", !!NeuraiWallet);
 import React from "react";
 import {
@@ -37,14 +38,17 @@ import { useBlockCount } from "./hooks/useBlockCount";
 import { useBalance } from "./hooks/useBalance";
 import { useAssets } from "./hooks/useAssets";
 import { useReceiveAddress } from "./hooks/useReceiveAddress";
-import { deriveDepinChatIdentity, DepinChatIdentity } from "./utils/depinChatIdentity";
+import {
+  deriveDepinChatIdentity,
+  DepinChatIdentity,
+  isDepinChatSupportedNetwork,
+} from "./utils/depinChatIdentity";
 
 const neuraiLogo = new URL("../public/neurai-xna-logo.png", import.meta.url);
 
 let _mnemonic =
   "sight rate burger maid melody slogan attitude gas account sick awful hammer";
 
-type ChainType = "xna" | "xna-test" | "xna-legacy" | "xna-legacy-test";
 type WalletConfig = {
   minAmountOfAddresses: number;
   mnemonic: string;
@@ -117,22 +121,36 @@ function App() {
   const mempool = useMempool(dataWallet, blockCount);
   const assets = useAssets(dataWallet, blockCount);
 
-  // Determine network from query string (stable for this session)
-  const network: ChainType = React.useMemo(() => {
+  // Determine network: prefer the user's selection from the Login picker
+  // (`wallet_network`), falling back to the legacy URL/derivation_type logic for
+  // existing users that have not picked yet.
+  const [network, setNetwork] = React.useState<ChainType>(() => {
+    const stored = localStorage.getItem("wallet_network");
+    const validStored: ChainType[] = [
+      "xna",
+      "xna-test",
+      "xna-legacy",
+      "xna-legacy-test",
+      "xna-pq",
+      "xna-pq-test",
+    ];
+    if (stored && (validStored as string[]).includes(stored)) {
+      return stored as ChainType;
+    }
+
     const searchParams = new URLSearchParams(window.location.search);
     const isTestnet = searchParams.get("network") === "xna-test";
-    const derivationType = localStorage.getItem("derivation_type");
-    const useLegacy = derivationType === "legacy";
+    const useLegacy = localStorage.getItem("derivation_type") === "legacy";
 
     if (isTestnet) {
       return useLegacy ? "xna-legacy-test" : "xna-test";
     }
-
     return useLegacy ? "xna-legacy" : "xna";
-  }, []);
+  });
 
   const depinChatIdentity = React.useMemo<DepinChatIdentity | null>(() => {
     if (!mnemonic) return null;
+    if (!isDepinChatSupportedNetwork(network)) return null;
     try {
       return deriveDepinChatIdentity({ network, mnemonic, passphrase, account: 100, index: 0 });
     } catch (e) {
@@ -146,21 +164,23 @@ function App() {
     // If already unlocked in this session, do nothing.
     if (mnemonic) return;
 
-    // If there is a stored mnemonic, require PIN setup/unlock.
-    if (!hasStoredMnemonic()) {
+    // If there is a stored mnemonic for the current network, require PIN
+    // setup/unlock. When the user switches network in the Login picker, this
+    // re-runs and reflects the new network's storage state.
+    if (!hasStoredMnemonic(network)) {
       setPinGateMode(null);
       return;
     }
 
     setPinGateError(null);
-    if (isStoredMnemonicPinProtected()) {
+    if (isStoredMnemonicPinProtected(network)) {
       setPinGateMode("unlock");
     } else {
       // Stored mnemonic exists but is not PIN-protected (legacy). We'll prompt for PIN creation
       // and migrate it once the user confirms.
       setPinGateMode("setup");
     }
-  }, [mnemonic]);
+  }, [mnemonic, network]);
 
   React.useEffect(() => {
     if (navLocked && currentRoute !== Routes.SETTINGS) {
@@ -206,7 +226,10 @@ function App() {
         console.error("Error loading custom RPC config:", error);
       }
       } else {
-        const isTestnetNetwork = network === "xna-test" || network === "xna-legacy-test";
+        const isTestnetNetwork =
+          network === "xna-test" ||
+          network === "xna-legacy-test" ||
+          network === "xna-pq-test";
         walletConfig.rpc_url = isTestnetNetwork ? DEFAULT_RPC_TESTNET : DEFAULT_RPC_MAINNET;
     }
 
@@ -418,11 +441,10 @@ function App() {
           }}
           onReset={() => {
             const ok = confirm(
-              "Reset wallet? This will remove the wallet data stored in this browser. You will need your mnemonic to restore it."
+              "Reset wallet? This will remove the wallet data stored in this browser for the current network. You will need your mnemonic to restore it."
             );
             if (!ok) return;
-            clearStoredWalletSecrets();
-            localStorage.removeItem("loginFromESP32");
+            clearStoredWalletSecrets(network);
             setWallet(null);
             setMnemonic("");
             setPassphrase("");
@@ -435,7 +457,10 @@ function App() {
             setPinGateError(null);
             void (async () => {
               try {
-                await setMnemonicWithPin(pendingMnemonicData, pin, { persist: pendingPersist });
+                await setMnemonicWithPin(pendingMnemonicData, pin, {
+                  persist: pendingPersist,
+                  network,
+                });
                 const { mnemonic: m, passphrase: p } = splitMnemonicAndPassphrase(pendingMnemonicData);
                 setMnemonic(m);
                 setPassphrase(p);
@@ -461,11 +486,10 @@ function App() {
           }}
           onReset={() => {
             const ok = confirm(
-              "Reset wallet? This will remove the wallet data stored in this browser. You will need your mnemonic to restore it."
+              "Reset wallet? This will remove the wallet data stored in this browser for the current network. You will need your mnemonic to restore it."
             );
             if (!ok) return;
-            clearStoredWalletSecrets();
-            localStorage.removeItem("loginFromESP32");
+            clearStoredWalletSecrets(network);
             setWallet(null);
             setMnemonic("");
             setPassphrase("");
@@ -478,9 +502,9 @@ function App() {
             setPinGateError(null);
             void (async () => {
               try {
-                const plaintext = await decryptStoredMnemonicDataWithPin(pin);
+                const plaintext = await decryptStoredMnemonicDataWithPin(pin, network);
                 if (!plaintext) {
-                  const stored = getStoredMnemonicRaw();
+                  const stored = getStoredMnemonicRaw(network);
                   const raw = stored?.value || "";
                   if (raw && !raw.includes(" ")) {
                     setPinGateError("Unsupported wallet format. Please use Reset wallet.");
@@ -492,9 +516,9 @@ function App() {
 
                 // If we were in setup mode, migrate plaintext storage into pin-v2.
                 if (pinGateMode === "setup") {
-                  const stored = getStoredMnemonicRaw();
+                  const stored = getStoredMnemonicRaw(network);
                   const persist = stored?.location === "local";
-                  await setMnemonicWithPin(plaintext, pin, { persist });
+                  await setMnemonicWithPin(plaintext, pin, { persist, network });
                 }
 
                 const { mnemonic: m, passphrase: p } = splitMnemonicAndPassphrase(plaintext);
@@ -513,17 +537,13 @@ function App() {
       <Login
         onLogin={(data) => {
           // Always require PIN setup before unlocking a new mnemonic.
+          setNetwork(data.network);
           setPendingMnemonicData(data.mnemonicData);
           setPendingPersist(data.persist);
           setPinGateMode("setup");
           setPinGateError(null);
-
-          if (data.isFromESP32) {
-            localStorage.setItem("loginFromESP32", "true");
-          } else {
-            localStorage.removeItem("loginFromESP32");
-          }
         }}
+        onNetworkChange={(net) => setNetwork(net)}
       />
     );
   }
@@ -535,8 +555,7 @@ function App() {
 
   const signOut = () => {
     if (confirm("Are you sure you want to sign out?")) {
-      clearStoredWalletSecrets();
-      localStorage.removeItem("loginFromESP32");
+      clearStoredWalletSecrets(network);
       setWallet(null);
       setMnemonic("");
       setPassphrase("");
@@ -571,7 +590,6 @@ function App() {
             <Settings
               signOut={signOut}
               mnemonic={mnemonic}
-              isFromESP32={localStorage.getItem("loginFromESP32") === "true"}
             />
           </div>
         </div>
@@ -650,7 +668,6 @@ function App() {
             <Settings
               signOut={signOut}
               mnemonic={mnemonic}
-              isFromESP32={localStorage.getItem("loginFromESP32") === "true"}
             />
           )}
         </div>

@@ -2,7 +2,7 @@ import {
   computeExpiresDate,
   extractBotModel,
   getUnreadCount
-} from "../../../src/utils/messageUtils";
+} from "@/utils/messageUtils";
 
 describe("extractBotModel", () => {
   it("extracts bracketed model names", () => {

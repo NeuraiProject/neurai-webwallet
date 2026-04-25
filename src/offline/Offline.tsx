@@ -1,5 +1,5 @@
 import React from "react";
-import NeuraiKey from "@neuraiproject/neurai-key";
+import { key as NeuraiKey } from "@neuraiproject/neurai-jswallet/dist/index.js";
 import { Settings } from "../Settings";
 import "./Offline.css";
 

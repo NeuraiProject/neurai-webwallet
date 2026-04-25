@@ -13,11 +13,9 @@ const DEFAULT_RPC_TESTNET = "https://rpc-testnet.neurai.org/rpc";
 export function Settings({
   signOut,
   mnemonic,
-  isFromESP32 = false,
 }: {
   signOut?: () => void;
   mnemonic?: string;
-  isFromESP32?: boolean;
 }) {
   const [rpcUrl, setRpcUrl] = React.useState("");
   const [rpcUsername, setRpcUsername] = React.useState("");
@@ -25,7 +23,6 @@ export function Settings({
   const [useCustomRPC, setUseCustomRPC] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
-  const [useLegacyDerivation, setUseLegacyDerivation] = React.useState(false);
 
   // Load saved settings on mount
   React.useEffect(() => {
@@ -41,10 +38,6 @@ export function Settings({
         console.error("Error loading RPC config:", e);
       }
     }
-
-    // Cargar preferencia de derivación
-    const savedDerivationType = localStorage.getItem("derivation_type");
-    setUseLegacyDerivation(savedDerivationType === "legacy");
   }, []);
 
   const handleSave = () => {
@@ -96,21 +89,37 @@ export function Settings({
     }
   };
 
-  const handleDerivationToggle = (checked: boolean) => {
-    const newType = checked ? "legacy" : "standard";
-    localStorage.setItem("derivation_type", newType);
-    setUseLegacyDerivation(checked);
+  // Resolve the active network using the same precedence as index.tsx:
+  // explicit `wallet_network` first, then the legacy URL/derivation_type
+  // fallback. We don't allow changing it from here — the user picks the
+  // network from the Login screen.
+  const resolveNetwork = (): string => {
+    const stored = localStorage.getItem("wallet_network");
+    const valid = ["xna", "xna-test", "xna-legacy", "xna-legacy-test", "xna-pq", "xna-pq-test"];
+    if (stored && valid.includes(stored)) return stored;
 
-    // Recargar inmediatamente
-    if (confirm("Derivation type changed. The wallet needs to reload to switch addresses. Reload now?")) {
-      window.location.reload();
+    const params = new URLSearchParams(window.location.search);
+    const isTestnetParam = params.get("network") === "xna-test";
+    const useLegacy = localStorage.getItem("derivation_type") === "legacy";
+    if (isTestnetParam) return useLegacy ? "xna-legacy-test" : "xna-test";
+    return useLegacy ? "xna-legacy" : "xna";
+  };
+
+  const network = resolveNetwork();
+  const isTestnetNetwork =
+    network === "xna-test" || network === "xna-legacy-test" || network === "xna-pq-test";
+
+  const networkLabel = (() => {
+    switch (network) {
+      case "xna-legacy": return "Mainnet Legacy";
+      case "xna-pq": return "Mainnet PQ";
+      case "xna-legacy-test": return "Testnet Legacy";
+      case "xna-pq-test": return "Testnet PQ";
+      case "xna-test": return "Testnet";
+      case "xna": return "Mainnet";
+      default: return network;
     }
-  };
-
-  const isTestnet = () => {
-    const searchParams = new URLSearchParams(window.location.search);
-    return searchParams.get("network") === "xna-test";
-  };
+  })();
 
   const safeMnemonic = mnemonic ?? "";
   const mnemonicOnly = safeMnemonic.includes("|||") ? safeMnemonic.split("|||")[0] : safeMnemonic;
@@ -124,57 +133,21 @@ export function Settings({
   const wordsText = wordCount === 24 ? "24 words" : "12 words";
 
   const canSignOut = typeof signOut === "function";
-  const canCopyMnemonic = !isFromESP32 && !!safeMnemonic;
+  const canCopyMnemonic = !!safeMnemonic;
   const showWalletSection = canSignOut || canCopyMnemonic;
 
   return (
     <article>
-      <h3>Derivation Type</h3>
+      <h3>Network</h3>
       <div className="rebel-settings__card">
         <p>
-          <strong>Current network:</strong> {isTestnet() ? "Testnet (xna-test)" : "Mainnet"}
+          <strong>Current network:</strong> {networkLabel}{" "}
+          <small className="rebel-settings__hint">({network})</small>
         </p>
-        {!isTestnet() && (
-          <>
-            <div className="rebel-settings__toggle-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={useLegacyDerivation}
-                  onChange={(e) => handleDerivationToggle(e.target.checked)}
-                />
-                Use legacy derivation (BIP44 coin type 0)
-              </label>
-            </div>
-            <div className="rebel-settings__card rebel-settings__derivation-info">
-              <small>
-                <strong>{useLegacyDerivation ? "Legacy" : "Standard"}:</strong>{" "}
-                {useLegacyDerivation
-                  ? "m/44'/0'/0'/0/0 (compatible with Electrum, Neurai-Qt or old Webwallets)"
-                  : "m/44'/1900'/0'/0/0 (recommended for new wallets)"}
-              </small>
-            </div>
-            <div className="rebel-settings__notes rebel-settings__notes--compact">
-              <h4>Important:</h4>
-              <ul>
-                <li>
-                  <strong>Changing derivation generates different addresses</strong> from the same mnemonic
-                </li>
-                <li>
-                  Use legacy only if you need to restore old wallets from <strong>Electrum</strong>, <strong>Neurai-Qt</strong> or previous <strong>Webwallets</strong> (before coin type 1900)
-                </li>
-                <li>
-                  The wallet will reload when you change this setting
-                </li>
-              </ul>
-            </div>
-          </>
-        )}
-        {isTestnet() && (
-          <small className="rebel-settings__hint">
-            Testnet uses coin type 1; legacy and standard derivation are equivalent
-          </small>
-        )}
+        <small className="rebel-settings__hint">
+          To switch networks, sign out and pick a different one on the login screen.
+          Each network keeps its own seed file in this browser.
+        </small>
       </div>
 
       <hr className="rebel-settings__divider" />
@@ -240,9 +213,10 @@ export function Settings({
         </>
       ) : (
         <div className="rebel-settings__card">
-          <p><strong>Default RPC Servers:</strong></p>
-          <p>Mainnet: {DEFAULT_RPC_MAINNET}</p>
-          <p>Testnet: {DEFAULT_RPC_TESTNET}</p>
+          <p>
+            <strong>Default RPC for {networkLabel}:</strong>{" "}
+            {isTestnetNetwork ? DEFAULT_RPC_TESTNET : DEFAULT_RPC_MAINNET}
+          </p>
         </div>
       )}
 
@@ -266,12 +240,9 @@ export function Settings({
           <hr className="rebel-settings__divider" />
 
           <h3>Wallet</h3>
-          <div className={isFromESP32 ? "" : "grid"}>
+          <div className="grid">
             {canSignOut && (
-              <button
-                className={isFromESP32 ? "rebel-settings__signout-full" : undefined}
-                onClick={signOut}
-              >
+              <button onClick={signOut}>
                 Sign out
               </button>
             )}

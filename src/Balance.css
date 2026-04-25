@@ -4,6 +4,13 @@
   margin-bottom: 0;
 }
 
+/* On testnet there is no price block below the balance, so the heading would
+   otherwise sit too close to the nav menu. Mirror the price block's bottom
+   margin on the heading itself so the surrounding layout stays consistent. */
+.rebel-balance--no-price {
+  margin-bottom: calc(var(--pico-spacing));
+}
+
 .rebel-balance__value-container {
   margin-bottom: calc(var(--pico-spacing));
   text-align: center;

@@ -1,99 +1,140 @@
-import NeuraiKey from "@neuraiproject/neurai-key";
+import { key as NeuraiKey } from "@neuraiproject/neurai-jswallet/dist/index.js";
+import type { ChainType } from "@neuraiproject/neurai-jswallet/dist/Types";
 import React, { FormEvent } from "react";
 import { LightModeToggle } from "./components/LightModeToggle";
-import ESP32Storage from "./ESP32Storage";
 import { Settings } from "./Settings";
-import { IconSettings } from "./icons";
+import { Footer } from "./Footer";
+import {
+  IconChat,
+  IconHistory,
+  IconHome,
+  IconIoT,
+  IconReceive,
+  IconSend,
+  IconSettings,
+  IconSign,
+  IconSweep,
+} from "./icons";
 import { autoResizeTextarea } from "./utils/domUtils";
 import "./Login.css";
 
-// @ts-ignore - Parcel handles this correctly
-const CryptoJS = require("crypto-js");
-type Bip39Module = typeof import("bip39");
-type ESP32Result = {
-  status?: string;
-  keys?: string[];
-  value?: string;
-  message?: string;
-};
-type NeuraiKeyWithEntropy = typeof NeuraiKey & {
-  mnemonicToEntropy?: (mnemonic: string) => string;
-};
-
-// Fallback bip39 for entropy conversion if NeuraiKey lacks mnemonicToEntropy
-let bip39: Bip39Module | null = null;
-import("bip39").then((m) => (bip39 = m)).catch(() => (bip39 = null));
-
-//For bundler not to optimize/remove NeuraiKey
-console.log("NeuraiKey", !!NeuraiKey);
-
 const neuraiLogo = new URL("../public/neurai-xna-logo.png", import.meta.url);
+
+type Mode = "recover" | "create";
+
+type NetworkOption = "xna-legacy" | "xna-pq" | "xna-legacy-test" | "xna-pq-test";
+
+const NETWORK_OPTIONS: { value: NetworkOption; label: string }[] = [
+  { value: "xna-legacy", label: "Mainnet Legacy" },
+  { value: "xna-pq", label: "Mainnet PQ" },
+  { value: "xna-legacy-test", label: "Testnet Legacy" },
+  { value: "xna-pq-test", label: "Testnet PQ" },
+];
+
+const NETWORK_STORAGE_KEY = "wallet_network";
+
+const NAV_PREVIEW_ITEMS: { key: string; title: string; icon: JSX.Element }[] = [
+  { key: "home", title: "Home", icon: <IconHome /> },
+  { key: "send", title: "Send", icon: <IconSend /> },
+  { key: "receive", title: "Receive", icon: <IconReceive /> },
+  { key: "sweep", title: "Sweep", icon: <IconSweep /> },
+  { key: "history", title: "History", icon: <IconHistory /> },
+  { key: "sign", title: "Sign", icon: <IconSign /> },
+  { key: "chat", title: "Chat", icon: <IconChat /> },
+  { key: "iot", title: "IoT", icon: <IconIoT /> },
+  { key: "settings", title: "Settings", icon: <IconSettings /> },
+];
+
+function readStoredNetwork(): NetworkOption {
+  const saved = localStorage.getItem(NETWORK_STORAGE_KEY);
+  if (saved && NETWORK_OPTIONS.some((o) => o.value === saved)) {
+    return saved as NetworkOption;
+  }
+  return "xna-legacy";
+}
+
 export function Login({
   onLogin,
+  onNetworkChange,
 }: {
-  onLogin: (data: { mnemonicData: string; persist: boolean; isFromESP32?: boolean }) => void;
+  onLogin: (data: { mnemonicData: string; persist: boolean; network: ChainType }) => void;
+  onNetworkChange?: (network: ChainType) => void;
 }) {
-  const neuraiKeyWithEntropy = NeuraiKey as NeuraiKeyWithEntropy;
+  const [mode, setMode] = React.useState<Mode>("recover");
   const [showWords, setShowWords] = React.useState(false);
   const [showPassphrase, setShowPassphrase] = React.useState(false);
   const [wordCount, setWordCount] = React.useState<12 | 24>(12);
-  const [activeTab, setActiveTab] = React.useState<'recover' | 'create' | 'esp32' | 'help'>('recover');
   const [createdMnemonic, setCreatedMnemonic] = React.useState<string>("");
   const [usePassphrase, setUsePassphrase] = React.useState(false);
   const [dialog, setDialog] = React.useState(<></>);
   const [showSettings, setShowSettings] = React.useState(false);
+  const [showHelp, setShowHelp] = React.useState(false);
+  const [network, setNetwork] = React.useState<NetworkOption>(readStoredNetwork);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
-  // ESP32 states
-  const [esp32Connected, setEsp32Connected] = React.useState(false);
-  const [esp32Storage] = React.useState(() => new ESP32Storage());
-  const [esp32Keys, setEsp32Keys] = React.useState<string[]>([]);
-  const [selectedKey, setSelectedKey] = React.useState<string>("");
-  const [esp32Status, setEsp32Status] = React.useState<string>("");
+  const handleNetworkChange = (value: NetworkOption) => {
+    setNetwork(value);
+    localStorage.setItem(NETWORK_STORAGE_KEY, value);
+    onNetworkChange?.(value);
+  };
 
-  // ESP32 Quick Login states
-  const [esp32QuickConnected, setEsp32QuickConnected] = React.useState(false);
-  const [esp32QuickStorage] = React.useState(() => new ESP32Storage());
-  const [esp32QuickKeys, setEsp32QuickKeys] = React.useState<string[]>([]);
-  const [selectedQuickKey, setSelectedQuickKey] = React.useState<string>("");
-  const [esp32QuickStatus, setEsp32QuickStatus] = React.useState<string>("");
-  const [loadedMnemonic, setLoadedMnemonic] = React.useState<string>("");
-  const [loadedPassphrase, setLoadedPassphrase] = React.useState<string>("");
-  const [quickPassphraseInput, setQuickPassphraseInput] = React.useState<string>("");
-  const [mnemonicWordCount, setMnemonicWordCount] = React.useState<number>(0);
-  const [showQuickPassphrase, setShowQuickPassphrase] = React.useState<boolean>(false);
-  const [showQuickPassphraseText, setShowQuickPassphraseText] = React.useState<boolean>(false);
-  // Removed seed/entropy preview fields and their computation (no longer needed)
+  const renderMenuItem = (item: typeof NAV_PREVIEW_ITEMS[number]) => {
+    if (item.key === "settings") {
+      return (
+        <li
+          key={item.key}
+          className="rebel-navigator__list-item rebel-navigator__list-item--icononly"
+        >
+          <a
+            href="#"
+            className="primary rebel-navigator__list-item-link rebel-login__menu-link--active"
+            onClick={(event) => {
+              event.preventDefault();
+              setShowSettings(true);
+            }}
+            title="RPC settings"
+            aria-label="RPC settings"
+          >
+            <div>{item.icon}</div>
+          </a>
+        </li>
+      );
+    }
+    return (
+      <li
+        key={item.key}
+        className="rebel-navigator__list-item rebel-navigator__list-item--icononly"
+      >
+        <span
+          className="primary rebel-navigator__list-item-link rebel-navigator__list-item-link--disabled"
+          title={`${item.title} (sign in to activate)`}
+          aria-disabled="true"
+        >
+          <div>{item.icon}</div>
+        </span>
+      </li>
+    );
+  };
 
-  // Auto-resize textarea (using unified utility from domUtils)
   const handleTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     autoResizeTextarea(event.target);
-    // seed/entropy preview removed
   };
 
   const handleTextareaInput = (event: React.FormEvent<HTMLTextAreaElement>) => {
     autoResizeTextarea(event.currentTarget);
   };
 
-  // Auto-resize on mount and when content changes
   React.useEffect(() => {
     if (textareaRef.current) {
       autoResizeTextarea(textareaRef.current);
     }
-    // seed/entropy preview removed
-  }, []);
-
-  // Recompute when toggling passphrase usage
-  // no-op: seed/entropy preview removed
+  }, [mode]);
 
   function showDialog(title: string, text: string) {
     const onClose = () => setDialog(<></>);
-    const d = <Dialog title={title} text={text} onClose={onClose}></Dialog>;
-    setDialog(d);
+    setDialog(<Dialog title={title} text={text} onClose={onClose} />);
   }
-  function getErrorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
-  }
+
   function newWallet(event: FormEvent) {
     event.preventDefault();
 
@@ -112,383 +153,51 @@ export function Login({
     setCreatedMnemonic(newMnemonic);
 
     showDialog(
-      "WARNING",
-      `Make sure you save these ${wordCount} words somewhere safe${usePassphrase ? ' along with your passphrase' : ''}. Next, click Sign in`
+      "Backup your words",
+      `Save these ${wordCount} words somewhere safe${usePassphrase ? ' along with your passphrase' : ''}. Once you sign in, they will not be shown again.`
     );
 
     return false;
   }
+
   function onSubmit(event: FormEvent) {
     event.preventDefault();
 
     let value = "";
 
-    if (activeTab === 'create') {
+    if (mode === 'create') {
       if (!createdMnemonic) {
-        alert("Please create a wallet first.");
+        alert("Please generate words first.");
         return false;
       }
       value = createdMnemonic.trim();
-    } else if (activeTab === 'recover') {
-      const mnemonicInput = document.getElementById("mnemonic") as HTMLTextAreaElement;
-      if (!mnemonicInput) {
-        return null;
-      }
-      value = mnemonicInput.value.trim();
     } else {
-      // ESP32 or other tabs if any
-      return false;
+      const mnemonicInput = document.getElementById("mnemonic") as HTMLTextAreaElement;
+      if (!mnemonicInput) return null;
+      value = mnemonicInput.value.trim();
     }
 
-    const isValid = NeuraiKey.isMnemonicValid(value);
-
-    if (isValid === false) {
+    if (!NeuraiKey.isMnemonicValid(value)) {
       const wordCountInInput = value.split(" ").filter((w: string) => w.length > 0).length;
       alert(`Given input does not seem to be valid words for a Neurai wallet. You entered ${wordCountInInput} words.`);
       return false;
-    } else {
-      // Get passphrase if enabled
-      let passphrase = "";
-      if (usePassphrase) {
-        const passphraseInput = document.getElementById("passphrase") as HTMLInputElement;
-        if (passphraseInput) {
-          passphrase = passphraseInput.value;
-        }
-      }
-
-      // Store mnemonic with passphrase indicator
-      const mnemonicData = passphrase ? `${value}|||${passphrase}` : value;
-      onLogin({ mnemonicData, persist: true, isFromESP32: false });
     }
 
+    let passphrase = "";
+    if (usePassphrase) {
+      const passphraseInput = document.getElementById("passphrase") as HTMLInputElement;
+      if (passphraseInput) passphrase = passphraseInput.value;
+    }
+
+    const mnemonicData = passphrase ? `${value}|||${passphrase}` : value;
+    localStorage.setItem(NETWORK_STORAGE_KEY, network);
+    onLogin({ mnemonicData, persist: true, network });
     return false;
   }
 
-  // ESP32 Functions
-  async function connectESP32() {
-    try {
-      setEsp32Status("Connecting to ESP32...");
-      await esp32Storage.connect();
-      setEsp32Connected(true);
-      setEsp32Status("✅ ESP32 Connected");
-
-      // Load list of keys
-      await loadESP32Keys();
-    } catch (error) {
-      setEsp32Status("❌ Failed to connect: " + getErrorMessage(error));
-      console.error("ESP32 connection error:", error);
-    }
-  }
-
-  async function disconnectESP32() {
-    try {
-      await esp32Storage.disconnect();
-      setEsp32Connected(false);
-      setEsp32Keys([]);
-      setSelectedKey("");
-      setEsp32Status("");
-    } catch (error) {
-      console.error("ESP32 disconnect error:", error);
-    }
-  }
-
-  async function loadESP32Keys() {
-    try {
-      const result = await esp32Storage.list() as ESP32Result;
-      if (result.status === "success" && result.keys) {
-        setEsp32Keys(result.keys);
-        setEsp32Status(`✅ Found ${result.keys.length} stored wallet(s)`);
-      }
-    } catch (error) {
-      setEsp32Status("❌ Error loading keys: " + getErrorMessage(error));
-      console.error("ESP32 list error:", error);
-    }
-  }
-
-  async function saveToESP32() {
-    const mnemonicInput = document.getElementById("mnemonic") as HTMLTextAreaElement;
-    if (!mnemonicInput || !mnemonicInput.value.trim()) {
-      alert("Please generate or enter a mnemonic first");
-      return;
-    }
-
-    const mnemonic = mnemonicInput.value.trim();
-
-    // Validate mnemonic and derive BIP39 entropy (hex)
-    if (!NeuraiKey.isMnemonicValid(mnemonic)) {
-      alert("The mnemonic is not valid. Please check the words.");
-      return;
-    }
-    let entropyHex = "";
-    try {
-      if (typeof neuraiKeyWithEntropy.mnemonicToEntropy === "function") {
-        entropyHex = neuraiKeyWithEntropy.mnemonicToEntropy(mnemonic);
-      } else if (bip39 && typeof bip39.mnemonicToEntropy === "function") {
-        entropyHex = bip39.mnemonicToEntropy(mnemonic);
-      } else {
-        throw new Error("mnemonicToEntropy not available");
-      }
-    } catch {
-      alert("Failed to derive BIP39 entropy from the mnemonic.");
-      return;
-    }
-
-    // Store ONLY the entropy hex as plaintext before encryption (no JSON envelope)
-    const dataToSave = entropyHex;
-
-    // Ask for a name/key
-    const keyName = prompt("Enter a name for this wallet (e.g., 'wallet1', 'main', etc.):");
-    if (!keyName || keyName.trim() === "") {
-      return;
-    }
-
-    // Ask for a PIN (6-10 characters)
-    let pin: string | null = "";
-    while (true) {
-      pin = prompt("Enter a PIN (6-10 characters) to encrypt this wallet on ESP32:");
-      if (pin === null) {
-        // User cancelled
-        return;
-      }
-
-      if (pin.length >= 6 && pin.length <= 10) {
-        // Valid PIN
-        break;
-      }
-
-      alert("PIN must be between 6 and 10 characters. Please try again.");
-    }
-
-    try {
-      setEsp32Status("🔐 Encrypting and saving to ESP32 (entropy only)...");
-
-      // Encrypt the data with the PIN using AES
-      const encryptedData = CryptoJS.AES.encrypt(dataToSave, pin).toString();
-
-      await esp32Storage.save(keyName.trim(), encryptedData);
-      setEsp32Status(`✅ Saved as "${keyName}" (encrypted entropy)`);
-
-      // Reload keys
-      await loadESP32Keys();
-    } catch (error) {
-      setEsp32Status("❌ Error saving: " + getErrorMessage(error));
-      console.error("ESP32 save error:", error);
-    }
-  }
-
-  async function loadFromESP32() {
-    if (!selectedKey) {
-      alert("Please select a wallet from the list");
-      return;
-    }
-
-    try {
-      setEsp32Status(`📖 Loading "${selectedKey}"...`);
-      const result = await esp32Storage.read(selectedKey) as ESP32Result;
-
-      if (result.status === "success" && result.value) {
-        let data = result.value;
-
-        // Ask for PIN to decrypt
-        const pin = prompt(`Enter PIN to decrypt wallet "${selectedKey}":`);
-        if (!pin) {
-          setEsp32Status("❌ PIN required to decrypt wallet");
-          return;
-        }
-
-        try {
-          // Try to decrypt the data with the provided PIN
-          const decryptedBytes = CryptoJS.AES.decrypt(data, pin);
-          const decryptedText = decryptedBytes.toString(CryptoJS.enc.Utf8);
-
-          if (!decryptedText || decryptedText.trim() === "") {
-            throw new Error("Invalid PIN or corrupted data");
-          }
-
-          data = decryptedText;
-        } catch (decryptError) {
-          setEsp32Status("❌ Failed to decrypt: Invalid PIN");
-          alert("Invalid PIN. Please try again.");
-          return;
-        }
-
-        // Now process the decrypted data as raw entropy hex
-        try {
-          const entropyHex = data.trim();
-          const mnemonicWords = NeuraiKey.entropyToMnemonic(entropyHex);
-          const mnemonicInput = document.getElementById("mnemonic") as HTMLTextAreaElement;
-          if (mnemonicInput) {
-            mnemonicInput.value = mnemonicWords;
-            autoResizeTextarea(mnemonicInput);
-          }
-          // No passphrase stored; keep passphrase disabled/empty
-          setUsePassphrase(false);
-          // Update seed/entropy display
-          // seed/entropy preview removed
-          setEsp32Status(`✅ Loaded "${selectedKey}" (from entropy)`);
-        } catch (e) {
-          setEsp32Status("❌ Error: Invalid data format on device (expected raw BIP39 entropy hex)");
-        }
-      }
-    } catch (error) {
-      setEsp32Status("❌ Error loading: " + getErrorMessage(error));
-      console.error("ESP32 read error:", error);
-    }
-  }
-
-  async function deleteFromESP32() {
-    if (!selectedKey) {
-      alert("Please select a wallet from the list");
-      return;
-    }
-
-    const confirmed = confirm(`Are you sure you want to delete "${selectedKey}" from ESP32?\n\nThis cannot be undone!`);
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setEsp32Status(`🗑️ Deleting "${selectedKey}"...`);
-      await esp32Storage.delete(selectedKey);
-      setEsp32Status(`✅ Deleted "${selectedKey}"`);
-      setSelectedKey("");
-
-      // Reload keys
-      await loadESP32Keys();
-    } catch (error) {
-      setEsp32Status("❌ Error deleting: " + getErrorMessage(error));
-      console.error("ESP32 delete error:", error);
-    }
-  }
-
-  // ESP32 Quick Login Functions
-  async function connectESP32Quick() {
-    try {
-      setEsp32QuickStatus("Connecting to ESP32...");
-      await esp32QuickStorage.connect();
-      setEsp32QuickConnected(true);
-      setEsp32QuickStatus("✅ ESP32 Connected");
-
-      // Load list of keys
-      await loadESP32QuickKeys();
-    } catch (error) {
-      setEsp32QuickStatus("❌ Failed to connect: " + getErrorMessage(error));
-      console.error("ESP32 Quick connection error:", error);
-    }
-  }
-
-  async function disconnectESP32Quick() {
-    try {
-      await esp32QuickStorage.disconnect();
-      setEsp32QuickConnected(false);
-      setEsp32QuickKeys([]);
-      setSelectedQuickKey("");
-      setLoadedMnemonic("");
-      setLoadedPassphrase("");
-      setQuickPassphraseInput("");
-      setMnemonicWordCount(0);
-      // no validation needed when loading from entropy
-      setShowQuickPassphrase(false);
-      setShowQuickPassphraseText(false);
-      setEsp32QuickStatus("");
-    } catch (error) {
-      console.error("ESP32 Quick disconnect error:", error);
-    }
-  }
-
-  async function loadESP32QuickKeys() {
-    try {
-      const result = await esp32QuickStorage.list() as ESP32Result;
-      if (result.status === "success" && result.keys) {
-        setEsp32QuickKeys(result.keys);
-        setEsp32QuickStatus(`✅ Found ${result.keys.length} stored wallet(s)`);
-      }
-    } catch (error) {
-      setEsp32QuickStatus("❌ Error loading keys: " + getErrorMessage(error));
-      console.error("ESP32 Quick list error:", error);
-    }
-  }
-
-  async function selectQuickWallet() {
-    if (!selectedQuickKey) {
-      return;
-    }
-
-    try {
-      setEsp32QuickStatus(`📖 Loading "${selectedQuickKey}"...`);
-      const result = await esp32QuickStorage.read(selectedQuickKey) as ESP32Result;
-
-      if (result.status === "success" && result.value) {
-        let data = result.value;
-
-        // Ask for PIN to decrypt
-        const pin = prompt(`Enter PIN to decrypt wallet "${selectedQuickKey}":`);
-        if (!pin) {
-          setEsp32QuickStatus("❌ PIN required to decrypt wallet");
-          return;
-        }
-
-        try {
-          // Try to decrypt the data with the provided PIN
-          const decryptedBytes = CryptoJS.AES.decrypt(data, pin);
-          const decryptedText = decryptedBytes.toString(CryptoJS.enc.Utf8);
-
-          if (!decryptedText || decryptedText.trim() === "") {
-            throw new Error("Invalid PIN or corrupted data");
-          }
-
-          data = decryptedText;
-        } catch (decryptError) {
-          setEsp32QuickStatus("❌ Failed to decrypt: Invalid PIN");
-          alert("Invalid PIN. Please try again.");
-          return;
-        }
-
-        // Now process the decrypted data as raw entropy hex
-        try {
-          const entropyHex = data.trim();
-          const mnemonicWords = NeuraiKey.entropyToMnemonic(entropyHex);
-          setLoadedMnemonic(mnemonicWords);
-          // No passphrase stored; user may input one if desired
-          setLoadedPassphrase("");
-          setQuickPassphraseInput("");
-          setShowQuickPassphrase(false);
-
-          // Count words
-          const wordCount = mnemonicWords.trim().split(/\s+/).length;
-          setMnemonicWordCount(wordCount);
-
-          setEsp32QuickStatus(`✅ Loaded "${selectedQuickKey}" - ${wordCount} words`);
-        } catch (e) {
-          setEsp32QuickStatus("❌ Error: Invalid data format on device (expected raw BIP39 entropy hex)");
-        }
-      }
-    } catch (error) {
-      setEsp32QuickStatus("❌ Error loading: " + getErrorMessage(error));
-      console.error("ESP32 Quick read error:", error);
-    }
-  }
-
-  function loginWithESP32Wallet() {
-    if (!loadedMnemonic) {
-      alert("Please select and load a wallet first");
-      return;
-    }
-
-    // No additional validation needed; mnemonic reconstructed from entropy
-
-    // Use the passphrase from the input field (may be modified by user)
-    const finalPassphrase = quickPassphraseInput.trim();
-
-    // Store mnemonic with passphrase if exists
-    const mnemonicData = finalPassphrase ? `${loadedMnemonic}|||${finalPassphrase}` : loadedMnemonic;
-    onLogin({ mnemonicData, persist: false, isFromESP32: true });
-  }
-
-  // If showing settings, render only the settings component
   if (showSettings) {
     return (
-      <article>
+      <div className="rebel-login">
         <div className="rebel-login__settings-header">
           <button
             onClick={() => setShowSettings(false)}
@@ -499,623 +208,260 @@ export function Login({
           <LightModeToggle />
         </div>
         <Settings />
-      </article>
+      </div>
     );
   }
 
   return (
-    <article>
-      <div className="rebel-login__topbar">
-        <div className="rebel-login__topbar-brand">
-          <h1 className="rebel-login__topbar-title">Neurai Web Wallet</h1>
-          <p className="rebel-login__topbar-subtitle">A secure, client-side wallet for managing your Neurai assets</p>
-        </div>
-        <div className="rebel-login__topbar-actions">
-          <div
-            onClick={() => setShowSettings(true)}
-            className="rebel-login__topbar-icon"
-            title="RPC Server Settings"
-            aria-label="RPC Server Settings"
-          >
-            <IconSettings />
+    <div className="rebel-login">
+      <div className="rebel-login__page">
+        <article className="rebel-login__menu-card rebel-navigator__container rebel-navigator__container--compact">
+          <div className="rebel-navigator__compact-grid">
+            <div className="rebel-navigator__compact-left">
+              <h2 className="rebel-headline rebel-navigator__brand">
+                <img
+                  src={neuraiLogo.href}
+                  alt="Neurai logo"
+                  className="rebel-navigator__brand-logo"
+                />
+                Neurai
+              </h2>
+
+              <div className="rebel-navigator__status-list rebel-navigator__status-list--singleline">
+                <div
+                  className="rebel-navigator__status-item rebel-navigator__status-item--muted"
+                  title="Not connected (sign in to sync)"
+                >
+                  <span className="rebel-navigator__status-dot" />
+                  <span className="rebel-navigator__status-label">Syncr</span>
+                </div>
+                <div
+                  className="rebel-navigator__status-item rebel-navigator__status-item--muted"
+                  title="Wallet locked"
+                >
+                  <span className="rebel-navigator__status-dot" />
+                  <span className="rebel-navigator__status-label">Passphrase</span>
+                </div>
+                <div
+                  className="rebel-navigator__status-item rebel-navigator__status-item--muted"
+                  title="No hardware wallet connected"
+                >
+                  <span className="rebel-navigator__status-dot" />
+                  <span className="rebel-navigator__status-label">HW</span>
+                </div>
+              </div>
+            </div>
+
+            <nav
+              className="rebel-navigator rebel-navigator--icononly rebel-navigator__compact-center"
+              aria-label="Wallet menu preview"
+            >
+              <ul className="rebel-navigator__list rebel-navigator__list--icononly rebel-navigator__list--icononly-singleline">
+                {NAV_PREVIEW_ITEMS.map(renderMenuItem)}
+              </ul>
+            </nav>
+
+            <div className="rebel-navigator__controls rebel-navigator__compact-right">
+              <div className="rebel-navigator__controls rebel-navigator__compact-right-controls">
+                <button
+                  type="button"
+                  onClick={() => setShowHelp(true)}
+                  className="rebel-login__icon-btn"
+                  aria-label="Help"
+                  title="How it works"
+                >
+                  <IconHelp />
+                </button>
+                <LightModeToggle />
+              </div>
+            </div>
           </div>
-          <LightModeToggle />
-        </div>
-      </div>
-      {dialog}
 
-      {/* Features Grid */}
-      <div
-        className="features-grid rebel-login__features"
-      >
-        <div className="rebel-login__feature-card rebel-login__feature-card--orange">
-          <div className="rebel-login__feature-icon rebel-login__feature-icon--logo">
-            <img
-              src={neuraiLogo.href}
-              alt="Neurai"
-              className="rebel-login__feature-logo"
-            />
+          <div className="rebel-navigator__compact-mobile-icons" aria-label="Compact menu">
+            <nav className="rebel-navigator rebel-navigator--icononly">
+              <ul className="rebel-navigator__list rebel-navigator__list--icononly rebel-navigator__list--icononly-singleline">
+                {NAV_PREVIEW_ITEMS.map(renderMenuItem)}
+              </ul>
+            </nav>
           </div>
-          <h3 className="rebel-login__feature-title">Neurai</h3>
-          <p className="rebel-login__feature-text">
-            Wallet for managing XNA, IoT, NFT, RWA, and more.
-          </p>
-        </div>
+        </article>
 
-        <div className="rebel-login__feature-card rebel-login__feature-card--blue">
-          <div className="rebel-login__feature-icon">🔒</div>
-          <h3 className="rebel-login__feature-title">Secure</h3>
-          <p className="rebel-login__feature-text">
-            Your keys never leave your browser. Everything runs locally.
-          </p>
-        </div>
+        <article className="rebel-login__card">
+          <h5 className="rebel-login__card-title">Recover or create wallet</h5>
 
-        <div className="rebel-login__feature-card rebel-login__feature-card--green">
-          <div className="rebel-login__feature-icon">🛡️</div>
-          <h3 className="rebel-login__feature-title">DePIN</h3>
-          <p className="rebel-login__feature-text">
-            Military-grade encrypted communication system.
-          </p>
-        </div>
+          <div className="rebel-login__field">
+            <label htmlFor="rebel-login-network" className="rebel-login__label">
+              Network
+            </label>
+            <select
+              id="rebel-login-network"
+              className="rebel-login__select"
+              value={network}
+              onChange={(e) => handleNetworkChange(e.target.value as NetworkOption)}
+              aria-label="Network"
+            >
+              {NETWORK_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <p className="rebel-login__hint">
+              Each network stores its seed separately on this device.
+            </p>
+          </div>
 
-        <div className="rebel-login__feature-card rebel-login__feature-card--purple">
-          <div className="rebel-login__feature-icon">🌐</div>
-          <h3 className="rebel-login__feature-title">Web-Based</h3>
-          <p className="rebel-login__feature-text">
-            Access your wallet from any device with a browser.
-          </p>
-        </div>
-      </div>
+          <div className="rebel-login__mode-toggle" role="tablist" aria-label="Sign in mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'recover'}
+              className={`rebel-login__mode-btn ${mode === 'recover' ? 'is-active' : ''}`}
+              onClick={() => setMode('recover')}
+            >
+              Recover
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'create'}
+              className={`rebel-login__mode-btn ${mode === 'create' ? 'is-active' : ''}`}
+              onClick={() => setMode('create')}
+            >
+              Create new
+            </button>
+          </div>
 
-
-
-      {/* Login Form */}
-
-
-      {/* Login Tabs */}
-      <p className="rebel-login__privacy">
-        <strong>📌 Privacy notice:</strong> Your recovery words are encrypted and stored temporarily in your browser's local storage.
-        They will be cleared when you sign out or clear your browser cache.
-        <strong> Make sure to backup your words securely.</strong>
-      </p>
-
-      {/* Login Tabs */}
-      <h2 className="rebel-login__section-title">Sign in to your wallet</h2>
-
-      <div className="rebel-login__tabs">
-        <button
-          type="button"
-          className={`rebel-login__tab ${activeTab === 'recover' ? 'is-active' : ''}`}
-          onClick={() => setActiveTab('recover')}
-        >
-          Recovery Wallet
-        </button>
-        <button
-          type="button"
-          className={`rebel-login__tab ${activeTab === 'create' ? 'is-active' : ''}`}
-          onClick={() => setActiveTab('create')}
-        >
-          Create new Wallet
-        </button>
-        <button
-          type="button"
-          className={`rebel-login__tab ${activeTab === 'esp32' ? 'is-active' : ''}`}
-          onClick={() => setActiveTab('esp32')}
-        >
-          Esp32 HW
-        </button>
-        <button
-          type="button"
-          className={`rebel-login__tab ${activeTab === 'help' ? 'is-active' : ''}`}
-          onClick={() => setActiveTab('help')}
-        >
-          Help
-        </button>
-      </div>
-
-      {/* Card for recovery words input */}
-      <div className="rebel-login__recovery-card">
-        {activeTab === 'recover' && (
-          <h2 className="rebel-login__recovery-title">Enter your recovery words</h2>
-        )}
-        {activeTab === 'create' && (
-          <h2 className="rebel-login__recovery-title">Generate new wallet</h2>
-        )}
-        {activeTab === 'esp32' && (
-          <h2 className="rebel-login__recovery-title">Hardware Wallet Access</h2>
-        )}
-        {activeTab === 'help' && (
-          <h2 className="rebel-login__recovery-title">How the Wallet Works</h2>
-        )}
-
-        <form onSubmit={onSubmit}>
-
-          {/* ----- CREATE NEW WALLET TAB ----- */}
-          {activeTab === 'create' && (
-            <>
+          <form onSubmit={onSubmit} className="rebel-login__form">
+            {mode === 'recover' && (
               <div className="rebel-login__field">
-                <label className="rebel-login__label">
-                  Number of words for new wallet:
+                <label htmlFor="mnemonic" className="rebel-login__label">
+                  Recovery words
                 </label>
-                <div className="rebel-login__segmented-control">
+                <div className="rebel-login__input-wrap">
+                  <textarea
+                    ref={textareaRef}
+                    id="mnemonic"
+                    autoComplete="off"
+                    placeholder="Type or paste your 12 or 24 words"
+                    className={`rebel-login__textarea ${showWords ? "" : "rebel-login__textarea--masked"}`.trim()}
+                    onChange={handleTextareaChange}
+                    onInput={handleTextareaInput}
+                    onFocus={(e) => autoResizeTextarea(e.currentTarget)}
+                    rows={1}
+                  />
                   <button
                     type="button"
-                    className={`rebel-login__segment-btn ${wordCount === 12 ? 'is-active' : ''}`}
-                    onClick={() => setWordCount(12)}
-                  >
-                    12 words
-                  </button>
-                  <button
-                    type="button"
-                    className={`rebel-login__segment-btn ${wordCount === 24 ? 'is-active' : ''}`}
-                    onClick={() => setWordCount(24)}
-                  >
-                    24 words
-                  </button>
-                </div>
-              </div>
-
-              <button
-                id="newWalletButton"
-                onClick={newWallet}
-                className="secondary rebel-login__full-width rebel-login__mb-1"
-              >
-                Generare New Words
-              </button>
-
-              {createdMnemonic && (
-                <div className="rebel-login__field">
-                  <label className="rebel-login__label">
-                    Your new recovery words:
-                  </label>
-                  <div className="rebel-login__created-words-box">
-                    {createdMnemonic}
-                  </div>
-                  <p className="rebel-login__muted rebel-login__muted--tight rebel-login__spacing-top-sm">
-                    ⚠️ Save these words immediately! You will not see them again.
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ----- RECOVER WALLET TAB ----- */}
-          {activeTab === 'recover' && (
-            <>
-              <label htmlFor="mnemonic" className="rebel-login__mnemonic-label">
-                Recovery words:
-              </label>
-              <div className="rebel-login__field-with-icon">
-                <textarea
-                  ref={textareaRef}
-                  id="mnemonic"
-                  autoComplete="off"
-                  placeholder="Enter your 12 or 24 words"
-                  className={`${showWords ? "" : "password-field"} rebel-login__mnemonic-textarea`.trim()}
-                  onChange={handleTextareaChange}
-                  onInput={handleTextareaInput}
-                  onFocus={(e) => autoResizeTextarea(e.currentTarget)}
-                  rows={1}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowWords(!showWords);
-                    setTimeout(() => {
-                      if (textareaRef.current) {
-                        autoResizeTextarea(textareaRef.current);
-                      }
-                    }, 0);
-                  }}
-                  className="rebel-login__visibility-toggle rebel-login__visibility-toggle--textarea"
-                  aria-label={showWords ? "Hide words" : "Show words"}
-                >
-                  {showWords ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                      <line x1="1" y1="1" x2="23" y2="23"></line>
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* ----- PASSPHRASE (Valid for Recover and Create) ----- */}
-          {(activeTab === 'recover' || activeTab === 'create') && (
-            <>
-              <label htmlFor="use-passphrase" className="rebel-login__passphrase-toggle">
-                <input
-                  type="checkbox"
-                  id="use-passphrase"
-                  name="use-passphrase"
-                  role="switch"
-                  checked={usePassphrase}
-                  onChange={(event) => setUsePassphrase(!usePassphrase)}
-                />
-                Use passphrase (advanced)
-              </label>
-
-              {usePassphrase && (
-                <div className="rebel-login__card-muted">
-                  <p className="rebel-login__muted rebel-login__muted--tight">
-                    💡 A passphrase adds an extra layer of security. It acts as a "13 or 25th word" that generates a different wallet.
-                    <strong> Without the exact passphrase, you cannot access this wallet!</strong>
-                  </p>
-                  <label htmlFor="passphrase" className="rebel-login__passphrase-label">
-                    Passphrase:
-                  </label>
-                  <div className="rebel-login__field-with-icon">
-                    <input
-                      type={showPassphrase ? "text" : "password"}
-                      id="passphrase"
-                      autoComplete="off"
-                      placeholder="Enter your passphrase"
-                      className="rebel-login__input-with-icon"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassphrase(!showPassphrase)}
-                      className="rebel-login__visibility-toggle rebel-login__visibility-toggle--input"
-                      aria-label={showPassphrase ? "Hide passphrase" : "Show passphrase"}
-                    >
-                      {showPassphrase ? (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                          <circle cx="12" cy="12" r="3"></circle>
-                        </svg>
-                      ) : (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                          <line x1="1" y1="1" x2="23" y2="23"></line>
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ----- ESP32 TAB ----- */}
-          {activeTab === 'esp32' && (
-            <div className="rebel-login__esp32-card rebel-login__esp32-card--embedded">
-              {/* Reusing existing ESP32 UI logic here but inline */}
-              <p className="rebel-login__muted">
-                Store your recovery words securely on an ESP32 device. Connect via USB to save or load wallets.
-              </p>
-
-              {!esp32Connected ? (
-                <button
-                  type="button"
-                  onClick={connectESP32}
-                  className="rebel-login__full-width"
-                >
-                  📱 Connect ESP32
-                </button>
-              ) : (
-                <>
-                  <div className="rebel-login__button-grid">
-                    <button
-                      type="button"
-                      onClick={saveToESP32}
-                      className="secondary rebel-login__full-width"
-                    >
-                      💾 Save to ESP32
-                    </button>
-
-                    {esp32Keys.length > 0 && (
-                      <>
-                        <div>
-                          <label htmlFor="esp32-key-select" className="rebel-login__bold-label">
-                            Select wallet to load:
-                          </label>
-                          <select
-                            id="esp32-key-select"
-                            value={selectedKey}
-                            onChange={(e) => setSelectedKey(e.target.value)}
-                            className="rebel-login__full-width"
-                          >
-                            <option value="">-- Select a wallet --</option>
-                            {esp32Keys.map((key) => (
-                              <option key={key} value={key}>{key}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="rebel-login__button-grid-2">
-                          <button
-                            type="button"
-                            onClick={loadFromESP32}
-                            disabled={!selectedKey}
-                            className="rebel-login__full-width"
-                          >
-                            📖 Load
-                          </button>
-                          <button
-                            type="button"
-                            onClick={deleteFromESP32}
-                            disabled={!selectedKey}
-                            className="secondary rebel-login__full-width rebel-login__danger-button"
-                          >
-                            🗑️ Delete
-                          </button>
-                        </div>
-                      </>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={disconnectESP32}
-                      className="secondary rebel-login__full-width"
-                    >
-                      🔌 Disconnect ESP32
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={loadESP32Keys}
-                    className="secondary rebel-login__refresh-button"
-                  >
-                    🔄 Refresh List
-                  </button>
-                </>
-              )}
-
-              {esp32Status && (
-                <div className="rebel-login__status">
-                  {esp32Status}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ----- SUBMIT BUTTON (Only for Recover and Create) ----- */}
-          {/* ----- HELP / INFO TAB ----- */}
-          {activeTab === 'help' && (
-            <div className="rebel-login__how-content rebel-login__how-content--embedded">
-              <div className="rebel-login__card-muted rebel-login__card-muted--no-top-margin">
-                <h4 className="rebel-login__heading-primary--no-top-margin">Wallet Setup & Security</h4>
-                <p className="rebel-login__muted">
-                  <strong>Create or Import:</strong> You can generate a new 12 or 24-word recovery phrase (mnemonic) or import an existing one. This phrase is the master key to your funds.
-                </p>
-                <p className="rebel-login__muted">
-                  <strong>BIP39 Passphrase:</strong> Add an extra layer of security with an optional passphrase. In BIP39, this serves as a "13th/25th word", meaning the same mnemonic with a different passphrase will lead to a completely different wallet.
-                </p>
-
-                <h4 className="rebel-login__heading-primary">Privacy First Architecture</h4>
-                <p className="rebel-login__muted">
-                  <strong>Zero-Leak Policy:</strong> Your recovery words and passphrases never leave your device. All sensitive operations, including encryption and transaction signing, are executed locally within your browser's memory.
-                </p>
-
-                <h4 className="rebel-login__heading-primary">DePIN & IoT Integration</h4>
-                <p className="rebel-login__muted">
-                  <strong>Advanced Features:</strong> Beyond standard XNA transfers, this wallet supports Decentralized Physical Infrastructure Networks (DePIN) and IoT device management, allowing for secure peer-to-peer communication.
-                </p>
-
-                <h4 className="rebel-login__heading-primary">Secure Login Options</h4>
-                <p className="rebel-login__muted">
-                  <strong>ESP32 Hardware:</strong> For enhanced protection against keyloggers, you can use an ESP32 device to store and inject your encrypted keys directly via USB.
-                </p>
-
-                <p className="rebel-login__how-warning rebel-login__how-warning--danger">
-                  ⚠️ <strong>CRITICAL:</strong> Neurai cannot recover your wallet. If you lose your recovery words, your funds are gone forever. Always keep physical backups in a safe place.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {(activeTab === 'recover' || activeTab === 'create') && (
-            <div className="grid rebel-login__form-actions">
-              <input type="submit" value="Sign in" />
-            </div>
-          )}
-
-        </form>
-      </div>
-
-      {/* ESP32 Quick Login Section */}
-      <div className="rebel-login__quick-card">
-        <h2 className="rebel-login__quick-title">
-          ⚡ Quick Login with ESP32
-        </h2>
-
-        <p className="rebel-login__quick-desc">
-          Connect your ESP32 device and log in directly using a saved wallet.
-        </p>
-
-        {!esp32QuickConnected ? (
-          <button
-            type="button"
-            onClick={connectESP32Quick}
-            className="rebel-login__full-width"
-          >
-            🔌 Connect ESP32
-          </button>
-        ) : (
-          <>
-            {esp32QuickKeys.length > 0 && (
-              <>
-                <div className="rebel-login__select-row">
-                  <label htmlFor="esp32-quick-key-select" className="rebel-login__bold-label">
-                    Select wallet:
-                  </label>
-                  <select
-                    id="esp32-quick-key-select"
-                    value={selectedQuickKey}
-                    onChange={async (e) => {
-                      const newKey = e.target.value;
-                      setSelectedQuickKey(newKey);
-
-                      if (newKey) {
-                        // Auto-load wallet info when selected
-                        try {
-                          setEsp32QuickStatus(`📖 Loading "${newKey}"...`);
-                          const result = await esp32QuickStorage.read(newKey) as ESP32Result;
-
-                          if (result.status === "success" && result.value) {
-                            let data = result.value;
-
-                            // Ask for PIN to decrypt
-                            const pin = prompt(`Enter PIN to decrypt wallet "${newKey}":`);
-                            if (!pin) {
-                              setEsp32QuickStatus("❌ PIN required to decrypt wallet");
-                              setSelectedQuickKey(""); // Reset selection
-                              return;
-                            }
-
-                            try {
-                              // Try to decrypt the data with the provided PIN
-                              const decryptedBytes = CryptoJS.AES.decrypt(data, pin);
-                              const decryptedText = decryptedBytes.toString(CryptoJS.enc.Utf8);
-
-                              if (!decryptedText || decryptedText.trim() === "") {
-                                throw new Error("Invalid PIN or corrupted data");
-                              }
-
-                              data = decryptedText;
-                            } catch (decryptError) {
-                              setEsp32QuickStatus("❌ Failed to decrypt: Invalid PIN");
-                              alert("Invalid PIN. Please try again.");
-                              setSelectedQuickKey(""); // Reset selection
-                              return;
-                            }
-
-                            // Now process the decrypted data as raw entropy hex
-                            try {
-                              const entropyHex = data.trim();
-                              const mnemonicWords = NeuraiKey.entropyToMnemonic(entropyHex);
-                              setLoadedMnemonic(mnemonicWords);
-                              setLoadedPassphrase("");
-                              setQuickPassphraseInput("");
-                              setShowQuickPassphrase(false);
-
-                              const wordCount = mnemonicWords.trim().split(/\s+/).length;
-                              setMnemonicWordCount(wordCount);
-                              setEsp32QuickStatus(`✅ Loaded "${newKey}" - ${wordCount} words`);
-                            } catch (e) {
-                              setEsp32QuickStatus("❌ Error: Invalid data format on device (expected raw BIP39 entropy hex)");
-                              setSelectedQuickKey("");
-                            }
-                          }
-                        } catch (error) {
-                          setEsp32QuickStatus("❌ Error loading: " + getErrorMessage(error));
-                          console.error("ESP32 Quick read error:", error);
-                        }
-                      } else {
-                        // Clear previous data when deselecting
-                        setLoadedMnemonic("");
-                        setLoadedPassphrase("");
-                        setMnemonicWordCount(0);
-                        setShowQuickPassphrase(false);
-                      }
+                    onClick={() => {
+                      setShowWords(!showWords);
+                      setTimeout(() => {
+                        if (textareaRef.current) autoResizeTextarea(textareaRef.current);
+                      }, 0);
                     }}
-                    className="rebel-login__full-width"
+                    className="rebel-login__visibility-toggle"
+                    aria-label={showWords ? "Hide words" : "Show words"}
                   >
-                    <option value="">-- Select a wallet --</option>
-                    {esp32QuickKeys.map((key) => (
-                      <option key={key} value={key}>{key}</option>
-                    ))}
-                  </select>
+                    {showWords ? <IconEyeOff /> : <IconEye />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {mode === 'create' && (
+              <>
+                <div className="rebel-login__field">
+                  <label className="rebel-login__label">Wallet strength</label>
+                  <div className="rebel-login__segmented">
+                    <button
+                      type="button"
+                      className={`rebel-login__segment ${wordCount === 12 ? 'is-active' : ''}`}
+                      onClick={() => setWordCount(12)}
+                    >
+                      12 words
+                    </button>
+                    <button
+                      type="button"
+                      className={`rebel-login__segment ${wordCount === 24 ? 'is-active' : ''}`}
+                      onClick={() => setWordCount(24)}
+                    >
+                      24 words
+                    </button>
+                  </div>
                 </div>
 
-                {loadedMnemonic && (
-                  <div className="rebel-login__wallet-info">
-                    <h3 className="rebel-login__wallet-info-title">
-                      Wallet Information
-                    </h3>
+                <button
+                  id="newWalletButton"
+                  type="button"
+                  onClick={newWallet}
+                  className="secondary rebel-login__generate-btn"
+                >
+                  Generate new words
+                </button>
 
-                    <div className="rebel-login__wallet-info-row">
-                      <strong>Word Count:</strong>{' '}
-                      <span className="rebel-login__primary-text">
-                        {mnemonicWordCount} words
-                      </span>
-                    </div>
-
-                    <div>
-                      <label htmlFor="quick-passphrase" className="rebel-login__bold-label">
-                        Passphrase (optional):
-                      </label>
-                      <div className="rebel-login__field-with-icon">
-                        <input
-                          type={showQuickPassphraseText ? "text" : "password"}
-                          id="quick-passphrase"
-                          value={quickPassphraseInput}
-                          onChange={(e) => setQuickPassphraseInput(e.target.value)}
-                          placeholder="Enter passphrase if needed"
-                          autoComplete="off"
-                          className="rebel-login__input-with-icon"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowQuickPassphraseText(!showQuickPassphraseText)}
-                          className="rebel-login__visibility-toggle rebel-login__visibility-toggle--input"
-                          aria-label={showQuickPassphraseText ? "Hide passphrase" : "Show passphrase"}
-                        >
-                          {showQuickPassphraseText ? (
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                              <circle cx="12" cy="12" r="3"></circle>
-                            </svg>
-                          ) : (
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                              <line x1="1" y1="1" x2="23" y2="23"></line>
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                      <small className="rebel-login__help">
-                        {showQuickPassphrase ? '💡 Passphrase loaded from ESP32. You can modify it if needed.' : '💡 No passphrase stored. You can add one here if required.'}
-                      </small>
-                    </div>
+                {createdMnemonic && (
+                  <div className="rebel-login__field">
+                    <label className="rebel-login__label">Your recovery words</label>
+                    <div className="rebel-login__words-box">{createdMnemonic}</div>
+                    <p className="rebel-login__hint rebel-login__hint--warn">
+                      ⚠ Save these words now. You will not see them again.
+                    </p>
                   </div>
-                )}
-
-                {loadedMnemonic && (
-                  <button
-                    type="button"
-                    onClick={loginWithESP32Wallet}
-                    className="rebel-login__full-width rebel-login__mb-1"
-                  >
-                    🚀 Sign In with this Wallet
-                  </button>
                 )}
               </>
             )}
 
-            <div className="rebel-login__quick-actions">
-              <button
-                type="button"
-                onClick={loadESP32QuickKeys}
-                className="secondary rebel-login__full-width"
-              >
-                🔄 Refresh
-              </button>
-              <button
-                type="button"
-                onClick={disconnectESP32Quick}
-                className="secondary rebel-login__full-width"
-              >
-                🔌 Disconnect
-              </button>
-            </div>
-          </>
-        )}
+            <label htmlFor="use-passphrase" className="rebel-login__passphrase-toggle">
+              <input
+                type="checkbox"
+                id="use-passphrase"
+                role="switch"
+                checked={usePassphrase}
+                onChange={() => setUsePassphrase(!usePassphrase)}
+              />
+              <span>Use passphrase <span className="rebel-login__hint-inline">(advanced)</span></span>
+            </label>
 
-        {esp32QuickStatus && (
-          <div className="rebel-login__status">
-            {esp32QuickStatus}
-          </div>
-        )}
+            {usePassphrase && (
+              <div className="rebel-login__field">
+                <label htmlFor="passphrase" className="rebel-login__label">
+                  Passphrase
+                </label>
+                <div className="rebel-login__input-wrap">
+                  <input
+                    type={showPassphrase ? "text" : "password"}
+                    id="passphrase"
+                    autoComplete="off"
+                    placeholder="Enter your passphrase"
+                    className="rebel-login__input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassphrase(!showPassphrase)}
+                    className="rebel-login__visibility-toggle"
+                    aria-label={showPassphrase ? "Hide passphrase" : "Show passphrase"}
+                  >
+                    {showPassphrase ? <IconEyeOff /> : <IconEye />}
+                  </button>
+                </div>
+                <p className="rebel-login__hint">
+                  Acts as a 13th/25th word. Without it, this wallet cannot be accessed.
+                </p>
+              </div>
+            )}
+
+            <button type="submit" className="rebel-login__submit">
+              Sign in
+            </button>
+          </form>
+        </article>
+
       </div>
-    </article>
+
+      <Footer />
+
+      {dialog}
+      {showHelp && <HelpDialog onClose={() => setShowHelp(false)} />}
+    </div>
   );
 }
 
@@ -1125,12 +471,11 @@ function Dialog({
   title,
 }: {
   onClose: () => void;
-
   text: string;
   title: string;
 }) {
   return (
-    <dialog open>
+    <dialog open className="rebel-login__dialog">
       <article>
         <header>
           <a aria-label="Close" className="close" onClick={onClose}></a>
@@ -1142,5 +487,77 @@ function Dialog({
         </footer>
       </article>
     </dialog>
+  );
+}
+
+function HelpDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <dialog open className="rebel-login__dialog rebel-login__dialog--help">
+      <article>
+        <header>
+          <a aria-label="Close" className="close" onClick={onClose}></a>
+          How the wallet works
+        </header>
+
+        <h4>Wallet setup &amp; security</h4>
+        <p>
+          Generate a new 12 or 24-word recovery phrase or import an existing one.
+          This phrase is the master key to your funds.
+        </p>
+        <p>
+          Optionally add a BIP39 passphrase as a "13th/25th word". The same mnemonic
+          with a different passphrase produces a completely different wallet.
+        </p>
+
+        <h4>Privacy first</h4>
+        <p>
+          Your recovery words and passphrase never leave this device. Encryption
+          and transaction signing happen locally in your browser.
+        </p>
+
+        <h4>DePIN &amp; IoT</h4>
+        <p>
+          Beyond standard XNA transfers, this wallet supports Decentralized Physical
+          Infrastructure Networks (DePIN) and IoT device management.
+        </p>
+
+        <p className="rebel-login__hint rebel-login__hint--warn">
+          ⚠ Neurai cannot recover your wallet. If you lose your recovery words,
+          your funds are gone forever. Always keep physical backups.
+        </p>
+
+        <footer>
+          <button onClick={onClose}>Got it</button>
+        </footer>
+      </article>
+    </dialog>
+  );
+}
+
+function IconHelp() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+function IconEye() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function IconEyeOff() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
   );
 }

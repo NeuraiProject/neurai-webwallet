@@ -42,24 +42,9 @@
     <link rel="stylesheet" href="./style.css" />
 
     <script>
-      // Check if the user prefers dark mode
-      function isDarkModePreferred() {
-        if (
-          window.matchMedia &&
-          window.matchMedia("(prefers-color-scheme: dark)").matches
-        ) {
-          return true;
-        } else {
-          return false;
-        }
-      }
-
-      //Set data-theme attribute of HTML element, for PICO CSS
-      if (isDarkModePreferred()) {
-        document.querySelector("html").setAttribute("data-theme", "dark");
-      } else {
-        document.querySelector("html").setAttribute("data-theme", "light");
-      }
+      // Default to light mode. The user's choice (if any) is restored in src/index.tsx
+      // from localStorage and overrides this default.
+      document.querySelector("html").setAttribute("data-theme", "light");
     </script>
   </head>
   <body>

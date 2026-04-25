@@ -68,7 +68,6 @@ export function Navigator({
   hasPassphrase?: boolean;
 }) {
   // const networkDisplayName = networkInfo[wallet.network].displayName; // unused for now
-  const isFromESP32 = localStorage.getItem("loginFromESP32") === "true";
   const { syncHealth, syncHint } = useNodeStatus(wallet);
 
   const syncTone: StatusTone =
@@ -84,7 +83,8 @@ export function Navigator({
 
   const passphraseTone: StatusTone = hasPassphrase ? "ok" : "error";
 
-  const hwTone: StatusTone = isFromESP32 ? "ok" : "error";
+  // HW wallet status — kept disabled (red) until the new ESP32 integration lands.
+  const hwTone: StatusTone = "error";
 
   const onClickHome = (event: React.MouseEvent) => {
     setRoute(Routes.HOME);
@@ -114,7 +114,7 @@ export function Navigator({
     {
       key: "hardware",
       props: {
-        title: isFromESP32 ? "Hardware wallet" : "Not hardware",
+        title: "No hardware wallet connected",
         label: "HW",
         tone: hwTone,
       },
@@ -258,9 +258,10 @@ export function Navigator({
 
           <h5>Rebel Wallet 1.0.9 - {BUILD_DATE}</h5>
 
-          {renderStatusItems("full")}
-
-          {balance}
+          <div className="rebel-navigator__status-balance-row">
+            {renderStatusItems("full")}
+            <div className="rebel-navigator__balance-slot">{balance}</div>
+          </div>
 
           <nav className="rebel-navigator">{renderNavList("full")}</nav>
         </>

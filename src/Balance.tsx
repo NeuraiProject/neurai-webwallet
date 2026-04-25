@@ -4,6 +4,11 @@ import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { getAssetBalanceFromMempool, type MempoolAsset } from "./utils";
 import "./Balance.css";
 
+function isTestnet(wallet: Wallet | null | undefined): boolean {
+  const net = wallet?.network;
+  return net === "xna-test" || net === "xna-legacy-test" || net === "xna-pq-test";
+}
+
 export function Balance({
   balance,
   mempool,
@@ -15,7 +20,8 @@ export function Balance({
 }) {
   let pending = getAssetBalanceFromMempool(wallet.baseCurrency, mempool);
   const hasPending = pending !== 0;
-  const price = useUSDPrice(wallet);
+  const onTestnet = isTestnet(wallet);
+  const price = useUSDPrice(wallet, onTestnet);
   const _balance = balance + pending;
 
   const dollarValue = (price * _balance).toLocaleString("en-US", {
@@ -29,8 +35,8 @@ export function Balance({
   const unitPriceText = price?.toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
-    minimumFractionDigits: 3, // Adjust the number of decimal places
-    maximumFractionDigits: 6, // You can adjust this as needed
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 6,
   });
   return (
     <div>
@@ -41,10 +47,14 @@ export function Balance({
       ) : (
         ""
       )}
-      <h1 className="rebel-balance">
+      <h1
+        className={
+          "rebel-balance" + (onTestnet ? " rebel-balance--no-price" : "")
+        }
+      >
         {balanceText} {wallet.baseCurrency}
       </h1>
-      {dollarValue && (
+      {!onTestnet && dollarValue && (
         <div className="rebel-balance__value-container">
           <div className="rebel-balance__dollar-value">{dollarValue} total</div>
           <div className="rebel-balance__base-currency-value">
@@ -56,31 +66,29 @@ export function Balance({
   );
 }
 
-function useUSDPrice(wallet: Wallet) {
+function useUSDPrice(wallet: Wallet, skip: boolean) {
   const [price, setPrice] = React.useState(0);
 
   React.useEffect(() => {
-    // Relaxed check: allow fetching for any wallet instance to ensure legacy mode works.
-    // Ideally we checked for != "XNA-TEST" or similar, but for now we prioritize showing the price.
-    const isNeurai = !!wallet;
+    if (skip) {
+      setPrice(0);
+      return;
+    }
+    if (!wallet) return;
+
     const work = () => {
-      if (isNeurai === true) {
-        // CoinGecko API gratuita sin registro
-        const URL = "https://api.coingecko.com/api/v3/simple/price?ids=neurai&vs_currencies=usd";
-        fetch(URL)
-          .then((response) => response.json())
-          .then((obj) => {
-            // La respuesta es: { "neurai": { "usd": 0.00123 } }
-            if (obj.neurai && obj.neurai.usd) {
-              setPrice(parseFloat(obj.neurai.usd));
-            }
-          })
-          .catch((error) => {
-            // CORS errors are expected in local web dev
-            console.warn("Could not fetch Neurai price (likely CORS or network issue):", error);
-            setPrice(0);
-          });
-      }
+      const URL = "https://api.coingecko.com/api/v3/simple/price?ids=neurai&vs_currencies=usd";
+      fetch(URL)
+        .then((response) => response.json())
+        .then((obj) => {
+          if (obj.neurai && obj.neurai.usd) {
+            setPrice(parseFloat(obj.neurai.usd));
+          }
+        })
+        .catch((error) => {
+          console.warn("Could not fetch Neurai price (likely CORS or network issue):", error);
+          setPrice(0);
+        });
     };
     const interval = setInterval(work, 60 * 1000);
     work();
@@ -88,7 +96,7 @@ function useUSDPrice(wallet: Wallet) {
     return function cleanUp() {
       clearInterval(interval);
     };
-  }, [wallet]);
+  }, [wallet, skip]);
 
   return price;
 }

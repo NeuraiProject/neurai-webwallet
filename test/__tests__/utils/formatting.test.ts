@@ -1,7 +1,7 @@
 import {
   normalizeAssetAmountMaybe,
   shortenAddress
-} from "../../../src/utils/formatting";
+} from "@/utils/formatting";
 
 describe("normalizeAssetAmountMaybe", () => {
   it("converts large integers from satoshis to decimal", () => {

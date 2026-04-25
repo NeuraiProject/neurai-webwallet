@@ -1,4 +1,4 @@
-import { pickForcedUtxosForAmount } from "../../../src/utils/utxoUtils";
+import { pickForcedUtxosForAmount } from "@/utils/utxoUtils";
 
 describe("pickForcedUtxosForAmount", () => {
   it("selects UTXOs greedily to reach required sats", () => {

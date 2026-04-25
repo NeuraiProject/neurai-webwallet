@@ -1370,7 +1370,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                     </div>
                   </div>
                 ))}
-                <div ref={(el) => messagesEndRef.current.set("group", el)} />
+                <div ref={(el) => { messagesEndRef.current.set("group", el); }} />
               </div>
 
               {/* Pestañas Privadas */}
@@ -1448,7 +1448,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                         </div>
                       </div>
                     ))}
-                    <div ref={(el) => messagesEndRef.current.set(address, el)} />
+                    <div ref={(el) => { messagesEndRef.current.set(address, el); }} />
                   </div>
                 ))}
             </div>

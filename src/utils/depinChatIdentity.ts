@@ -1,6 +1,20 @@
-import NeuraiKey from '@neuraiproject/neurai-key';
+import { key as NeuraiKey } from '@neuraiproject/neurai-jswallet/dist/index.js';
 
 export type DepinChatNetwork = 'xna' | 'xna-test' | 'xna-legacy' | 'xna-legacy-test';
+
+/**
+ * DePIN chat identity is derived via BIP44 (`m/44'/coinType'/...`). PQ
+ * networks (xna-pq / xna-pq-test) use NIP-022 PQ-HD derivation and have no
+ * BIP44 path, so chat identity is not available there.
+ */
+export function isDepinChatSupportedNetwork(network: string): network is DepinChatNetwork {
+  return (
+    network === 'xna' ||
+    network === 'xna-test' ||
+    network === 'xna-legacy' ||
+    network === 'xna-legacy-test'
+  );
+}
 
 export type DepinChatIdentity = {
   address: string;

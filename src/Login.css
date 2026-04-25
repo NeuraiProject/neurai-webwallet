@@ -1,750 +1,611 @@
+/* =========================================================================
+   Neurai Wallet — Login screen
+   Light-first design. Dark variants live under [data-theme="dark"].
+   ========================================================================= */
+
+/*
+  Tokens are aliased to the interior wallet's variables (defined in
+  public/style.css) so the login page picks up the exact same dark/light
+  tones as the rest of the app. Only the few values that don't have an
+  interior equivalent (purple-tint hovers, surface-soft input bg, warn
+  colors) are kept as raw values.
+*/
+:root {
+  --rebel-login-purple: var(--neurai-primary);
+  --rebel-login-purple-strong: var(--neurai-primary-hover);
+  --rebel-login-purple-soft: var(--neurai-primary);
+  --rebel-login-purple-tint: rgba(81, 51, 190, 0.08);
+  --rebel-login-purple-tint-strong: rgba(81, 51, 190, 0.14);
+
+  --rebel-login-bg: var(--pico-background-color);
+  --rebel-login-surface: var(--pico-card-background-color);
+  --rebel-login-surface-soft: #fafafa;
+  --rebel-login-border: #d0d0d0;
+  --rebel-login-border-strong: #c0c0c0;
+  --rebel-login-text: var(--neurai-text);
+  --rebel-login-text-muted: var(--neurai-text-secondary);
+  --rebel-login-text-faint: #90919a;
+  --rebel-login-shadow: 4px 6px 8px rgba(0, 0, 0, 0.4);
+  --rebel-login-shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --rebel-login-warn: #b8580d;
+  --rebel-login-warn-bg: rgba(255, 173, 90, 0.12);
+}
+
+[data-theme="dark"] {
+  --rebel-login-purple: var(--neurai-primary);
+  --rebel-login-purple-strong: var(--neurai-primary-hover);
+  --rebel-login-purple-soft: var(--neurai-primary);
+  --rebel-login-purple-tint: rgba(108, 92, 231, 0.10);
+  --rebel-login-purple-tint-strong: rgba(108, 92, 231, 0.18);
+
+  --rebel-login-bg: var(--pico-background-color);
+  --rebel-login-surface: var(--pico-card-background-color);
+  --rebel-login-surface-soft: #151515;
+  --rebel-login-border: #333333;
+  --rebel-login-border-strong: #404040;
+  --rebel-login-text: var(--neurai-text);
+  --rebel-login-text-muted: var(--neurai-text-secondary);
+  --rebel-login-text-faint: #707070;
+  --rebel-login-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --rebel-login-shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --rebel-login-warn: #f0b27a;
+  --rebel-login-warn-bg: rgba(240, 178, 122, 0.12);
+}
+
+/* =========================================================================
+   Page shell
+   ========================================================================= */
+.rebel-login {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--rebel-login-text);
+  border: none;
+  box-shadow: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Pico CSS button reset (scoped to the login page).
+   Pico applies a primary-blue background to every <button>; we neutralise its
+   custom properties here so our custom styles below can take over without
+   needing !important. Individual button classes re-assign the vars they need.
+   --------------------------------------------------------------------------- */
+.rebel-login__page button,
+.rebel-login__page input[type="submit"] {
+  --pico-background-color: transparent;
+  --pico-border-color: transparent;
+  --pico-color: inherit;
+  --pico-box-shadow: none;
+  --pico-form-element-spacing-vertical: 0;
+  --pico-form-element-spacing-horizontal: 0;
+  --pico-border-width: 0;
+  --pico-border-radius: 0;
+  --pico-font-weight: inherit;
+}
+
+.rebel-login__page {
+  margin: 0 auto;
+  padding: 1.25rem 0 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* =========================================================================
+   Menu card (compact navigator-style header rendered as the first card on the
+   cover page). Reuses `.rebel-navigator*` classes from Navigator.css for the
+   internal layout so the cover header looks identical to the wallet's
+   compact-mode header.
+   ========================================================================= */
+.rebel-login__menu-card {
+  margin: 0;
+  background: var(--rebel-login-surface);
+  border: 1px solid var(--rebel-login-border);
+  border-radius: 8px;
+  box-shadow: var(--rebel-login-shadow);
+}
+
+/* Spread the disabled icon menu across the full center column so the row of
+   icons looks wide and evenly distributed (matching the interior's compact
+   menu screenshot). */
+.rebel-login__menu-card .rebel-navigator__compact-center .rebel-navigator__list--icononly,
+.rebel-login__menu-card .rebel-navigator__compact-mobile-icons .rebel-navigator__list--icononly {
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+/* Each disabled icon item gets evenly distributed horizontal real estate so
+   the row stays balanced regardless of the number of icons. */
+.rebel-login__menu-card .rebel-navigator__list-item--icononly {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The Navigator's compact-right-controls wraps the row of action icons.
+   In Login they hold help/settings/theme — match the same square hit-target
+   that we use elsewhere so SVGs land at identical positions. */
+.rebel-login__menu-card .rebel-navigator__compact-right-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.rebel-login__menu-card .rebel-navigator__compact-right-controls > * {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+}
+
+.rebel-login__menu-card .rebel-navigator__compact-right-controls svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+/* Square icon button used inside the menu card (Help / Settings). The same
+   box is matched by the LightModeToggle thanks to the rule on
+   `.rebel-login__menu-card .rebel-navigator__compact-right-controls > *`. */
+.rebel-login__page .rebel-login__icon-btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  margin: 0;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--rebel-login-text-muted);
+  font-size: 0;
+  line-height: 0;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.rebel-login__page .rebel-login__icon-btn:hover,
+.rebel-login__page .rebel-login__icon-btn:focus-visible {
+  background: var(--rebel-login-purple-tint);
+  color: var(--rebel-login-purple);
+  border-color: var(--rebel-login-border);
+  outline: none;
+}
+
+/* =========================================================================
+   Menu card item states: every icon is rendered as the disabled placeholder
+   except for the Settings link, which is active so the user can configure
+   RPC before signing in. The active link uses the regular text color so it
+   stands out as a clearly clickable, "darker" item among the greyed peers.
+   ========================================================================= */
+.rebel-login__menu-card .rebel-navigator__list-item-link--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  color: var(--rebel-login-text-faint);
+}
+
+.rebel-login__menu-card .rebel-login__menu-link--active {
+  opacity: 1;
+  color: var(--rebel-login-text);
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.rebel-login__menu-card .rebel-login__menu-link--active:hover,
+.rebel-login__menu-card .rebel-login__menu-link--active:focus-visible {
+  color: var(--rebel-login-purple);
+  outline: none;
+}
+
+/* =========================================================================
+   Form card title — keeps Pico's <h5> default but ensures the right tone in
+   both themes so it sits next to the Network selector cleanly.
+   ========================================================================= */
+.rebel-login__card-title {
+  margin: 0;
+  color: var(--rebel-login-text);
+}
+
+/* =========================================================================
+   Native select (used by the network picker inside the form card)
+   ========================================================================= */
+.rebel-login__page .rebel-login__select {
+  appearance: auto;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  background: var(--rebel-login-surface-soft);
+  border: 1px solid var(--rebel-login-border);
+  border-radius: 6px;
+  color: var(--rebel-login-text);
+  font-size: 0.95rem;
+  font-family: inherit;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  margin: 0;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  box-shadow: none;
+}
+
+.rebel-login__page .rebel-login__select:hover {
+  border-color: var(--rebel-login-purple);
+}
+
+.rebel-login__page .rebel-login__select:focus,
+.rebel-login__page .rebel-login__select:focus-visible {
+  border-color: var(--rebel-login-purple);
+  outline: none;
+  background: var(--rebel-login-surface);
+}
+
+/* =========================================================================
+   Card
+   ========================================================================= */
+.rebel-login__card {
+  background: var(--rebel-login-surface);
+  border: 1px solid var(--rebel-login-border);
+  border-radius: 8px;
+  box-shadow: var(--rebel-login-shadow);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Mode toggle (Recover / Create) */
+.rebel-login__mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 6px;
+  background: var(--rebel-login-surface-soft);
+  border: 1px solid var(--rebel-login-border);
+  border-radius: 8px;
+}
+
+.rebel-login__page .rebel-login__mode-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--rebel-login-text-faint);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.rebel-login__page .rebel-login__mode-btn:hover {
+  color: var(--rebel-login-purple);
+  background: var(--rebel-login-purple-tint);
+}
+
+.rebel-login__page .rebel-login__mode-btn.is-active,
+.rebel-login__page .rebel-login__mode-btn.is-active:hover {
+  background: var(--rebel-login-purple);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .rebel-login__page .rebel-login__mode-btn.is-active,
+[data-theme="dark"] .rebel-login__page .rebel-login__mode-btn.is-active:hover {
+  background: var(--rebel-login-purple);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+/* Form */
+.rebel-login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+}
+
+.rebel-login__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rebel-login__label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--rebel-login-text);
+  letter-spacing: -0.005em;
+}
+
+.rebel-login__input-wrap {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.rebel-login__input,
+.rebel-login__textarea {
+  width: 100%;
+  padding: 0.75rem 2.75rem 0.75rem 0.875rem;
+  background: var(--rebel-login-surface-soft);
+  border: 1px solid var(--rebel-login-border);
+  border-radius: 6px;
+  color: var(--rebel-login-text);
+  font-size: 0.95rem;
+  font-family: inherit;
+  line-height: 1.5;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  margin: 0;
+  box-shadow: none;
+}
+
+.rebel-login__textarea {
+  resize: none;
+  min-height: 56px;
+  overflow: hidden;
+}
+
+.rebel-login__textarea--masked {
+  -webkit-text-security: disc;
+  text-security: disc;
+  font-family: monospace;
+  letter-spacing: 0.15em;
+}
+
+.rebel-login__input:focus,
+.rebel-login__textarea:focus {
+  border-color: var(--rebel-login-purple);
+  background: var(--rebel-login-surface);
+  box-shadow: none;
+  outline: none;
+}
+
+.rebel-login__page .rebel-login__visibility-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--rebel-login-text-faint);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.rebel-login__page .rebel-login__visibility-toggle:hover {
+  background: var(--rebel-login-purple-tint);
+  color: var(--rebel-login-purple);
+}
+
+/* Segmented control (12 / 24 words) */
+.rebel-login__segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 6px;
+  background: var(--rebel-login-surface-soft);
+  border: 1px solid var(--rebel-login-border);
+  border-radius: 6px;
+}
+
+.rebel-login__page .rebel-login__segment {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--rebel-login-text-faint);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rebel-login__page .rebel-login__segment:hover {
+  color: var(--rebel-login-purple);
+  background: var(--rebel-login-purple-tint);
+}
+
+.rebel-login__page .rebel-login__segment.is-active,
+.rebel-login__page .rebel-login__segment.is-active:hover {
+  background: var(--rebel-login-purple);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .rebel-login__page .rebel-login__segment.is-active,
+[data-theme="dark"] .rebel-login__page .rebel-login__segment.is-active:hover {
+  background: var(--rebel-login-purple);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+/* Generate button */
+.rebel-login__page .rebel-login__generate-btn {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  color: var(--rebel-login-purple);
+  border: 1px dashed var(--rebel-login-border-strong);
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  margin: 0;
+}
+
+.rebel-login__page .rebel-login__generate-btn:hover {
+  background: var(--rebel-login-purple-tint);
+  border-color: var(--rebel-login-purple);
+  border-style: solid;
+}
+
+/* Words display box (after generate) */
+.rebel-login__words-box {
+  background: var(--rebel-login-surface-soft);
+  border: 1px solid var(--rebel-login-border);
+  border-radius: 6px;
+  padding: 0.875rem 1rem;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--rebel-login-text);
+  word-spacing: 0.4em;
+  user-select: all;
+}
+
+/* Passphrase toggle */
+.rebel-login__passphrase-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--rebel-login-text);
+  margin: 0;
+  padding: 0.25rem 0;
+}
+
+.rebel-login__passphrase-toggle input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.rebel-login__hint-inline {
+  color: var(--rebel-login-text-faint);
+  font-weight: 400;
+  font-size: 0.85rem;
+}
+
+/* Hints */
+.rebel-login__hint {
+  margin: 0;
+  font-size: 0.825rem;
+  color: var(--rebel-login-text-muted);
+  line-height: 1.5;
+}
+
+.rebel-login__hint--warn {
+  color: var(--rebel-login-warn);
+  background: var(--rebel-login-warn-bg);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+/* Submit */
+.rebel-login__page .rebel-login__submit {
+  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: var(--rebel-login-purple);
+  color: #ffffff;
+  border: 1px solid var(--rebel-login-purple);
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  box-shadow: none;
+}
+
+.rebel-login__page .rebel-login__submit:hover {
+  background: var(--rebel-login-purple-strong);
+  border-color: var(--rebel-login-purple-strong);
+  box-shadow: none;
+}
+
+.rebel-login__page .rebel-login__submit:active {
+  transform: translateY(1px);
+}
+
+[data-theme="dark"] .rebel-login__page .rebel-login__submit {
+  background: var(--rebel-login-purple);
+  color: #ffffff;
+  border-color: var(--rebel-login-purple);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .rebel-login__page .rebel-login__submit:hover {
+  background: var(--rebel-login-purple-strong);
+  border-color: var(--rebel-login-purple-strong);
+}
+
+/* =========================================================================
+   Settings header (when settings is shown from login)
+   ========================================================================= */
 .rebel-login__settings-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
-}
-
-.rebel-login__back-button {
-  margin-bottom: 0;
-}
-
-.rebel-login__topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding: 0.5rem 0;
-}
-
-.rebel-login__topbar-brand {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.rebel-login__topbar-title {
-  margin: 0 !important;
-  font-size: 1.875rem !important;
-  /* Increased by 50% */
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.rebel-login__topbar-subtitle {
-  margin: 0 !important;
-  font-size: 0.8rem !important;
-  color: var(--muted-color);
-  opacity: 0.8;
-}
-
-.rebel-login__topbar-actions {
-  display: flex;
-  gap: 0;
-  align-items: center;
-}
-
-.rebel-login__topbar-icon {
-  cursor: pointer;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  opacity: 0.7;
-  transition: all 0.2s ease-in-out;
-  color: #000000 !important;
-  border-radius: 0;
-  background: none !important;
-  border: none !important;
-}
-
-[data-theme="dark"] .rebel-login__topbar-icon {
-  color: #ffffff !important;
-}
-
-.rebel-login__topbar-icon:hover {
-  opacity: 1;
-}
-
-.rebel-login__topbar-icon:hover svg.feather-tool {
-  transform: rotate(15deg);
-}
-
-.rebel-login__topbar-icon:hover svg.feather-sun,
-.rebel-login__topbar-icon:hover svg.feather-moon {
-  transform: rotate(-15deg);
-}
-
-
-/* Features grid responsive layout (Login only) */
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-}
-
-@media (max-width: 900px) {
-  .features-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.rebel-login__features {
-  gap: 1rem;
-  margin-bottom: 2.5rem;
-}
-
-.rebel-login__feature-card {
-  padding: 1rem;
-  border-radius: 0.5rem;
-  text-align: center;
-  background-color: var(--rebel-login-feature-bg);
-  border: 1px solid var(--rebel-login-feature-border);
-}
-
-.rebel-login__feature-card--orange {
-  --rebel-login-feature-bg: rgba(255, 87, 34, 0.08);
-  --rebel-login-feature-border: rgba(255, 87, 34, 0.2);
-}
-
-.rebel-login__feature-card--blue {
-  --rebel-login-feature-bg: rgba(59, 130, 246, 0.08);
-  --rebel-login-feature-border: rgba(59, 130, 246, 0.2);
-}
-
-.rebel-login__feature-card--green {
-  --rebel-login-feature-bg: rgba(34, 197, 94, 0.08);
-  --rebel-login-feature-border: rgba(34, 197, 94, 0.2);
-}
-
-.rebel-login__feature-card--purple {
-  --rebel-login-feature-bg: rgba(168, 85, 247, 0.08);
-  --rebel-login-feature-border: rgba(168, 85, 247, 0.2);
-}
-
-.rebel-login__feature-icon {
-  font-size: 2rem;
-  margin-bottom: 0.4rem;
-}
-
-.rebel-login__feature-icon--logo {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.rebel-login__feature-logo {
-  height: 48px;
-  width: auto;
-}
-
-.rebel-login__feature-title {
-  margin-bottom: 0.4rem;
-  font-size: 1rem;
-}
-
-.rebel-login__feature-text {
-  font-size: 0.85rem;
-  color: var(--muted-color);
-  margin: 0;
-}
-
-.rebel-login__how-details {
-  margin-bottom: 2rem;
-}
-
-.rebel-login__how-summary {
-  cursor: pointer;
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-
-.rebel-login__how-content {
-  margin-top: 1rem;
-  padding: 1rem;
-  background-color: var(--code-background-color);
-  border-radius: 0.5rem;
-  border-left: 3px solid var(--primary);
-}
-
-.rebel-login__how-list {
-  margin: 0;
-  padding-left: 1.5rem;
-}
-
-.rebel-login__how-list-item {
-  margin-bottom: 0.75rem;
-}
-
-.rebel-login__how-list-item:last-child {
-  margin-bottom: 0;
-}
-
-.rebel-login__how-warning {
-  margin-top: 1rem;
-  margin-bottom: 0;
-  padding: 0.75rem;
-  background-color: var(--card-background-color);
-  border-radius: 0.25rem;
-  font-size: 0.9rem;
-}
-
-.rebel-login__divider {
-  margin-bottom: 2rem;
-}
-
-.rebel-login__section-title {
-  margin-bottom: 1rem;
-}
-
-.rebel-login__privacy {
   margin-bottom: 1.5rem;
-  padding: 1rem;
-  background-color: var(--code-background-color);
-  border-radius: 0.5rem;
-  font-size: 0.95rem;
-}
-
-.rebel-login__recovery-card {
-  padding: 2rem;
-  background-color: rgba(59, 130, 246, 0.1);
-  border-radius: 0.75rem;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  margin-bottom: 2rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.rebel-login__recovery-title {
-  margin-top: 0;
-  margin-bottom: 1.5rem;
-}
-
-.rebel-login__field {
-  margin-bottom: 1.5rem;
-}
-
-.rebel-login__label {
-  display: block;
-  margin-bottom: 0.75rem;
-  font-weight: bold;
-}
-
-.rebel-login__word-toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  justify-content: center;
-}
-
-.rebel-login__segmented-control {
-  display: flex;
-  gap: 0;
-  /* Joined buttons */
-}
-
-@media (min-width: 768px) {
-  .rebel-login__segmented-control {
-    max-width: 320px;
-    /* Limit width on desktop */
-  }
-}
-
-.rebel-login__segment-btn {
-  flex: 1;
-  background: transparent !important;
-  /* Force override of any global button styles */
-  border: 2px solid #e2e8f0;
-  /* Default border */
-  font-size: 0.9rem;
-  padding: 0.4rem 1rem;
-  cursor: pointer;
-  color: #000000 !important;
-  /* Force black for inactive buttons in light mode */
-  transition: all 0.2s ease;
-  font-weight: 600;
-  margin: 0;
-  margin-left: -2px;
-  /* Overlap borders */
-  position: relative;
-  /* For z-index */
-}
-
-.rebel-login__segment-btn:first-child {
-  margin-left: 0;
-  border-top-left-radius: 0.5rem;
-  border-bottom-left-radius: 0.5rem;
-}
-
-.rebel-login__segment-btn:last-child {
-  border-top-right-radius: 0.5rem;
-  border-bottom-right-radius: 0.5rem;
-}
-
-.rebel-login__segment-btn:not(.is-active):hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  z-index: 5;
-}
-
-/* Selected State: Default Button Color */
-.rebel-login__segment-btn.is-active {
-  background-color: var(--pico-background-color) !important;
-  border: 2px solid var(--pico-background-color) !important;
-  color: var(--pico-color) !important;
-  /* Ensure text is visible */
-  z-index: 10;
-  box-shadow: none;
-}
-
-/* Dark Mode Overrides */
-[data-theme="dark"] .rebel-login__segment-btn {
-  background-color: transparent;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  color: var(--primary) !important;
-  /* Restore primary/light color for dark mode */
-}
-
-[data-theme="dark"] .rebel-login__segment-btn.is-active {
-  background-color: var(--pico-background-color) !important;
-  border-color: var(--pico-background-color) !important;
-  color: var(--pico-color) !important;
-}
-
-
-
-
-
-[data-theme="dark"] .rebel-login__segment-btn:not(.is-active):hover {
-  background-color: rgba(255, 255, 255, 0.05);
-  /* subtle hover */
-}
-
-.rebel-login__mnemonic-label {
-  font-weight: bold;
-  display: block;
-  margin-top: 1.5rem;
-}
-
-.rebel-login__field-with-icon {
-  position: relative;
-}
-
-.rebel-login__mnemonic-textarea {
-  padding-right: 3rem;
-  min-height: auto;
-  max-height: none;
-  height: auto;
-  resize: none;
-  overflow: auto;
-  overflow-y: hidden;
-  box-sizing: border-box;
-  line-height: 1.5;
-}
-
-.rebel-login__visibility-toggle {
-  position: absolute;
-  right: 0.75rem;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  cursor: pointer;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #000000 !important;
-  /* Base color black for light mode */
-  z-index: 10;
-  transition: opacity 0.2s;
-}
-
-.rebel-login__visibility-toggle svg {
-  stroke: #000000 !important;
-  /* Force black stroke in light mode */
-}
-
-[data-theme="dark"] .rebel-login__visibility-toggle {
-  color: #ffffff !important;
-}
-
-[data-theme="dark"] .rebel-login__visibility-toggle svg {
-  stroke: #ffffff !important;
-  /* Force white stroke in dark mode */
-}
-
-.rebel-login__visibility-toggle:hover {
-  opacity: 0.7;
-  /* Subtle hover effect instead of hidden-to-visible */
-  background: transparent !important;
-}
-
-.rebel-login__visibility-toggle--textarea {
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.rebel-login__visibility-toggle--input {
-  top: 0;
-  bottom: 0;
-}
-
-/* Password field for textarea (Login only) */
-.password-field {
-  -webkit-text-security: disc;
-  font-family: text-security-disc;
-}
-
-.rebel-login__passphrase-toggle {
-  margin-top: 1rem;
-}
-
-.rebel-login__card-muted {
-  margin-top: 1rem;
-  padding: 1rem;
-  background-color: var(--code-background-color);
-  border-radius: 0.5rem;
-  border: 1px solid var(--muted-border-color);
-}
-
-.rebel-login__muted {
-  font-size: 0.9rem;
-  color: var(--muted-color);
-}
-
-.rebel-login__muted--tight {
-  margin-bottom: 0.75rem;
-  margin-top: 0;
-}
-
-.rebel-login__passphrase-label {
-  font-weight: bold;
-}
-
-.rebel-login__input-with-icon {
-  padding-right: 3rem;
-}
-
-.rebel-login__esp32-card {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background-color: var(--code-background-color);
-  border-radius: 0.5rem;
-  border: 1px solid var(--muted-border-color);
-}
-
-.rebel-login__esp32-title {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.rebel-login__button-full {
-  width: 100%;
-}
-
-.rebel-login__full-width {
-  width: 100%;
-}
-
-.rebel-login__button-grid {
-  display: grid;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.rebel-login__button-grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
-
-.rebel-login__danger-button {
-  background-color: rgba(239, 68, 68, 0.1) !important;
-  border-color: rgba(239, 68, 68, 0.3) !important;
-}
-
-.rebel-login__refresh-button {
-  width: 100%;
-  font-size: 0.85rem;
-  padding: 0.5rem;
-}
-
-.rebel-login__status {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background-color: var(--card-background-color);
-  border-radius: 0.25rem;
-  font-size: 0.9rem;
-  word-break: break-word;
-}
-
-.rebel-login__form-actions {
-  margin-top: 40px;
-}
-
-.rebel-login__quick-card {
-  margin-top: 3rem;
-  padding: 2rem;
-  background-color: rgba(34, 197, 94, 0.1);
-  border-radius: 0.75rem;
-  border: 2px solid rgba(34, 197, 94, 0.3);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.rebel-login__quick-title {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.rebel-login__quick-desc {
-  font-size: 0.95rem;
-  color: var(--muted-color);
-  margin-bottom: 1.5rem;
-}
-
-.rebel-login__select-row {
-  margin-bottom: 1rem;
-}
-
-.rebel-login__bold-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: bold;
-}
-
-.rebel-login__wallet-info {
-  padding: 1.5rem;
-  background-color: var(--card-background-color);
-  border-radius: 0.5rem;
-  border: 1px solid var(--muted-border-color);
-  margin-bottom: 1rem;
-}
-
-.rebel-login__wallet-info-title {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  font-size: 1.1rem;
-}
-
-.rebel-login__wallet-info-row {
-  margin-bottom: 0.75rem;
-}
-
-.rebel-login__primary-text {
-  color: var(--primary);
-}
-
-.rebel-login__help {
-  color: var(--muted-color);
-  display: block;
-  margin-top: 0.5rem;
-}
-
-.rebel-login__mb-1 {
-  margin-bottom: 1rem;
-}
-
-.rebel-login__quick-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
-
-
-
-/* Created Words Box (Read-only) */
-.rebel-login__created-words-box {
-  background-color: var(--code-background-color);
-  padding: 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--muted-border-color);
-  font-family: monospace;
-  font-size: 1rem;
-  line-height: 1.5;
-  color: var(--primary);
-  word-spacing: 0.5rem;
-  min-height: 3rem;
-  user-select: all;
-  /* Make it easy to copy */
-}
-
-.rebel-login__mb-1 {
-  margin-bottom: 1rem !important;
-}
-
-/* Integrated Tabs Styling */
-.rebel-login__tabs {
-  gap: 0;
-  /* Remove gap to connect tabs */
-  padding-left: 1rem;
-  /* Align first tab with card padding */
-}
-
-.rebel-login__tab {
-  border: 1px solid transparent;
-  /* Prepare borders */
-  border-bottom: 1px solid rgba(59, 130, 246, 0.3);
-  /* Match card border color for unselected */
-  position: relative;
-  /* top: 1px; removed */
-  border-top-left-radius: 0.5rem;
-  border-top-right-radius: 0.5rem;
-  margin-right: 0.25rem;
-  /* Small gap between tabs */
-  background-color: transparent;
-  opacity: 0.7;
-  margin-bottom: -1px !important;
-  /* All tabs touch the card */
-  padding-bottom: 0.8rem;
-  /* Align text vertically */
-}
-
-.rebel-login__tab:hover {
-  background-color: rgba(59, 130, 246, 0.05);
-  opacity: 1;
-}
-
-.rebel-login__tab.is-active {
-  background-color: rgba(59, 130, 246, 0.1);
-  /* Match card bg */
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  /* Match card border */
-  border-bottom-color: transparent !important;
-  /* Remove bottom border to merge */
-  border-width: 1px !important;
-  /* Force 1px */
-  color: var(--primary);
-  opacity: 1;
-  z-index: 2;
-  margin-bottom: -1px !important;
-  /* Overlap card border */
-  padding-bottom: 0.8rem;
-  /* Slight increase to cover gap */
-  outline: none !important;
-  /* No focus ring */
-  box-shadow: none !important;
-}
-
-/* Dark Mode: Active tab looks like inactive word buttons */
-[data-theme="dark"] .rebel-login__tab.is-active {
-  background-color: transparent !important;
-  border: 2px solid rgba(255, 255, 255, 0.2) !important;
-  border-bottom-color: transparent !important;
-  color: var(--primary) !important;
-}
-
-/* Mobile Responsive Tabs */
-@media (max-width: 767px) {
-  .rebel-login__topbar-subtitle {
-    display: none;
-  }
-
-  .rebel-login__tabs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding-left: 0;
-    gap: 3px;
-    margin-bottom: 0px;
-    /* Connect to the card */
-  }
-
-  .rebel-login__tab {
-    width: 100%;
-    margin-right: 0;
-    margin-bottom: 0 !important;
-    border-radius: 0.5rem;
-    border: 1px solid rgba(59, 130, 246, 0.4) !important;
-    text-align: center;
-    padding: 0.8rem 1rem;
-    opacity: 1;
-    background-color: rgba(59, 130, 246, 0.05);
-  }
-
-  /* Specific fix for bottom row (Esp32 HW and Help) to touch the card */
-  .rebel-login__tab:nth-child(3),
-  .rebel-login__tab:nth-child(4) {
-    border-bottom-left-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
-    margin-bottom: -1px !important;
-    border-bottom-color: transparent !important;
-  }
-
-  .rebel-login__tab.is-active {
-    background-color: rgba(59, 130, 246, 0.15) !important;
-    border-color: rgba(59, 130, 246, 0.5) !important;
-    color: var(--primary) !important;
-    position: relative;
-    z-index: 10;
-  }
-
-  [data-theme="dark"] .rebel-login__tab {
-    border-color: rgba(255, 255, 255, 0.2) !important;
-    background-color: rgba(255, 255, 255, 0.02);
-  }
-
-  [data-theme="dark"] .rebel-login__tab.is-active {
-    background-color: transparent !important;
-    border: 2px solid rgba(255, 255, 255, 0.2) !important;
-    border-bottom-color: transparent !important;
-    color: var(--primary) !important;
-  }
-
-  .rebel-login__recovery-card {
-    border-top-left-radius: 0 !important;
-    border-top-right-radius: 0 !important;
-  }
-}
-
-/* Ensure card handles overlap correctly */
-.rebel-login__recovery-card {
-  z-index: 1;
-}
-
-/* ========================================
-   UTILITY CLASSES FOR INLINE STYLE REMOVAL
-   ======================================== */
-
-/* Spacing utilities */
-.rebel-login__spacing-top-sm {
-  margin-top: 0.5rem;
-}
-
-/* Embedded card variants (transparent background, no borders) */
-.rebel-login__esp32-card--embedded {
-  margin-top: 0;
-  border: none;
-  background: transparent;
-  padding: 0;
-}
-
-.rebel-login__how-content--embedded {
-  border: none;
-  background: transparent;
   padding: 0 1rem;
 }
 
-.rebel-login__card-muted--no-top-margin {
+.rebel-login__back-button {
+  margin: 0;
+  width: auto;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+/* =========================================================================
+   Dialogs
+   ========================================================================= */
+.rebel-login__dialog article {
+  border-radius: 8px;
+  border: 1px solid var(--rebel-login-border);
+}
+
+.rebel-login__dialog--help article {
+  max-width: 540px;
+}
+
+.rebel-login__dialog--help h4 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--rebel-login-purple);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.rebel-login__dialog--help h4:first-of-type {
   margin-top: 0;
 }
 
-/* Heading variants */
-.rebel-login__heading-primary {
-  color: var(--primary);
+.rebel-login__dialog--help p {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--rebel-login-text-muted);
+  margin: 0 0 0.5rem;
 }
 
-.rebel-login__heading-primary--no-top-margin {
-  margin-top: 0;
-  color: var(--primary);
-}
-
-/* Warning box danger variant (red background) */
-.rebel-login__how-warning--danger {
-  background-color: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+/* =========================================================================
+   Responsive
+   ========================================================================= */
+@media (max-width: 480px) {
+  .rebel-login__page {
+    padding: 1rem 1rem 2rem;
+    gap: 1.25rem;
+  }
+  .rebel-login__card {
+    padding: 1.25rem;
+  }
 }

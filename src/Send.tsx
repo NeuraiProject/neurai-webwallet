@@ -1,7 +1,7 @@
 import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "./Types";
-import { QrReader } from "react-qr-reader";
+import { Scanner } from "@yudiel/react-qr-scanner";
 import "./Send.css";
 import {
   getAssetBalanceFromMempool,
@@ -228,26 +228,23 @@ function AssetOptions({ wallet, allAssets }: IAssetOptionsProps) {
 }
 function useQRReader(showQRCode: boolean, onResult: (value: string | null) => void) {
   const [qr, setQR] = React.useState(<></>);
-  const [mode, setMode] = React.useState("environment");
+  const [mode, setMode] = React.useState<"environment" | "user">("environment");
   React.useEffect(() => {
     if (showQRCode === false) {
       setQR(<></>);
     } else {
       const q = (
         <div>
-          <QrReader
+          <Scanner
             key={"qr" + new Date().toISOString()}
             constraints={{
               facingMode: mode,
             }}
             scanDelay={100}
-            onResult={(result) => {
-              if (!result) return;
-              const text = typeof (result as { text?: unknown }).text === "string"
-                ? (result as { text?: string }).text
-                : null;
-              if (text !== null) {
-                onResult(text);
+            onScan={(codes) => {
+              const value = codes[0]?.rawValue;
+              if (value) {
+                onResult(value);
               }
             }}
           />

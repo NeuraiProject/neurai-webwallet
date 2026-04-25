@@ -150,6 +150,36 @@
   margin-bottom: 0.5rem;
 }
 
+/* Full (non-compact) mode: status list on the left, balance horizontally
+   centered on the page, an empty mirror column on the right so the balance
+   stays in true center regardless of how wide the status list grows.
+   Vertical centering keeps the balance at the height of the middle status
+   item (Passphrase). */
+.rebel-navigator__status-balance-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1rem;
+}
+
+.rebel-navigator__balance-slot {
+  grid-column: 2;
+  text-align: center;
+}
+
+.rebel-navigator__balance-slot .rebel-balance {
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .rebel-navigator__status-balance-row {
+    grid-template-columns: 1fr;
+  }
+  .rebel-navigator__balance-slot {
+    grid-column: 1;
+  }
+}
+
 .rebel-navigator__status-item {
   display: flex;
   align-items: center;

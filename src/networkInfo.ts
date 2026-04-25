@@ -20,13 +20,11 @@ const neuraiMainnet: INetworkInfo = {
 const neuraiTestnet: INetworkInfo = {
   displayName: "Neurai Testnet",
   getThumbnailURL: (assetName) => {
-    // Update with actual Neurai testnet thumbnail service URL when available
-    const baseURL = "https://rebel-explorer.neurai.org/thumbnail?assetName=";
+    const baseURL = "https://rebel-explorer-testnet.neurai.org/thumbnail?assetName=";
     return baseURL + encodeURIComponent(assetName);
   },
   getTransactionURL: (id: string) => {
-    // Update with actual Neurai testnet explorer URL when available
-    return "https://testnet.neuraiexplorer.com/tx/" + id;
+    return "https://rebel-explorer-testnet.neurai.org/tx/" + id;
   },
 };
 
@@ -35,6 +33,8 @@ export interface INetworks {
   "xna-test": INetworkInfo;
   "xna-legacy": INetworkInfo;
   "xna-legacy-test": INetworkInfo;
+  "xna-pq": INetworkInfo;
+  "xna-pq-test": INetworkInfo;
 }
 
 const networks: INetworks = {
@@ -42,6 +42,8 @@ const networks: INetworks = {
   "xna-test": neuraiTestnet,
   "xna-legacy": neuraiMainnet,
   "xna-legacy-test": neuraiTestnet,
+  "xna-pq": neuraiMainnet,
+  "xna-pq-test": neuraiTestnet,
 };
 
 export default networks;

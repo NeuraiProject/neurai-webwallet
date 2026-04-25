@@ -1,4 +1,4 @@
-import { parsePubkeyMaybe, parsePubkeyRevealedMaybe } from "../../../src/utils/cryptoUtils";
+import { parsePubkeyMaybe, parsePubkeyRevealedMaybe } from "@/utils/cryptoUtils";
 
 describe("parsePubkeyMaybe", () => {
   it("accepts compressed pubkeys (66 hex chars)", () => {

@@ -2,7 +2,7 @@ import {
   getAssetType,
   getAssetTypeLabel,
   isValidMessagingAsset
-} from "../../../src/utils/assetUtils";
+} from "@/utils/assetUtils";
 
 describe("getAssetType", () => {
   it("identifies DePIN assets", () => {

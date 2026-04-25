@@ -1,5 +1,5 @@
 import React from "react";
-import * as RavencoinMessage from "@neuraiproject/neurai-message";
+import * as RavencoinMessage from "@neuraiproject/neurai-message/dist/browser.mjs";
 import { IAddressObject } from "./IAddressObject";
 
 export function useSignature(addressObject: IAddressObject | null, text: string) {

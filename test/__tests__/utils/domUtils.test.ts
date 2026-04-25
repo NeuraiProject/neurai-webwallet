@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { autoResizeTextarea } from "../../../src/utils/domUtils";
+import { autoResizeTextarea } from "@/utils/domUtils";
 
 describe("autoResizeTextarea", () => {
   it("uses scrollHeight when textarea has content", () => {
