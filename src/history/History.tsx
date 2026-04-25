@@ -70,8 +70,11 @@ interface IProps {
   wallet: Wallet;
 }
 
+const PAGE_SIZE = 10;
+
 export function History({ blockCount, wallet }: IProps) {
   const [history, setHistory] = React.useState<RawHistoryItem[]>([]);
+  const [page, setPage] = React.useState(0);
 
   React.useEffect(() => {
     wallet.getHistory().then(setHistory);
@@ -87,12 +90,17 @@ export function History({ blockCount, wallet }: IProps) {
     return list;
   }, [history]);
 
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const startIdx = safePage * PAGE_SIZE;
+  const visibleItems = items.slice(startIdx, startIdx + PAGE_SIZE);
+
   const networkKey = wallet.network as keyof typeof networkInfo;
   const network = networkInfo[networkKey] ?? networkInfo.xna;
 
   return (
     <div className="flex flex-col gap-3">
-      {items.slice(0, 21).map((item) => (
+      {visibleItems.map((item) => (
         <TransactionCard
           key={item.transactionId}
           wallet={wallet}
@@ -103,6 +111,32 @@ export function History({ blockCount, wallet }: IProps) {
           getTransactionURL={network.getTransactionURL}
         />
       ))}
+
+      {items.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between gap-2 pt-2">
+          <button
+            type="button"
+            className="neurai-btn--secondary"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={safePage === 0}
+            aria-label="Previous page"
+          >
+            ← Newer
+          </button>
+          <span className="text-sm text-base-content/70">
+            {startIdx + 1}–{Math.min(items.length, startIdx + visibleItems.length)} of {items.length}
+          </span>
+          <button
+            type="button"
+            className="neurai-btn--secondary"
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={safePage >= totalPages - 1}
+            aria-label="Next page"
+          >
+            Older →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -205,18 +239,11 @@ function TransactionCard({
   return (
     <article className="neurai-card neurai-card--compact text-base-content text-[0.95rem] leading-snug">
       <header className="flex flex-col gap-1 pb-2.5 border-b border-base-300">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-baseline gap-3 flex-wrap min-w-0">
-            {time && <time className="font-semibold">{time}</time>}
-            {blockHeight !== undefined && (
-              <span className="text-sm text-base-content/70 font-mono">
-                block {blockHeight}
-              </span>
-            )}
-          </div>
-          {fee !== null && (
-            <span className="text-sm text-base-content/70 whitespace-nowrap">
-              fee {formatAmount(fee)} XNA
+        <div className="flex items-baseline justify-between gap-3 flex-wrap min-w-0">
+          {time && <time className="font-semibold">{time}</time>}
+          {blockHeight !== undefined && (
+            <span className="text-sm text-base-content/70 font-mono ml-auto">
+              block {blockHeight}
             </span>
           )}
         </div>
@@ -245,10 +272,17 @@ function TransactionCard({
         >
           ▸
         </span>
-        {summary ? (
-          <SummaryLine summary={summary} assetName={primaryAsset.assetName} />
-        ) : (
-          <span>—</span>
+        <span className="flex-1 min-w-0">
+          {summary ? (
+            <SummaryLine summary={summary} assetName={primaryAsset.assetName} />
+          ) : (
+            <span>—</span>
+          )}
+        </span>
+        {fee !== null && (
+          <span className="text-sm text-base-content/70 whitespace-nowrap shrink-0">
+            fee {formatAmount(fee)} XNA
+          </span>
         )}
       </button>
 

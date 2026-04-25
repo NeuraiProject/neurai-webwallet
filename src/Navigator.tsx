@@ -77,6 +77,10 @@ export function Navigator({
           : "muted";
 
   const [isCompact, setIsCompact] = usePersistentState<boolean>("rebelNavigatorCompact", false);
+  // Narrow-viewport drawer state. In compact mode below `xl` the icon menu
+  // hides behind a tappable bottom edge; clicking it (or any of the icons,
+  // or the header itself) toggles the drawer.
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   const passphraseTone: StatusTone = hasPassphrase ? "ok" : "error";
   const hwTone: StatusTone = "error";
@@ -171,10 +175,25 @@ export function Navigator({
     <div className={isCompact ? "neurai-card neurai-card--compact" : "neurai-card"}>
       {isCompact ? (
         <>
-          <div className="flex items-center gap-3 flex-wrap">
+          <div
+            className="flex items-center gap-3 flex-wrap xl:cursor-default"
+            onClick={() => {
+              // On narrow viewports, tapping the header again collapses the
+              // drawer if it's open. The check on innerWidth keeps the wide
+              // (xl) layout — where the menu is always inline — unaffected.
+              if (isMenuOpen && window.innerWidth < 1280) setIsMenuOpen(false);
+            }}
+          >
             {/* Brand + status */}
             <div className="flex flex-col gap-1 shrink-0">
-              <a href="#" onClick={onClickHome} className="flex items-center gap-1.5 text-primary font-semibold no-underline">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClickHome(e);
+                }}
+                className="flex items-center gap-1.5 text-primary font-semibold no-underline"
+              >
                 <img src={neuraiLogo.href} alt="Neurai logo" className="w-8 h-8 object-contain" />
                 <span className="text-xl">Neurai</span>
               </a>
@@ -187,11 +206,14 @@ export function Navigator({
             </nav>
 
             {/* Right-side controls + balance */}
-            <div className="flex flex-col items-end gap-1 ml-auto">
+            <div
+              className="flex flex-col items-end gap-1 ml-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  className="neurai-btn--icon"
+                  className="neurai-btn--icon hidden xl:inline-flex"
                   title="Expand menu"
                   aria-label="Expand menu"
                   onClick={() => setIsCompact(false)}
@@ -206,10 +228,59 @@ export function Navigator({
             </div>
           </div>
 
-          {/* Mobile-only icon row (visible <1280px) */}
-          <div className="xl:hidden mt-3" aria-label="Compact menu">
-            <nav>{renderNavList("icon")}</nav>
-          </div>
+          {/* Hamburger handle: 3 thin horizontal lines flush with the card's
+              bottom edge. Only visible <xl. Tapping toggles the icon drawer. */}
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen((v) => !v)}
+            aria-expanded={isMenuOpen}
+            aria-label={isMenuOpen ? "Hide menu" : "Show menu"}
+            className="xl:hidden w-full mt-3 -mx-4 -mb-3 px-4 pt-2 pb-1.5 flex flex-col items-center gap-[3px] text-base-content/50 hover:text-primary transition-colors cursor-pointer"
+          >
+            <span aria-hidden="true" className="block h-0.5 w-7 bg-current rounded-full" />
+            <span aria-hidden="true" className="block h-0.5 w-7 bg-current rounded-full" />
+            <span aria-hidden="true" className="block h-0.5 w-7 bg-current rounded-full" />
+          </button>
+
+          {/* Drawer with icons in 2 rows. Only visible <xl AND when open.
+              Tapping any icon also closes the drawer (event bubbles up from
+              the NavItem links to this wrapper). */}
+          {isMenuOpen && (
+            <div
+              className="xl:hidden mt-2"
+              aria-label="Compact menu"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <nav>
+                <ul className="grid grid-cols-5 gap-2 list-none m-0 p-0">
+                  {NAV_ITEMS.map((item) => {
+                    if (item.type === "placeholder") {
+                      return (
+                        <PlaceholderNavItem
+                          key={item.key}
+                          title={item.title}
+                          icon={item.icon}
+                          variant="icon"
+                        />
+                      );
+                    }
+                    const disabled = navLocked && (item.lockable ?? true);
+                    return (
+                      <NavItem
+                        key={item.route}
+                        title={item.title}
+                        route={item.route}
+                        variant="icon"
+                        currentRoute={currentRoute}
+                        setRoute={setRoute}
+                        disabled={disabled}
+                      />
+                    );
+                  })}
+                </ul>
+              </nav>
+            </div>
+          )}
         </>
       ) : (
         <>
