@@ -1,17 +1,21 @@
 import { key as NeuraiKey } from "@neuraiproject/neurai-jswallet/dist/index.js";
 import type { ChainType } from "@neuraiproject/neurai-jswallet/dist/Types";
-import React, { FormEvent } from "react";
+import React, { FormEvent, ReactNode } from "react";
 import { LightModeToggle } from "./components/LightModeToggle";
 import { Settings } from "./Settings";
 import { Footer } from "./Footer";
 import {
+  IconAsset,
   IconChat,
+  IconEye,
+  IconEyeOff,
   IconHistory,
   IconHome,
   IconIoT,
   IconReceive,
   IconSend,
   IconSettings,
+  IconShield,
   IconSign,
   IconSweep,
 } from "./icons";
@@ -36,6 +40,7 @@ const NAV_PREVIEW_ITEMS: { key: string; title: string; icon: JSX.Element }[] = [
   { key: "home", title: "Home", icon: <IconHome /> },
   { key: "send", title: "Send", icon: <IconSend /> },
   { key: "receive", title: "Receive", icon: <IconReceive /> },
+  { key: "asset", title: "Asset", icon: <IconAsset /> },
   { key: "sweep", title: "Sweep", icon: <IconSweep /> },
   { key: "history", title: "History", icon: <IconHistory /> },
   { key: "sign", title: "Sign", icon: <IconSign /> },
@@ -78,12 +83,14 @@ export function Login({
   };
 
   const renderMenuItem = (item: typeof NAV_PREVIEW_ITEMS[number]) => {
+    const baseLink =
+      "flex flex-col items-center justify-center gap-1 rounded-md transition-colors no-underline relative py-1";
     if (item.key === "settings") {
       return (
-        <li key={item.key} className="flex-1 min-w-0 flex justify-center">
+        <li key={item.key} className="px-1 py-1">
           <a
             href="#"
-            className="flex items-center justify-center p-1.5 text-base-content hover:text-primary transition-colors"
+            className={`${baseLink} text-base-content hover:text-primary`}
             onClick={(event) => {
               event.preventDefault();
               setShowSettings(true);
@@ -91,19 +98,19 @@ export function Login({
             title="RPC settings"
             aria-label="RPC settings"
           >
-            {item.icon}
+            <div>{item.icon}</div>
           </a>
         </li>
       );
     }
     return (
-      <li key={item.key} className="flex-1 min-w-0 flex justify-center">
+      <li key={item.key} className="px-1 py-1">
         <span
-          className="flex items-center justify-center p-1.5 text-base-content/40 cursor-not-allowed"
+          className={`${baseLink} text-base-content/40 cursor-not-allowed pointer-events-none`}
           title={`${item.title} (sign in to activate)`}
           aria-disabled="true"
         >
-          {item.icon}
+          <div>{item.icon}</div>
         </span>
       </li>
     );
@@ -235,7 +242,7 @@ export function Login({
 
           {/* Disabled menu icons (preview) */}
           <nav className="flex-1 min-w-0 hidden xl:block" aria-label="Wallet menu preview">
-            <ul className="flex items-center gap-1 list-none m-0 p-0 [&_svg]:w-5 [&_svg]:h-5">
+            <ul className="flex items-center justify-center gap-8 list-none m-0 p-0 flex-nowrap w-full">
               {NAV_PREVIEW_ITEMS.map(renderMenuItem)}
             </ul>
           </nav>
@@ -255,17 +262,71 @@ export function Login({
           </div>
         </div>
 
-        {/* Mobile / narrow icon row (visible <1280px) */}
+        {/* Mobile / narrow icon grid (visible <1280px) — mirrors the
+            Navigator's drawer layout when the wallet is loaded */}
         <nav className="xl:hidden mt-3" aria-label="Wallet menu preview (mobile)">
-          <ul className="flex items-center justify-between gap-1 list-none m-0 p-0 [&_svg]:w-5 [&_svg]:h-5">
+          <ul className="grid grid-cols-5 gap-2 list-none m-0 p-0">
             {NAV_PREVIEW_ITEMS.map(renderMenuItem)}
           </ul>
         </nav>
       </div>
 
-      {/* Form card */}
-      <div className="neurai-card">
-        <h5 className="neurai-card__title mb-4">Recover or create wallet</h5>
+      {/* Two-column layout on desktop: hero on the left, form on the right.
+          Below `lg` the hero is hidden so the mobile layout stays compact. */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
+        {/* Hero card — desktop only */}
+        <aside className="neurai-card hidden lg:flex flex-col gap-5" aria-label="About Neurai Wallet">
+          <div className="flex items-center gap-3">
+            <img
+              src={neuraiLogo.href}
+              alt="Neurai logo"
+              className="w-12 h-12 object-contain"
+            />
+            <div className="flex flex-col">
+              <h2 className="text-2xl font-bold text-primary leading-none m-0">
+                Neurai Wallet
+              </h2>
+              <span className="text-[11px] text-base-content/55 uppercase tracking-widest mt-1">
+                Self-custody · Browser-based
+              </span>
+            </div>
+          </div>
+
+          <p className="text-sm text-base-content/80 leading-relaxed m-0">
+            A privacy-first wallet for the Neurai network. Send and receive XNA,
+            manage assets, and control DePIN devices — all signed locally in
+            your browser, never on a server.
+          </p>
+
+          <hr className="border-base-300 m-0" />
+
+          <ul className="flex flex-col gap-4 list-none m-0 p-0">
+            <FeatureItem
+              icon={<IconShield />}
+              title="Your keys, your device"
+              body="Recovery words and the optional BIP39 passphrase never leave this browser. Signing and encryption happen locally."
+            />
+            <FeatureItem
+              icon={<IconAsset />}
+              title="XNA + native assets"
+              body="Send, receive, sweep, and inspect assets across mainnet, testnet, and post-quantum networks."
+            />
+            <FeatureItem
+              icon={<IconIoT />}
+              title="DePIN & IoT-ready"
+              body="Beyond standard transfers, manage Decentralized Physical Infrastructure devices directly from the wallet."
+            />
+          </ul>
+
+          <p className="mt-auto pt-4 border-t border-base-300 text-xs text-base-content/55 m-0">
+            ⚠ Neurai cannot recover your wallet. Always keep a physical backup
+            of your recovery words.
+          </p>
+        </aside>
+
+        {/* Form card */}
+        <div className="neurai-card">
+          <h5 className="neurai-card__title mb-4">Recover or create wallet</h5>
 
         <div className="mb-4">
           <label htmlFor="rebel-login-network" className="neurai-label">
@@ -432,6 +493,7 @@ export function Login({
             Sign in
           </button>
         </form>
+        </div>
       </div>
 
       <Footer />
@@ -511,30 +573,34 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+function FeatureItem({
+  icon,
+  title,
+  body,
+}: {
+  icon: ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <li className="flex gap-3 items-start">
+      <div className="shrink-0 w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center [&_svg]:w-5 [&_svg]:h-5">
+        {icon}
+      </div>
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <strong className="text-sm font-semibold leading-tight">{title}</strong>
+        <span className="text-xs text-base-content/70 leading-relaxed">{body}</span>
+      </div>
+    </li>
+  );
+}
+
 function IconHelp() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
-    </svg>
-  );
-}
-
-function IconEye() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function IconEyeOff() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-      <line x1="1" y1="1" x2="23" y2="23" />
     </svg>
   );
 }

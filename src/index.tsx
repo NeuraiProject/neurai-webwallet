@@ -31,6 +31,7 @@ import { Sweep } from "./Sweep";
 import { Asset } from "./Asset";
 import { Sign } from "./sign/Sign";
 import { Settings } from "./Settings";
+import { IconEye, IconEyeOff, IconShield } from "./icons";
 
 const DEFAULT_RPC_MAINNET = "https://rpc-depin.neurai.org/rpc";
 const DEFAULT_RPC_TESTNET = "https://rpc-testnet.neurai.org/rpc";
@@ -704,10 +705,16 @@ function PinDialog({
   const [pin1, setPin1] = React.useState("");
   const [pin2, setPin2] = React.useState("");
   const [caps, setCaps] = React.useState(false);
+  const [showPin, setShowPin] = React.useState(false);
   const minLen = 6;
   const maxLen = 24;
 
-  const title = mode === "setup" ? "Set PIN" : "Enter PIN";
+  const title = mode === "setup" ? "Set a PIN" : "Enter your PIN";
+  const eyebrow = mode === "setup" ? "First-time setup" : "Wallet locked";
+  const description =
+    mode === "setup"
+      ? `Choose a PIN between ${minLen} and ${maxLen} characters. It will encrypt your recovery words on this device.`
+      : `Enter the PIN you set when this wallet was created on this device (${minLen} to ${maxLen} characters).`;
   const canSubmit =
     mode === "unlock"
       ? pin1.length >= minLen && pin1.length <= maxLen
@@ -752,50 +759,79 @@ function PinDialog({
 
   return (
     <dialog open className="modal modal-open">
-      <div className="modal-box">
-        <div className="flex items-center gap-2 mb-4">
-          <img className="w-10 h-10" src={neuraiLogo.href} alt="Neurai" />
-          <h3 className="m-0 font-bold">Neurai Wallet</h3>
+      <div className="neurai-card w-full max-w-md flex flex-col gap-4 row-start-1 col-start-1">
+        {/* Brand header — mirrors the Login hero card */}
+        <div className="flex items-center gap-3">
+          <img
+            src={neuraiLogo.href}
+            alt="Neurai logo"
+            className="w-12 h-12 object-contain"
+          />
+          <div className="flex flex-col">
+            <h2 className="text-2xl font-bold text-primary leading-none m-0">
+              Neurai Wallet
+            </h2>
+            <span className="text-[11px] text-base-content/55 uppercase tracking-widest mt-1">
+              {eyebrow}
+            </span>
+          </div>
+          <div className="ml-auto shrink-0 w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center [&_svg]:w-5 [&_svg]:h-5">
+            <IconShield />
+          </div>
         </div>
-        <hr className="border-t border-base-300 my-2" />
-        {mode === "unlock" ? (
-          <span className="block font-bold mb-2">{title}</span>
-        ) : (
-          <h3 className="font-bold mb-2 mt-0">{title}</h3>
-        )}
-        <p className="text-sm text-base-content/80 mb-3">
-          {mode === "setup"
-            ? `Create a PIN (${minLen} to ${maxLen} characters) to protect your wallet on this device.`
-            : `Enter your PIN to unlock the wallet (${minLen} to ${maxLen} characters).`}
-        </p>
+
+        <hr className="border-base-300 m-0" />
+
+        <div>
+          <h3 className="neurai-card__title mb-1">{title}</h3>
+          <p className="text-sm text-base-content/80 m-0">{description}</p>
+        </div>
 
         <form
           autoComplete="off"
+          className="flex flex-col gap-3"
           onSubmit={(event) => {
             event.preventDefault();
             if (canSubmit) onSubmit(pin1);
           }}
         >
-          <label className="block mb-3">
-            <span className="neurai-label">PIN</span>
-            <input
-              type="password"
-              className="neurai-input"
-              value={pin1}
-              onChange={(e) => setPin1(e.target.value)}
-              autoFocus
-              autoComplete="new-password"
-              spellCheck={false}
-              maxLength={maxLen}
-              placeholder={`${minLen} to ${maxLen} characters`}
-            />
-          </label>
+          <div>
+            <label htmlFor="rebel-pin-1" className="neurai-label">
+              PIN
+            </label>
+            <div className="relative">
+              <input
+                id="rebel-pin-1"
+                type={showPin ? "text" : "password"}
+                className="neurai-input pr-12"
+                value={pin1}
+                onChange={(e) => setPin1(e.target.value)}
+                autoFocus
+                autoComplete="new-password"
+                spellCheck={false}
+                maxLength={maxLen}
+                placeholder={`${minLen} to ${maxLen} characters`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPin((v) => !v)}
+                className="neurai-btn--icon absolute top-1/2 right-2 -translate-y-1/2"
+                aria-label={showPin ? "Hide PIN" : "Show PIN"}
+                tabIndex={-1}
+              >
+                {showPin ? <IconEyeOff /> : <IconEye />}
+              </button>
+            </div>
+          </div>
 
           {mode === "setup" && (
-            <label className="block mb-3">
-              <span className="neurai-label">Repeat PIN</span>
+            <div>
+              <label htmlFor="rebel-pin-2" className="neurai-label">
+                Repeat PIN
+              </label>
               <input
-                type="password"
+                id="rebel-pin-2"
+                type={showPin ? "text" : "password"}
                 className="neurai-input"
                 value={pin2}
                 onChange={(e) => setPin2(e.target.value)}
@@ -804,21 +840,29 @@ function PinDialog({
                 maxLength={maxLen}
                 placeholder="Repeat PIN"
               />
-            </label>
+            </div>
           )}
 
-          {caps && <p className="text-warning text-sm my-1">Caps Lock is ON</p>}
+          <div className="flex flex-col gap-1.5 empty:hidden">
+            {caps && (
+              <p className="neurai-hint--warn m-0">⇪ Caps Lock is ON</p>
+            )}
+            {mode === "setup" && pin1 && pin2 && pin1 !== pin2 && (
+              <p className="rounded-md bg-error/15 px-2 py-1 text-xs font-medium text-error m-0">
+                PINs do not match
+              </p>
+            )}
+            {error && (
+              <p className="rounded-md bg-error/15 px-2 py-1 text-xs font-medium text-error m-0">
+                {error}
+              </p>
+            )}
+          </div>
 
-          {mode === "setup" && pin1 && pin2 && pin1 !== pin2 && (
-            <p className="text-error text-sm my-1">PINs do not match</p>
-          )}
-
-          {error && <p className="text-error text-sm my-1">{error}</p>}
-
-          <div className="flex gap-2 justify-end mt-4 flex-wrap">
+          <div className="flex gap-2 justify-end mt-2 flex-wrap">
             <button
               type="button"
-              className="rebel-pin-reset-button btn"
+              className="btn btn-ghost text-error mr-auto"
               onClick={onReset}
             >
               Reset wallet
@@ -835,13 +879,14 @@ function PinDialog({
               className="neurai-btn--primary"
               disabled={!canSubmit}
             >
-              OK
+              {mode === "setup" ? "Save PIN" : "Unlock"}
             </button>
           </div>
         </form>
 
-        <p className="text-xs text-base-content/70 mt-4">
-          If you forget your PIN, you will need to clear this site's stored data in your browser.
+        <p className="neurai-hint m-0 pt-2 border-t border-base-300">
+          ⓘ If you forget your PIN, you will need to clear this site's stored
+          data in your browser and recover the wallet from your recovery words.
         </p>
       </div>
       <div className="modal-backdrop" />
