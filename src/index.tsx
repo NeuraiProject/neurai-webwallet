@@ -1,5 +1,9 @@
 import NeuraiWallet, { Wallet } from "@neuraiproject/neurai-jswallet";
-import type { ChainType } from "@neuraiproject/neurai-jswallet/dist/Types";
+
+// `ChainType` is not re-exported from the package's main entry, but we can
+// derive it from the public `Wallet.network` field — avoids the deep
+// `/dist/Types` import that bypasses the package's `exports` map.
+type ChainType = Wallet["network"];
 console.log("NeuraiWallet", !!NeuraiWallet);
 import React from "react";
 import {

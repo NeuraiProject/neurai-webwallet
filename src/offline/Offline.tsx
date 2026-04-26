@@ -1,5 +1,5 @@
 import React from "react";
-import { key as NeuraiKey } from "@neuraiproject/neurai-jswallet/dist/index.js";
+import { key as NeuraiKey } from "@neuraiproject/neurai-jswallet";
 import { Settings } from "../Settings";
 
 type ChainType = "xna" | "xna-test" | "xna-legacy" | "xna-legacy-test";

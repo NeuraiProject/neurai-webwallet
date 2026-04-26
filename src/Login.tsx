@@ -1,5 +1,7 @@
-import { key as NeuraiKey } from "@neuraiproject/neurai-jswallet/dist/index.js";
-import type { ChainType } from "@neuraiproject/neurai-jswallet/dist/Types";
+import { key as NeuraiKey, Wallet } from "@neuraiproject/neurai-jswallet";
+
+// Derived from the public Wallet API to avoid a deep `/dist/Types` import.
+type ChainType = Wallet["network"];
 import React, { FormEvent, ReactNode } from "react";
 import { LightModeToggle } from "./components/LightModeToggle";
 import { Settings } from "./Settings";

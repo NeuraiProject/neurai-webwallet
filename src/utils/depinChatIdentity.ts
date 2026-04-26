@@ -1,4 +1,4 @@
-import { key as NeuraiKey } from '@neuraiproject/neurai-jswallet/dist/index.js';
+import { key as NeuraiKey } from '@neuraiproject/neurai-jswallet';
 
 export type DepinChatNetwork = 'xna' | 'xna-test' | 'xna-legacy' | 'xna-legacy-test';
 
