@@ -74,6 +74,7 @@ export function Login({
   const [showPassphrase, setShowPassphrase] = React.useState(false);
   const [wordCount, setWordCount] = React.useState<12 | 24>(12);
   const [createdMnemonic, setCreatedMnemonic] = React.useState<string>("");
+  const [recoverMnemonic, setRecoverMnemonic] = React.useState<string>("");
   const [usePassphrase, setUsePassphrase] = React.useState(false);
   const [dialog, setDialog] = React.useState(<></>);
   const [showSettings, setShowSettings] = React.useState(false);
@@ -122,6 +123,7 @@ export function Login({
   };
 
   const handleTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setRecoverMnemonic(event.target.value);
     autoResizeTextarea(event.target);
   };
 
@@ -177,9 +179,7 @@ export function Login({
       }
       value = createdMnemonic.trim();
     } else {
-      const mnemonicInput = document.getElementById("mnemonic") as HTMLTextAreaElement;
-      if (!mnemonicInput) return null;
-      value = mnemonicInput.value.trim();
+      value = recoverMnemonic.trim();
     }
 
     if (!NeuraiKey.isMnemonicValid(value)) {
@@ -390,6 +390,7 @@ export function Login({
                   autoComplete="off"
                   placeholder="Type or paste your 12 or 24 words"
                   className={`neurai-textarea pr-12 min-h-14 resize-none ${showWords ? "" : "[-webkit-text-security:disc] [text-security:disc] tracking-widest font-mono"}`}
+                  value={recoverMnemonic}
                   onChange={handleTextareaChange}
                   onInput={handleTextareaInput}
                   onFocus={(e) => autoResizeTextarea(e.currentTarget)}
@@ -438,7 +439,7 @@ export function Login({
                 id="newWalletButton"
                 type="button"
                 onClick={newWallet}
-                className="btn btn-outline border-dashed border-base-300 text-primary"
+                className="btn btn-outline border-2 border-dashed border-base-content/40 text-primary hover:border-primary"
               >
                 Generate new words
               </button>
@@ -496,7 +497,11 @@ export function Login({
             </div>
           )}
 
-          <button type="submit" className="neurai-btn--primary w-full">
+          <button
+            type="submit"
+            className="neurai-btn--primary w-full"
+            disabled={mode === "create" ? !createdMnemonic : !recoverMnemonic.trim()}
+          >
             Sign in
           </button>
         </form>
@@ -531,7 +536,11 @@ function Dialog({
           </button>
         </div>
       </div>
-      <div className="modal-backdrop" onClick={onClose} />
+      {/* Backdrop is intentionally non-dismissive: a tap that lands outside the
+          modal-box on mobile would otherwise close the dialog AND swallow the
+          gesture, so the user's tap on "Sign in" behind the modal would
+          require a second tap to actually register. */}
+      <div className="modal-backdrop" />
     </dialog>
   );
 }
