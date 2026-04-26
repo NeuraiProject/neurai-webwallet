@@ -536,11 +536,7 @@ function Dialog({
           </button>
         </div>
       </div>
-      {/* Backdrop is intentionally non-dismissive: a tap that lands outside the
-          modal-box on mobile would otherwise close the dialog AND swallow the
-          gesture, so the user's tap on "Sign in" behind the modal would
-          require a second tap to actually register. */}
-      <div className="modal-backdrop" />
+      <div className="modal-backdrop" onClick={onClose} />
     </dialog>
   );
 }

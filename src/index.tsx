@@ -175,6 +175,14 @@ function App() {
     // If already unlocked in this session, do nothing.
     if (mnemonic) return;
 
+    // A Login submission is in-flight: `onLogin` already set `pinGateMode =
+    // "setup"` and `pendingMnemonicData`. If `setNetwork` was also called
+    // with a different value in the same handler, this effect would otherwise
+    // run after commit and reset `pinGateMode` to null because no mnemonic is
+    // stored yet for the new network — causing Login to re-mount and the user
+    // to lose the freshly-generated words.
+    if (pendingMnemonicData) return;
+
     // If there is a stored mnemonic for the current network, require PIN
     // setup/unlock. When the user switches network in the Login picker, this
     // re-runs and reflects the new network's storage state.
@@ -191,7 +199,7 @@ function App() {
       // and migrate it once the user confirms.
       setPinGateMode("setup");
     }
-  }, [mnemonic, network]);
+  }, [mnemonic, network, pendingMnemonicData]);
 
   React.useEffect(() => {
     if (navLocked && currentRoute !== Routes.SETTINGS) {
