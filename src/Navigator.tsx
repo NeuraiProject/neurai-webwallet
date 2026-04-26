@@ -94,7 +94,11 @@ export function Navigator({
           ? "error"
           : "muted";
 
-  const [isCompact, setIsCompact] = usePersistentState<boolean>("rebelNavigatorCompact", false);
+  const [isCompactPref, setIsCompact] = usePersistentState<boolean>("rebelNavigatorCompact", false);
+  // Below the `xl` breakpoint the expanded layout is too wide to fit, so we
+  // force compact regardless of the user's saved preference.
+  const isXl = useIsXlViewport();
+  const isCompact = !isXl || isCompactPref;
   // Narrow-viewport drawer state. In compact mode below `xl` the icon menu
   // hides behind a tappable bottom edge; clicking it (or any of the icons,
   // or the header itself) toggles the drawer.
@@ -456,4 +460,19 @@ const iconMapper: Record<Routes, JSX.Element> = {
 
 function Icon({ route }: { route: Routes }) {
   return <div>{iconMapper[route]}</div>;
+}
+
+const XL_QUERY = "(min-width: 1280px)";
+
+function useIsXlViewport(): boolean {
+  const [matches, setMatches] = React.useState<boolean>(() =>
+    typeof window === "undefined" ? true : window.matchMedia(XL_QUERY).matches,
+  );
+  React.useEffect(() => {
+    const mql = window.matchMedia(XL_QUERY);
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+  return matches;
 }
