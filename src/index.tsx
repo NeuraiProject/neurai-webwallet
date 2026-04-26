@@ -36,6 +36,7 @@ import { Asset } from "./Asset";
 import { Sign } from "./sign/Sign";
 import { Settings } from "./Settings";
 import { IconEye, IconEyeOff, IconShield } from "./icons";
+import { isAllowedNetwork, WALLET_BUILD } from "./buildTarget";
 
 const DEFAULT_RPC_MAINNET = "https://rpc-depin.neurai.org/rpc";
 const DEFAULT_RPC_TESTNET = "https://rpc-testnet.neurai.org/rpc";
@@ -142,15 +143,17 @@ function App() {
       "xna-pq",
       "xna-pq-test",
     ];
-    if (stored && (validStored as string[]).includes(stored)) {
+    if (stored && (validStored as string[]).includes(stored) && isAllowedNetwork(stored)) {
       return stored as ChainType;
     }
 
     const searchParams = new URLSearchParams(window.location.search);
-    const isTestnet = searchParams.get("network") === "xna-test";
+    const wantTestnet =
+      WALLET_BUILD === "testnet" ||
+      (WALLET_BUILD === "all" && searchParams.get("network") === "xna-test");
     const useLegacy = localStorage.getItem("derivation_type") === "legacy";
 
-    if (isTestnet) {
+    if (wantTestnet) {
       return useLegacy ? "xna-legacy-test" : "xna-test";
     }
     return useLegacy ? "xna-legacy" : "xna";

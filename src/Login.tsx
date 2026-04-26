@@ -22,6 +22,7 @@ import {
   IconSweep,
 } from "./icons";
 import { autoResizeTextarea } from "./utils/domUtils";
+import { isAllowedNetwork } from "./buildTarget";
 
 const neuraiLogo = new URL("../public/neurai-xna-logo.png", import.meta.url);
 
@@ -29,12 +30,14 @@ type Mode = "recover" | "create";
 
 type NetworkOption = "xna-legacy" | "xna-pq" | "xna-legacy-test" | "xna-pq-test";
 
-const NETWORK_OPTIONS: { value: NetworkOption; label: string }[] = [
+const ALL_NETWORK_OPTIONS: { value: NetworkOption; label: string }[] = [
   { value: "xna-legacy", label: "Mainnet Legacy" },
   { value: "xna-pq", label: "Mainnet PQ" },
   { value: "xna-legacy-test", label: "Testnet Legacy" },
   { value: "xna-pq-test", label: "Testnet PQ" },
 ];
+
+const NETWORK_OPTIONS = ALL_NETWORK_OPTIONS.filter((opt) => isAllowedNetwork(opt.value));
 
 const NETWORK_STORAGE_KEY = "wallet_network";
 
@@ -56,7 +59,7 @@ function readStoredNetwork(): NetworkOption {
   if (saved && NETWORK_OPTIONS.some((o) => o.value === saved)) {
     return saved as NetworkOption;
   }
-  return "xna-legacy";
+  return NETWORK_OPTIONS[0].value;
 }
 
 export function Login({
@@ -330,25 +333,27 @@ export function Login({
         <div className="neurai-card">
           <h5 className="neurai-card__title mb-4">Recover or create wallet</h5>
 
-        <div className="mb-4">
-          <label htmlFor="rebel-login-network" className="neurai-label">
-            Network
-          </label>
-          <select
-            id="rebel-login-network"
-            className="neurai-select"
-            value={network}
-            onChange={(e) => handleNetworkChange(e.target.value as NetworkOption)}
-            aria-label="Network"
-          >
-            {NETWORK_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <p className="neurai-hint">Each network stores its seed separately on this device.</p>
-        </div>
+        {NETWORK_OPTIONS.length > 1 && (
+          <div className="mb-4">
+            <label htmlFor="rebel-login-network" className="neurai-label">
+              Network
+            </label>
+            <select
+              id="rebel-login-network"
+              className="neurai-select"
+              value={network}
+              onChange={(e) => handleNetworkChange(e.target.value as NetworkOption)}
+              aria-label="Network"
+            >
+              {NETWORK_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <p className="neurai-hint">Each network stores its seed separately on this device.</p>
+          </div>
+        )}
 
         {/* Mode toggle (Recover / Create) */}
         <div role="tablist" aria-label="Sign in mode" className="join w-full mb-4">
