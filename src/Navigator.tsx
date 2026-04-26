@@ -59,6 +59,7 @@ export function Navigator({
   setRoute,
   navLocked = false,
   hasPassphrase = false,
+  network,
 }: {
   balance: ReactNode;
   currentRoute: Routes;
@@ -66,7 +67,22 @@ export function Navigator({
   setRoute: (route: Routes) => void;
   navLocked?: boolean;
   hasPassphrase?: boolean;
+  network: Wallet["network"];
 }) {
+  const isTestnet = network.endsWith("-test");
+  const networkTab = (
+    <span
+      className={
+        "absolute top-0 right-24 text-[0.65rem] leading-none font-semibold uppercase tracking-wider px-2.5 py-1 rounded-b-md border border-t-0 z-10 select-none " +
+        (isTestnet
+          ? "text-error border-error/60 bg-error/15"
+          : "text-success border-success/50 bg-success/15")
+      }
+      title={isTestnet ? "Connected to Testnet" : "Connected to Mainnet"}
+    >
+      {isTestnet ? "Testnet" : "Mainnet"}
+    </span>
+  );
   const { syncHealth, syncHint } = useNodeStatus(wallet);
 
   const syncTone: StatusTone =
@@ -174,7 +190,8 @@ export function Navigator({
   };
 
   return (
-    <div className={isCompact ? "neurai-card neurai-card--compact" : "neurai-card"}>
+    <div className={(isCompact ? "neurai-card neurai-card--compact" : "neurai-card") + " relative"}>
+      {networkTab}
       {isCompact ? (
         <>
           <div

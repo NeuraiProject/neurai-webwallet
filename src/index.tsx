@@ -591,6 +591,7 @@ function App() {
           wallet={null}
           navLocked={true}
           hasPassphrase={false}
+          network={network}
         />
 
         <div className="rebel-content-container">
@@ -625,6 +626,7 @@ function App() {
         wallet={wallet}
         navLocked={navLocked}
         hasPassphrase={!!passphrase}
+        network={network}
       />
 
       <div className="rebel-content-container">
