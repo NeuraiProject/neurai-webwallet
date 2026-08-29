@@ -30,7 +30,7 @@ export function AssetLink({ wallet, assetName }: LinkToIPFSProps) {
       setAssetData(null);
       return;
     }
-    const promise = wallet.rpc("getassetdata", [assetName]);
+    const promise = wallet.rpc("getassetdata", [assetName]) as Promise<IAsset | null>;
     promise.then(setAssetData);
   }, [assetName, wallet.baseCurrency]);
 

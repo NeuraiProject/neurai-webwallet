@@ -557,7 +557,12 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
     (async () => {
       try {
-        const info: MsgInfo | null = await getMsgInfo();
+        // Protocol 1 shape. Against a protocol-2 node `depingetmsginfo` answers a
+        // signed `{ body, poolsig }` envelope and these fields are absent, so the
+        // expiry below simply stays null. Replaced by the verified pool lookup in
+        // the protocol-2 migration; cast only to keep the type checker honest
+        // about the fact that the RPC returns `unknown`.
+        const info = (await getMsgInfo()) as MsgInfo | null;
         const hours = typeof info?.messageexpiryhours === 'number' ? info.messageexpiryhours : null;
         if (!cancelled) setMsgInfo(info ?? null);
         if (!cancelled) setMessageExpiryHours(hours);
@@ -733,7 +738,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
 
       let balance: Record<string, unknown> | null = null;
       try {
-        balance = await wallet.rpc('listassetbalancesbyaddress', [chatAddress]);
+        balance = (await wallet.rpc('listassetbalancesbyaddress', [chatAddress])) as Record<string, unknown> | null;
 
       } catch (error) {
         console.error('❌ RPC ERROR: listassetbalancesbyaddress failed for chat address');

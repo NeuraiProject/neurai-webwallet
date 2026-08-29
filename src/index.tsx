@@ -20,6 +20,7 @@ import "./styles/tailwind.css";
 import "./styles/primitives.css";
 import "./App.css";
 
+import { formatRpcError } from "./utils/rpcError";
 import { Loader } from "./Loader";
 import { Login } from "./Login";
 import { Navigator } from "./Navigator";
@@ -72,28 +73,6 @@ type RpcConfig = {
   url?: string;
   username?: string;
   password?: string;
-};
-
-type RpcErrorShape = {
-  message?: unknown;
-  error?: {
-    message?: unknown;
-    error?: {
-      message?: unknown;
-    };
-  };
-  data?: {
-    message?: unknown;
-  };
-  response?: {
-    data?: {
-      error?: unknown;
-    };
-    statusText?: unknown;
-  };
-  status?: unknown;
-  statusCode?: unknown;
-  code?: unknown;
 };
 
 //Set Dark or Light mode if store.
@@ -261,70 +240,6 @@ function App() {
     }
   }, []);
 
-  const formatRpcError = React.useCallback((err: unknown): string => {
-    if (!err) return "Unknown RPC error";
-    if (typeof err === "string") return err;
-    if (err instanceof Error) {
-      const m = String(err.message || "").trim();
-      return m || "RPC error";
-    }
-
-    const errorObj = err as RpcErrorShape;
-    // Try common nested error shapes
-    const msgCandidate =
-      errorObj?.message ??
-      errorObj?.error?.message ??
-      errorObj?.error?.error?.message ??
-      errorObj?.data?.message ??
-      errorObj?.response?.data?.error ??
-      errorObj?.response?.statusText ??
-      null;
-
-    const statusCandidate = errorObj?.status ?? errorObj?.statusCode ?? errorObj?.code ?? null;
-
-    const msg = typeof msgCandidate === "string" ? msgCandidate.trim() : "";
-    const status =
-      typeof statusCandidate === "string" || typeof statusCandidate === "number"
-        ? String(statusCandidate)
-        : "";
-
-    const lower = msg.toLowerCase();
-    if (lower.includes("timeout")) {
-      return "RPC timeout: server is not responding";
-    }
-    if (
-      lower.includes("failed to fetch") ||
-      lower.includes("networkerror") ||
-      lower.includes("network request failed")
-    ) {
-      return "RPC unreachable: cannot connect to server";
-    }
-
-    if (msg) {
-      return status ? `RPC error (${status}): ${msg}` : `RPC error: ${msg}`;
-    }
-
-    // Last resort: JSON stringify the object.
-    try {
-      const seen = new WeakSet();
-      const json = JSON.stringify(
-        errorObj,
-        (_k, v) => {
-          if (typeof v === "object" && v !== null) {
-            if (seen.has(v)) return "[Circular]";
-            seen.add(v);
-          }
-          return v;
-        },
-        2
-      );
-      if (json && json !== "{}") return `RPC error: ${json}`;
-    } catch {
-      // ignore
-    }
-
-    return "RPC error";
-  }, []);
 
   const tryInitWallet = React.useCallback(() => {
     if (!mnemonic) return;

@@ -15,9 +15,9 @@ export function useUniqueAssets(wallet: Wallet, assets: IAsset[]) {
       if (asset.balance !== 1 * 100000000) {
         continue;
       }
-      const promise = wallet.rpc("getassetdata", [asset.assetName]);
+      const promise = wallet.rpc("getassetdata", [asset.assetName]) as Promise<{ amount?: number; reissuable?: number } | null>;
       promise.then((data) => {
-        if (data.amount == 1 && data.reissuable === 0) {
+        if (data && data.amount == 1 && data.reissuable === 0) {
           tempAssets.push(asset);
           const arrayCopy = tempAssets.concat([]);
           setUniqueAssets(arrayCopy);
