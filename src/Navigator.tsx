@@ -2,20 +2,11 @@ import React, { ReactNode } from "react";
 import { Routes } from "./Routes";
 import { LightModeToggle } from "./components/LightModeToggle";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
+
+import { chatAvailability } from "./depin/network";
+import { NavItem, type NavItemVariant } from "./NavItem";
 import { useNodeStatus } from "./hooks/useNodeStatus";
 import { usePersistentState } from "./hooks/usePersistentState";
-import {
-  IconAsset,
-  IconChat,
-  IconHistory,
-  IconHome,
-  IconIoT,
-  IconReceive,
-  IconSend,
-  IconSettings,
-  IconSign,
-  IconSweep,
-} from "./icons";
 import { FaAnglesDown, FaAnglesUp } from "react-icons/fa6";
 import { BUILD_DATE } from "./buildDate";
 
@@ -70,6 +61,10 @@ export function Navigator({
   network: Wallet["network"];
 }) {
   const isTestnet = network.endsWith("-test");
+  // DePIN messaging only exists where DePIN tokens do. Rather than letting the
+  // user in and failing later, the entry point itself says why it is closed.
+  const chat = chatAvailability(network);
+  const chatDisabledReason = chat.available ? undefined : chat.message;
   const networkTab = (
     <span
       className={
@@ -176,7 +171,8 @@ export function Navigator({
               />
             );
           }
-          const disabled = navLocked && (item.lockable ?? true);
+          const unavailable = item.route === Routes.CHAT ? chatDisabledReason : undefined;
+          const disabled = (navLocked && (item.lockable ?? true)) || Boolean(unavailable);
           return (
             <NavItem
               key={item.route}
@@ -186,6 +182,7 @@ export function Navigator({
               currentRoute={currentRoute}
               setRoute={setRoute}
               disabled={disabled}
+              disabledReason={unavailable}
             />
           );
         })}
@@ -287,7 +284,10 @@ export function Navigator({
                         />
                       );
                     }
-                    const disabled = navLocked && (item.lockable ?? true);
+                    const unavailable =
+                      item.route === Routes.CHAT ? chatDisabledReason : undefined;
+                    const disabled =
+                      (navLocked && (item.lockable ?? true)) || Boolean(unavailable);
                     return (
                       <NavItem
                         key={item.route}
@@ -297,6 +297,7 @@ export function Navigator({
                         currentRoute={currentRoute}
                         setRoute={setRoute}
                         disabled={disabled}
+                        disabledReason={unavailable}
                       />
                     );
                   })}
@@ -340,52 +341,6 @@ export function Navigator({
         </>
       )}
     </div>
-  );
-}
-
-type NavItemVariant = "full" | "icon";
-
-interface NavItemProps {
-  currentRoute: Routes;
-  route: Routes;
-  setRoute: (route: Routes) => void;
-  title: string;
-  variant: NavItemVariant;
-  disabled?: boolean;
-}
-
-function NavItem({ currentRoute, route, setRoute, title, variant, disabled }: NavItemProps) {
-  const isCurrent = currentRoute === route;
-
-  const liClass = variant === "icon" ? "px-1 py-1" : "p-3";
-
-  const baseLink =
-    "flex flex-col items-center justify-center gap-1 rounded-md transition-colors no-underline relative";
-  const stateLink = disabled
-    ? "text-base-content/40 cursor-not-allowed pointer-events-none"
-    : isCurrent
-      ? "text-primary after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:-bottom-1.5 after:h-0.5 after:w-6 after:rounded-full after:bg-primary"
-      : "text-base-content hover:text-primary";
-
-  return (
-    <li className={liClass}>
-      <a
-        href="#"
-        className={`${baseLink} ${stateLink} ${variant === "full" ? "py-2 text-sm font-light" : "py-1"}`}
-        onClick={(event) => {
-          event.preventDefault();
-          if (disabled) return false;
-          setRoute(route);
-          return false;
-        }}
-        aria-disabled={disabled || undefined}
-        title={variant === "icon" ? title : undefined}
-        aria-label={variant === "icon" ? title : undefined}
-      >
-        <Icon route={route} />
-        {variant === "full" ? title : null}
-      </a>
-    </li>
   );
 }
 
@@ -445,22 +400,6 @@ function StatusItem({
   );
 }
 
-const iconMapper: Record<Routes, JSX.Element> = {
-  [Routes.HOME]: <IconHome />,
-  [Routes.HISTORY]: <IconHistory />,
-  [Routes.IOT]: <IconIoT />,
-  [Routes.RECEIVE]: <IconReceive />,
-  [Routes.ASSET]: <IconAsset />,
-  [Routes.SEND]: <IconSend />,
-  [Routes.CHAT]: <IconChat />,
-  [Routes.SETTINGS]: <IconSettings />,
-  [Routes.SIGN]: <IconSign />,
-  [Routes.SWEEP]: <IconSweep />,
-};
-
-function Icon({ route }: { route: Routes }) {
-  return <div>{iconMapper[route]}</div>;
-}
 
 const XL_QUERY = "(min-width: 1280px)";
 

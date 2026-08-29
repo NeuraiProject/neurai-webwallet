@@ -20,6 +20,7 @@ import "./styles/tailwind.css";
 import "./styles/primitives.css";
 import "./App.css";
 
+import { chatAvailability } from "./depin/network";
 import { formatRpcError } from "./utils/rpcError";
 import { Loader } from "./Loader";
 import { Login } from "./Login";
@@ -137,6 +138,15 @@ function App() {
     }
     return useLegacy ? "xna-legacy" : "xna";
   });
+
+  // A disabled button is not a guard: the route can already be open when the
+  // network changes underneath it. Leaving the user on a Chat screen that
+  // cannot work would surface as RPC errors instead of an explanation.
+  React.useEffect(() => {
+    if (currentRoute !== Routes.CHAT) return;
+    if (chatAvailability(network).available) return;
+    setCurrentRoute(Routes.HOME);
+  }, [currentRoute, network]);
 
   const depinChatIdentity = React.useMemo<DepinChatIdentity | null>(() => {
     if (!mnemonic) return null;
