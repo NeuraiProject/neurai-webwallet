@@ -19,8 +19,10 @@
  * each reset bumps a generation and stale results are dropped.
  */
 import {
+  buildDepinMessage,
   clearDepinMessages,
   createSoftwareIdentity,
+  decodeDepinRecipients,
   decodePlainReply,
   verifyDepinReply,
   type SenderIdentity,
@@ -95,6 +97,12 @@ export function readableMessages(entries: Array<Record<string, unknown>>): Depin
     });
   }
   return out;
+}
+
+/** One holder of the token, with a public key that has been verified against it. */
+export interface VerifiedRecipient {
+  address: string;
+  pubkey: string;
 }
 
 export class DepinPoolProtocolError extends Error {
@@ -242,16 +250,77 @@ export function createDepinClient(options: DepinClientOptions) {
     return { entries, readable: readableMessages(entries), hasMore: Boolean(page.hasMore) };
   }
 
+  /**
+   * The token's holders with their public keys, verified.
+   *
+   * Runs the library's own pipeline for the recipient list, composed from its
+   * published pieces: verify the `poolsig`, decode only what the verifier
+   * branded, then hand the body to `decodeDepinRecipients` — which throws if the
+   * list is truncated, if the token or root do not match, or if ANY public key
+   * does not hash to the address it is offered for.
+   *
+   * Only once that returns are the `{address, pubkey}` pairs read from the same
+   * body, so they are not the server's word but what the library just finished
+   * checking. `resolveDepinRecipients` does exactly this yet surfaces the keys
+   * without their addresses, which is why the pipeline is assembled here.
+   */
+  async function verifiedRecipients(
+    token: string,
+    senderPubKey: string,
+    verified: VerifiedPool,
+  ): Promise<VerifiedRecipient[]> {
+    const poolRoot = verified.info.token;
+    const maxRecipients = verified.info.maxrecipients;
+
+    // One above the limit, so "at the limit" and "over it" stay distinct.
+    const reply = await options.rpc('depingetancestorrecipients', [token, maxRecipients + 1, poolRoot]);
+    const branded = verifyDepinReply({
+      reply,
+      method: 'depingetancestorrecipients',
+      token,
+      poolPublicKey: verified.info.depinpoolpkey,
+    });
+    const body = decodePlainReply(branded) as { recipients?: Array<{ address?: unknown; pubkey?: unknown }> };
+
+    // Throws on truncation, scope mismatch or a key that does not belong to its
+    // address. Nothing below runs unless it passed.
+    await decodeDepinRecipients(body, { token, poolRoot, maxRecipients, senderPubKey, network });
+
+    const pairs: VerifiedRecipient[] = [];
+    for (const entry of body.recipients ?? []) {
+      if (typeof entry?.address === 'string' && typeof entry?.pubkey === 'string') {
+        pairs.push({ address: entry.address, pubkey: entry.pubkey });
+      }
+    }
+    return pairs;
+  }
+
   return {
     get generation() {
       return generation;
     },
 
-    /** Invalidates identity, pool, challenge and anything still in flight. */
+    /**
+     * Invalidates everything: identity, pool, challenge and anything in flight.
+     * For a change of endpoint or identity.
+     */
     reset(): void {
       generation += 1;
       identityPromise = null;
       poolPromise = null;
+      challenge = null;
+    },
+
+    /**
+     * Drops only what belongs to the current channel.
+     *
+     * A challenge is bound to token and address, so switching token invalidates
+     * it. The identity and the verified pool are properties of the endpoint and
+     * survive: re-fetching the pool on every channel change would leave the
+     * asset picker — which needs the pool to judge scope — waiting again each
+     * time the user looks at a different token.
+     */
+    resetChannel(): void {
       challenge = null;
     },
 
@@ -366,6 +435,15 @@ export function createDepinClient(options: DepinClientOptions) {
       });
     },
 
+    /** The token's holders with verified public keys. See `verifiedRecipients`. */
+    recipients(token: string): Promise<VerifiedRecipient[]> {
+      return enqueue(async () => {
+        const verified = await pool();
+        const id = await identity();
+        return verifiedRecipients(token, id.publicKey, verified);
+      });
+    },
+
     /**
      * Pool statistics, through their signed envelope.
      *
@@ -387,6 +465,61 @@ export function createDepinClient(options: DepinClientOptions) {
           poolPublicKey: verified.info.depinpoolpkey,
         });
         return (decodePlainReply(branded) ?? {}) as Record<string, unknown>;
+      });
+    },
+
+    /**
+     * Sends a message to one holder only.
+     *
+     * The node's wire format distinguishes the two kinds with a byte —
+     * `0x01` private, `0x02` group, surfaced as `message_type` — and a private
+     * message is encrypted to exactly two keys: the recipient's and the
+     * sender's. `buildDepinMessage` adds the sender's itself (deduplicated by
+     * curve point), so only the recipient's is passed in.
+     *
+     * The address is resolved to a key HERE rather than accepted from the UI:
+     * the key has to be one the library verified against that address, and a
+     * caller passing a key would be exactly the substitution the verification
+     * exists to prevent.
+     */
+    sendPrivate(params: {
+      token: string;
+      toAddress: string;
+      message: string;
+      timestamp: number;
+    }): Promise<DepinSendResult> {
+      return enqueue(async () => {
+        const verified = await pool();
+        const id = await identity();
+        const pairs = await verifiedRecipients(params.token, id.publicKey, verified);
+        const match = pairs.find((entry) => entry.address === params.toAddress);
+        if (!match) {
+          throw new DepinPoolProtocolError(
+            'That address is not a holder of this token with a published public key, so nothing can be encrypted to it.',
+          );
+        }
+
+        const built = await buildDepinMessage({
+          token: params.token,
+          senderAddress: id.address,
+          senderPubKey: id.publicKey,
+          privateKey: options.wif,
+          timestamp: params.timestamp,
+          message: params.message,
+          recipientPubKeys: [match.pubkey],
+          messageType: 'private',
+        });
+
+        const receipt = (await submitDepinMessage({
+          rpc,
+          identity: id,
+          messageHex: built.hex,
+          poolPublicKey: verified.info.depinpoolpkey,
+        })) as { messageHash?: string } | string;
+
+        const messageHash =
+          typeof receipt === 'object' && receipt?.messageHash ? receipt.messageHash : built.messageHash;
+        return { messageHash, recipientCount: built.recipientCount ?? 2 };
       });
     },
 

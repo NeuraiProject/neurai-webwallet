@@ -16,6 +16,10 @@ const receiveDepinMessages = jest.fn();
 const buildDepinMessageForPool = jest.fn();
 const submitDepinMessage = jest.fn();
 const clearDepinMessages = jest.fn();
+const verifyDepinReply = jest.fn();
+const decodePlainReply = jest.fn();
+const decodeDepinRecipients = jest.fn();
+const buildDepinMessage = jest.fn();
 
 jest.mock("@neuraiproject/neurai-depin-msg", () => ({
   __esModule: true,
@@ -27,6 +31,10 @@ jest.mock("@neuraiproject/neurai-depin-msg", () => ({
   buildDepinMessageForPool: (...a: unknown[]) => buildDepinMessageForPool(...a),
   submitDepinMessage: (...a: unknown[]) => submitDepinMessage(...a),
   clearDepinMessages: (...a: unknown[]) => clearDepinMessages(...a),
+  verifyDepinReply: (...a: unknown[]) => verifyDepinReply(...a),
+  decodePlainReply: (...a: unknown[]) => decodePlainReply(...a),
+  decodeDepinRecipients: (...a: unknown[]) => decodeDepinRecipients(...a),
+  buildDepinMessage: (...a: unknown[]) => buildDepinMessage(...a),
 }));
 
 const POOL_KEY = "02" + "a".repeat(64);
@@ -59,6 +67,7 @@ beforeEach(() => {
     buildDepinMessageForPool,
     submitDepinMessage,
     clearDepinMessages,
+    buildDepinMessage,
   ]) {
     m.mockReset();
   }
@@ -322,5 +331,163 @@ describe("readableMessages", () => {
 
   it("skips traffic addressed to other holders", () => {
     expect(readableMessages([entry("a".repeat(64), { plaintext: null })])).toEqual([]);
+  });
+});
+
+describe("session scope", () => {
+  it("keeps the verified pool across a channel change", async () => {
+    // The pool belongs to the endpoint, not to the token. Re-fetching it every
+    // time the user looks at another asset left the picker — which needs the
+    // pool to judge scope — waiting again on each glance.
+    receiveDepinMessages.mockResolvedValue({ messages: [], hasMore: false });
+    const client = makeClient();
+
+    await client.pool();
+    client.resetChannel();
+    await client.pool();
+
+    expect(getDepinPoolInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops the challenge on a channel change, because it is bound to the token", async () => {
+    receiveDepinMessages.mockResolvedValue({
+      messages: [],
+      hasMore: false,
+      nextChallenge: "d".repeat(64),
+      nextExpiresIn: 300,
+    });
+    const client = makeClient();
+
+    await client.receiveAll({ token: TOKEN });
+    client.resetChannel();
+    await client.receiveAll({ token: "&OTHER" });
+
+    // Without the drop, the second read would reuse a nonce bound to the first
+    // token and be rejected.
+    expect(requestDepinChallenge).toHaveBeenCalledTimes(2);
+  });
+
+  it("a new endpoint or identity invalidates the pool too", async () => {
+    const client = makeClient();
+    await client.pool();
+    client.reset();
+    await client.pool();
+
+    expect(getDepinPoolInfo).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("verified recipients", () => {
+  const body = {
+    token: TOKEN,
+    recipients: [
+      { address: "tONE", pubkey: "02" + "1".repeat(64) },
+      { address: "tTWO", pubkey: "02" + "2".repeat(64) },
+    ],
+  };
+
+  beforeEach(() => {
+    verifyDepinReply.mockReturnValue({ branded: true });
+    decodePlainReply.mockReturnValue(body);
+    decodeDepinRecipients.mockResolvedValue({ recipientPubKeys: [], recipientCount: 2, skipped: {} });
+  });
+
+  it("returns the address/key pairs the library just validated", async () => {
+    const pairs = await makeClient().recipients(TOKEN);
+
+    expect(pairs).toEqual([
+      { address: "tONE", pubkey: "02" + "1".repeat(64) },
+      { address: "tTWO", pubkey: "02" + "2".repeat(64) },
+    ]);
+  });
+
+  it("verifies the envelope before decoding anything", async () => {
+    await makeClient().recipients(TOKEN);
+
+    expect(verifyDepinReply).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "depingetancestorrecipients", poolPublicKey: POOL_KEY }),
+    );
+    // Only a value the verifier branded may be decoded.
+    expect(decodePlainReply).toHaveBeenCalledWith({ branded: true });
+  });
+
+  it("refuses the whole list when the library rejects the body", async () => {
+    // A truncated list, a scope mismatch or a key that does not hash to its
+    // address must take every pair down with it — a partially trustworthy list
+    // is not a smaller list, it is an unknown one.
+    decodeDepinRecipients.mockRejectedValue(new Error("Recipient pubkey does not match its address"));
+
+    await expect(makeClient().recipients(TOKEN)).rejects.toThrow(/does not match its address/);
+  });
+
+  it("asks for one more than the pool limit, so 'at' and 'over' stay distinct", async () => {
+    const rpc = jest.fn().mockResolvedValue({});
+    const client = createDepinClient({
+      rpc,
+      chain: "xna-test",
+      url: "https://rpc-testnet.neurai.org/rpc",
+      wif: "cWIFPLACEHOLDER",
+    });
+    await client.recipients(TOKEN);
+
+    expect(rpc).toHaveBeenCalledWith("depingetancestorrecipients", [TOKEN, 21, TOKEN]);
+  });
+});
+
+describe("private messages", () => {
+  beforeEach(() => {
+    verifyDepinReply.mockReturnValue({ branded: true });
+    decodePlainReply.mockReturnValue({
+      token: TOKEN,
+      recipients: [
+        { address: "tTHEM", pubkey: "02" + "1".repeat(64) },
+        { address: "tHOLDER", pubkey: IDENTITY.publicKey },
+      ],
+    });
+    decodeDepinRecipients.mockResolvedValue({ recipientPubKeys: [], recipientCount: 2, skipped: {} });
+    buildDepinMessage.mockResolvedValue({ hex: "ccdd", messageHash: "priv", recipientCount: 2 });
+    submitDepinMessage.mockResolvedValue({ messageHash: "priv-from-pool" });
+  });
+
+  it("encrypts to the recipient only, letting the library add the sender", async () => {
+    // Two keys, not one: without the sender's own, the sender could never read
+    // their outgoing messages back from the pool on another device.
+    await makeClient().sendPrivate({ token: TOKEN, toAddress: "tTHEM", message: "hola", timestamp: 1 });
+
+    const args = buildDepinMessage.mock.calls[0][0];
+    expect(args.recipientPubKeys).toEqual(["02" + "1".repeat(64)]);
+    expect(args.messageType).toBe("private");
+  });
+
+  it("takes the key from the verified list, never from the caller", async () => {
+    await makeClient().sendPrivate({ token: TOKEN, toAddress: "tTHEM", message: "hola", timestamp: 1 });
+
+    // The address was resolved through the pipeline that checks each key
+    // against its address; a caller-supplied key would be the substitution that
+    // check exists to prevent.
+    expect(verifyDepinReply).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "depingetancestorrecipients" }),
+    );
+  });
+
+  it("refuses an address that is not a holder with a published key", async () => {
+    await expect(
+      makeClient().sendPrivate({ token: TOKEN, toAddress: "tSTRANGER", message: "hola", timestamp: 1 }),
+    ).rejects.toThrow(/not a holder/i);
+    expect(buildDepinMessage).not.toHaveBeenCalled();
+  });
+
+  it("submits through the verifying helper like any other message", async () => {
+    const result = await makeClient().sendPrivate({
+      token: TOKEN,
+      toAddress: "tTHEM",
+      message: "hola",
+      timestamp: 1,
+    });
+
+    expect(submitDepinMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ messageHex: "ccdd", poolPublicKey: POOL_KEY }),
+    );
+    expect(result.messageHash).toBe("priv-from-pool");
   });
 });

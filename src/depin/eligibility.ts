@@ -35,7 +35,8 @@ export type EligibilityReason =
   | 'invalid-holder'
   | 'blocked-holder'
   | 'pubkey-unrevealed'
-  | 'pool-not-ready';
+  | 'pool-not-ready'
+  | 'checking-holding';
 
 export interface AssetEligibility {
   assetName: string;
@@ -73,6 +74,7 @@ const MESSAGES: Record<Exclude<EligibilityReason, 'eligible'>, string> = {
   'pubkey-unrevealed':
     'This address has never sent a transaction, so the network does not know its public key and cannot deliver messages to it.',
   'pool-not-ready': 'Waiting for the DePIN server to be verified.',
+  'checking-holding': 'Checking this holding on chain…',
 };
 
 function refuse(assetName: string, amount: number, reason: Exclude<EligibilityReason, 'eligible'>): AssetEligibility {
@@ -118,7 +120,7 @@ export function assetEligibility(
   }
 
   if (!validity) {
-    return refuse(assetName, amount, 'pool-not-ready');
+    return refuse(assetName, amount, 'checking-holding');
   }
   if (validity.blocked === true) {
     return refuse(assetName, amount, 'blocked-holder');

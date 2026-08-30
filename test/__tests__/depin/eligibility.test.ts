@@ -74,7 +74,16 @@ describe("assetEligibility", () => {
     // Scope cannot be judged without the verified root, and guessing would mean
     // trusting an unauthenticated answer for exactly the decision that matters.
     expect(decide("&DEPINTESTING", 5, { poolRoot: null }).reason).toBe("pool-not-ready");
-    expect(decide("&DEPINTESTING", 5, {}, null).reason).toBe("pool-not-ready");
+  });
+
+  it("distinguishes waiting for the pool from waiting for the chain lookup", () => {
+    // One message for both made a stalled pool look identical to a pending
+    // holder check — and only one of the two is a problem.
+    const noPool = decide("&DEPINTESTING", 5, { poolRoot: null });
+    const noValidity = decide("&DEPINTESTING", 5, {}, null);
+
+    expect(noValidity.reason).toBe("checking-holding");
+    expect(noValidity.message).not.toBe(noPool.message);
   });
 
   it("explains an address whose public key the chain has never seen", () => {

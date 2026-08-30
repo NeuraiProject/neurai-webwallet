@@ -27,6 +27,10 @@
   ],
   "author": "Neurai Community",
   "license": "MIT",
+  "//alias": "The depin-msg package declares \"browser\": its minified IIFE bundle, which assigns a global and exposes no named exports. Parcel prefers `browser`, so every named import from it resolved to undefined at runtime while Jest (which resolves `main`) stayed green. Point the bundler at the ESM build; types still come from the package root.",
+  "alias": {
+    "@neuraiproject/neurai-depin-msg": "@neuraiproject/neurai-depin-msg/dist/neurai-depin-msg.mjs"
+  },
   "dependencies": {
     "@neuraiproject/neurai-depin-msg": "^3.1.0",
     "@neuraiproject/neurai-history-list": "^1.2.5",

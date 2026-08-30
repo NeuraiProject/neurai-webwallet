@@ -6,21 +6,26 @@
  * single-use nonce chained from each reply — lives in `src/depin/client.ts`;
  * this hook is the React adapter around it and owns nothing but state.
  *
- * ## Private messages are not available in this delivery
+ * ## Private messages
  *
- * A private message needs the recipient's public key, and it has to be a key
- * the client can trust. Under protocol 2 the only authenticated source of
- * recipient keys is the pool's resolution, and the published API surfaces it as
- * a bare list of keys — the addresses each one belongs to are verified inside
- * the library and then dropped. So there is no supported way to ask "the key
- * for THIS address" without re-implementing the pubkey-to-address binding the
- * library exists to enforce.
+ * A private message is encrypted to exactly two keys: the recipient's and the
+ * sender's. Leaving the sender out would mean losing your own outgoing messages
+ * — the pool keeps them, but you could not open them from another device.
+ * `buildDepinMessage` adds the sender's key itself, so only the recipient's is
+ * supplied. The wire format marks the kind with a byte (`0x01` private, `0x02`
+ * group), surfaced by the node as `message_type`.
  *
- * The old path asked the messaging server with `getpubkey` and used whatever it
- * answered, which is precisely the substitution a hostile endpoint would make.
- * Nothing is lost by removing it: that path stopped working the moment the node
- * moved to protocol 2. Private messaging returns when the library exposes the
- * verified address/key pairs it already checks.
+ * The recipient's key comes from the pool's signed recipient list, with the
+ * library's own check that each key hashes to the address it is offered for.
+ * The old path asked the server with `getpubkey` and believed the answer, which
+ * is precisely the substitution that check exists to prevent.
+ *
+ * One thing the envelope does NOT carry is the recipient: it names the sender
+ * only. So a sender cannot tell, from the message alone, which conversation one
+ * of their own messages belongs to. The plaintext therefore starts with
+ * `@<address> ` on private messages — the convention the mobile wallet already
+ * uses — which travels inside the encryption and makes sent messages readable
+ * and routable from any device. It is stripped before display.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Wallet } from '@neuraiproject/neurai-jswallet';
@@ -41,7 +46,13 @@ export interface DePINMessage {
   timestamp: number;
   date: string;
   messageHash: string;
+  messageType: 'private' | 'group';
+  /** The other party, for a private message. Undefined for group traffic. */
+  contactAddress?: string;
 }
+
+/** `@<address> text` — carries the recipient inside the encrypted payload. */
+const PRIVATE_PREFIX = /^@([A-Za-z0-9]{26,40})\s+([\s\S]*)$/;
 
 export interface PoolStats {
   enabled?: boolean;
@@ -58,11 +69,6 @@ export interface PoolStats {
   [key: string]: unknown;
 }
 
-/**
- * Kept in the surface while private messaging is disabled (see the note at the
- * top of this file), so the conversation UI stays in place for the day the
- * library exposes verified address/key pairs. It is always empty today.
- */
 export interface PrivateConversation {
   address: string;
   displayName: string;
@@ -70,10 +76,6 @@ export interface PrivateConversation {
   lastMessageTime: number;
   messages: DePINMessage[];
 }
-
-/** Why the private path is closed, in the words the UI should use. */
-export const PRIVATE_MESSAGES_UNAVAILABLE =
-  'Private messages are unavailable for now: there is no verified way to obtain a specific recipient\'s public key under the new protocol. Group messages work normally.';
 
 export interface AssetValidity {
   has_asset?: boolean;
@@ -94,14 +96,38 @@ export interface UseDePINChatParams {
   identity: DepinChatIdentity | null;
 }
 
-function toMessage(entry: DepinPlainMessage): DePINMessage {
-  return {
+/**
+ * Maps one decrypted entry to what the UI renders, resolving which conversation
+ * it belongs to.
+ *
+ * @param me - The chat identity's address, to tell an echo of our own message
+ *   from one addressed to us
+ */
+export function toMessage(entry: DepinPlainMessage, me: string): DePINMessage {
+  const base = {
     sender: entry.sender,
-    message: entry.plaintext,
     timestamp: entry.timestamp,
     date: new Date(entry.timestamp * 1000).toLocaleString(),
     messageHash: entry.hash,
   };
+
+  // The tag decides, not `message_type` alone. Routing is what the tag is for,
+  // and a message that carries one must never be shown to the whole token just
+  // because the kind byte said otherwise. The cost is that a group message whose
+  // text genuinely begins with `@<address> ` would be read as private; that is
+  // the trade of a text convention, and it is the one the other clients make.
+  const tagged = entry.plaintext.match(PRIVATE_PREFIX);
+  const isPrivate = Boolean(tagged) || entry.messageType === 'private';
+
+  if (!isPrivate) {
+    return { ...base, message: entry.plaintext, messageType: 'group' };
+  }
+
+  const message = tagged ? tagged[2] : entry.plaintext;
+  // Ours: the tag names who we wrote to. Theirs: the sender is the other party.
+  const contactAddress = entry.sender === me ? tagged?.[1] : entry.sender;
+
+  return { ...base, message, messageType: 'private', contactAddress };
 }
 
 export function useDePINChat(params: UseDePINChatParams) {
@@ -113,6 +139,7 @@ export function useDePINChat(params: UseDePINChatParams) {
   const [stats, setStats] = useState<PoolStats | null>(null);
   const [lastPoll, setLastPoll] = useState<Date | null>(null);
   const [pool, setPool] = useState<VerifiedPool | null>(null);
+  const [privateConversations, setPrivateConversations] = useState<Map<string, PrivateConversation>>(new Map());
 
   const seenHashesRef = useRef<Set<string>>(new Set());
   const consecutiveFailuresRef = useRef(0);
@@ -141,18 +168,55 @@ export function useDePINChat(params: UseDePINChatParams) {
     }
   }, [available, wallet, chain, rpcUrl, identity?.wif]);
 
-  // Changing channel or identity invalidates everything already fetched.
+  // Switching channel drops the conversation and the challenge, but NOT the
+  // verified pool: that belongs to the endpoint, and the asset picker needs it
+  // to judge which tokens are in scope before any channel exists.
   useEffect(() => {
     seenHashesRef.current = new Set();
     consecutiveFailuresRef.current = 0;
     setGroupMessages([]);
+    setPrivateConversations(new Map());
     setError(null);
     setLastPoll(null);
-    setPool(null);
+    client?.resetChannel();
+  }, [client, selectedAsset, chatAddress]);
+
+  // A new client means a new endpoint or identity: everything goes.
+  useEffect(() => {
     return () => {
       client?.reset();
+      setPool(null);
     };
-  }, [client, selectedAsset, chatAddress]);
+  }, [client]);
+
+  /**
+   * Verify and pin the pool as soon as there is a client, not when polling
+   * starts.
+   *
+   * The pool is a property of the endpoint, not of the channel, and everything
+   * downstream needs it first: deciding which tokens are in scope is what the
+   * asset picker does BEFORE any asset is selected. Fetching it inside the poll
+   * meant the picker waited for a pool that waited for a selection.
+   */
+  useEffect(() => {
+    if (!client) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const verified = await client.pool();
+        if (!cancelled) setPool(verified);
+      } catch (err) {
+        if (cancelled) return;
+        // A pin mismatch or an unreachable endpoint has to be visible here:
+        // without a pool nothing in the chat can be offered.
+        setPool(null);
+        setError(describeRef.current(err));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
 
   /** Turns a failure into something the user can act on. */
   const describe = useCallback((err: unknown): string => {
@@ -167,18 +231,58 @@ export function useDePINChat(params: UseDePINChatParams) {
     return text;
   }, []);
 
-  const ingest = useCallback((entries: DepinPlainMessage[]) => {
-    if (entries.length === 0) return;
-    const seen = seenHashesRef.current;
-    const fresh: DePINMessage[] = [];
-    for (const entry of entries) {
-      if (seen.has(entry.hash)) continue;
-      seen.add(entry.hash);
-      fresh.push(toMessage(entry));
-    }
-    if (fresh.length === 0) return;
-    setGroupMessages((prev) => [...prev, ...fresh].sort((a, b) => a.timestamp - b.timestamp));
-  }, []);
+  const describeRef = useRef(describe);
+  useEffect(() => {
+    describeRef.current = describe;
+  }, [describe]);
+
+  const ingest = useCallback(
+    (entries: DepinPlainMessage[]) => {
+      if (entries.length === 0 || !chatAddress) return;
+      const seen = seenHashesRef.current;
+      const group: DePINMessage[] = [];
+      const byContact = new Map<string, DePINMessage[]>();
+
+      for (const entry of entries) {
+        if (seen.has(entry.hash)) continue;
+        seen.add(entry.hash);
+        const message = toMessage(entry, chatAddress);
+        if (message.messageType === 'private') {
+          // A private message we cannot place — an old one of ours without the
+          // tag — is dropped rather than shown in the group, where everyone
+          // would see a conversation that was meant for one person.
+          if (!message.contactAddress) continue;
+          const bucket = byContact.get(message.contactAddress) ?? [];
+          bucket.push(message);
+          byContact.set(message.contactAddress, bucket);
+        } else {
+          group.push(message);
+        }
+      }
+
+      if (group.length > 0) {
+        setGroupMessages((prev) => [...prev, ...group].sort((a, b) => a.timestamp - b.timestamp));
+      }
+      if (byContact.size > 0) {
+        setPrivateConversations((prev) => {
+          const updated = new Map(prev);
+          for (const [address, messages] of byContact) {
+            const existing = updated.get(address);
+            const all = [...(existing?.messages ?? []), ...messages].sort((a, b) => a.timestamp - b.timestamp);
+            updated.set(address, {
+              address,
+              displayName: address === chatAddress ? 'Me' : address,
+              unreadCount: (existing?.unreadCount ?? 0) + messages.filter((m) => m.sender !== chatAddress).length,
+              lastMessageTime: all[all.length - 1]?.timestamp ?? 0,
+              messages: all,
+            });
+          }
+          return updated;
+        });
+      }
+    },
+    [chatAddress],
+  );
 
   const pollOnce = useCallback(async () => {
     if (!client || !selectedAsset) return;
@@ -222,21 +326,34 @@ export function useDePINChat(params: UseDePINChatParams) {
     await pollOnce();
   }, [pollOnce]);
 
+  /**
+   * @param toAddress - Send privately to this holder. Omitted sends to the group.
+   * @param at - Unix seconds to stamp. Passed in so an optimistic copy on screen
+   *   and the message that comes back carry the same timestamp; deriving it
+   *   twice left them a second apart and the copy never cleared.
+   */
   const sendMessage = useCallback(
-    async (message: string): Promise<string | null> => {
+    async (message: string, toAddress?: string, at?: number): Promise<string | null> => {
       if (!client || !selectedAsset) {
         setError('DePIN messaging is not available for this wallet.');
         return null;
       }
       const cleaned = message.trim();
       if (!cleaned) return null;
+      const timestamp = at ?? Math.floor(Date.now() / 1000);
 
       try {
-        const sent = await client.send({
-          token: selectedAsset,
-          message: cleaned,
-          timestamp: Math.floor(Date.now() / 1000),
-        });
+        const sent = toAddress
+          ? await client.sendPrivate({
+              token: selectedAsset,
+              toAddress,
+              // The recipient rides inside the encryption so this message can be
+              // placed in its conversation from any device, not just the one
+              // that sent it.
+              message: `@${toAddress} ${cleaned}`,
+              timestamp,
+            })
+          : await client.send({ token: selectedAsset, message: cleaned, timestamp });
         setError(null);
         return sent.messageHash;
       } catch (err) {
@@ -297,17 +414,53 @@ export function useDePINChat(params: UseDePINChatParams) {
     [client, describe],
   );
 
-  /** Always empty: private messaging is disabled in this delivery. */
-  const privateConversations = useMemo(() => new Map<string, PrivateConversation>(), []);
+  /**
+   * Holders of the token with a verified public key: exactly the people a
+   * message can reach. Refreshed with the channel, not on every poll — the set
+   * changes with on-chain transfers, not with traffic.
+   */
+  const [contacts, setContacts] = useState<Array<{ address: string; pubkey: string }>>([]);
 
-  // Signature kept so the call sites survive unchanged for the day private
-  // messaging returns; today it only explains why nothing happened.
-  const createPrivateConversation = useCallback((_address: string) => {
-    setError(PRIVATE_MESSAGES_UNAVAILABLE);
+  useEffect(() => {
+    if (!client || !selectedAsset || !pool) {
+      setContacts([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const pairs = await client.recipients(selectedAsset);
+        if (!cancelled) setContacts(pairs);
+      } catch (err) {
+        // Not fatal for the group chat: it only means the contact list stays
+        // empty, and the reason belongs in the log rather than over the chat.
+        console.debug('useDePINChat: could not resolve verified recipients', err);
+        if (!cancelled) setContacts([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client, selectedAsset, pool]);
+
+  const createPrivateConversation = useCallback((address: string) => {
+    setPrivateConversations((prev) => {
+      if (prev.has(address)) return prev;
+      const updated = new Map(prev);
+      updated.set(address, {
+        address,
+        displayName: address,
+        unreadCount: 0,
+        lastMessageTime: Math.floor(Date.now() / 1000),
+        messages: [],
+      });
+      return updated;
+    });
   }, []);
 
   return {
     groupMessages,
+    contacts,
     privateConversations,
     createPrivateConversation,
     isPolling,

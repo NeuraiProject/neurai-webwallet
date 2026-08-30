@@ -221,6 +221,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
     refreshMessages,
     fetchStats,
     createPrivateConversation,
+    contacts,
     checkAssetValidity,
     pool,
   } = useDePINChat({
@@ -383,7 +384,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
     (async () => {
       for (const [assetName, decision] of Object.entries(eligibilityByAsset)) {
         if (cancelled) return;
-        if (decision.reason !== 'pool-not-ready') continue;
+        if (decision.reason !== 'checking-holding') continue;
         if (validityByAsset[assetName] !== undefined) continue;
         const address = assetAddresses[assetName];
         if (!address) continue;
@@ -668,15 +669,13 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
       return `${token}|${senderAddress}|${unixTimestamp}|${text}`;
     };
 
-    // Determine message text for sending and display
-    let messageToSend = inputText;
-    let messageToDisplay = inputText;
-
-    if (activeTab !== "group") {
-      // In private tab: send with @address prefix, but display without it
-      messageToSend = `@${activeTab} ${inputText}`;
-      messageToDisplay = inputText; // Clean text for display
-    }
+    // The routing tag for a private message is added by the hook, which is the
+    // layer that knows the message is private. Adding it here too put it in
+    // twice: one got stripped on arrival and the other stayed on screen, and
+    // the optimistic copy — keyed on the clean text — never matched the
+    // confirmed one, so it lingered forever.
+    const messageToSend = inputText;
+    const messageToDisplay = inputText;
 
     const unixTimestamp = Math.floor(Date.now() / 1000);
     const deliveryKey = makeDeliveryKey(selectedAsset, selectedAddress, unixTimestamp, messageToDisplay);
@@ -716,10 +715,13 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
     setInputText("");
 
     try {
-      // Enviar mensaje a través de DePIN usando el servidor RPC configurado
-
-
-      const result = await sendDePINMessage(messageToSend);
+      // The active tab decides the kind: the group, or one holder. A private
+      // message is encrypted to that holder and to us, and to nobody else.
+      const result = await sendDePINMessage(
+        messageToSend,
+        activeTab === "group" ? undefined : activeTab,
+        unixTimestamp,
+      );
 
       // Refrescar mensajes después de un breve delay para dar tiempo al servidor
       setTimeout(async () => {
@@ -1225,6 +1227,37 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
                       )}
                     </div>
                   ))}
+
+                {/* Holders of this token, with a verified public key.
+                    The list is presentation only: the recipient set a message
+                    is actually encrypted to is resolved by the library at send
+                    time, never from what is shown here. */}
+                {contacts.filter((item) => item.address !== chatAddress && !privateConversations.has(item.address)).length > 0 && (
+                  <>
+                    <div className="rebel-chat__sidebar-section-header">Holders</div>
+                    {contacts
+                      .filter((item) => item.address !== chatAddress && !privateConversations.has(item.address))
+                      .map((item) => (
+                        <div
+                          key={item.address}
+                          onClick={() => {
+                            createPrivateConversation(item.address);
+                            if (window.innerWidth < 768) setSidebarOpen(false);
+                          }}
+                          className="rebel-chat__sidebar-item rebel-chat__sidebar-item--other"
+                        >
+                          <div className="rebel-chat__sidebar-avatar rebel-chat__sidebar-avatar--other">
+                            👤
+                          </div>
+                          <div className="rebel-chat__sidebar-info">
+                            <div className="rebel-chat__sidebar-name rebel-chat__sidebar-name--small">
+                              {shortenAddress(item.address)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </>
+                )}
 
               </div>
             </div>
