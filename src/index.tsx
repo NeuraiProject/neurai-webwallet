@@ -21,6 +21,7 @@ import "./styles/primitives.css";
 import "./App.css";
 
 import { chatAvailability } from "./depin/network";
+import { Home } from "./home/Home";
 import { formatRpcError } from "./utils/rpcError";
 import { Loader } from "./Loader";
 import { Login } from "./Login";
@@ -28,8 +29,6 @@ import { Navigator } from "./Navigator";
 import { Routes } from "./Routes";
 import { Footer } from "./Footer";
 import { History } from "./history/History";
-import { Assets } from "./Assets";
-import { Mempool } from "./Mempool";
 import { ReceiveAddress } from "./ReceiveAddress";
 import { Balance } from "./Balance";
 import { Send } from "./Send";
@@ -548,7 +547,6 @@ function App() {
     );
   }
 
-  const hasMempool = mempool.length > 0;
   return (
     <>
 	      {rpcError && (
@@ -570,18 +568,23 @@ function App() {
       />
 
       <div className="rebel-content-container">
-        {hasMempool && (
-          <div className="rebel-content-container__mempool">
-            <Mempool mempool={mempool} wallet={wallet} />
-          </div>
-        )}
-
+        {/* The side card that used to list pending transactions is gone: the
+            home page shows the same thing in context, next to the balance it
+            affects, and two places saying it at once was noise. */}
         <div className="rebel-content-container__content">
           {currentRoute === Routes.HOME && (
-            <Assets wallet={wallet} assets={assets} mempool={mempool} />
+            <Home
+              wallet={wallet}
+              assets={assets}
+              mempool={mempool}
+              balance={balance}
+              blockCount={blockCount}
+              depinChatAddress={depinChatIdentity?.address ?? null}
+              setRoute={setCurrentRoute}
+            />
           )}
           {currentRoute === Routes.RECEIVE && (
-            <ReceiveAddress receiveAddress={receiveAddress} />
+            <ReceiveAddress receiveAddress={receiveAddress} wallet={wallet} />
           )}
 
           {currentRoute === Routes.SEND && (

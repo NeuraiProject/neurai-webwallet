@@ -1,6 +1,7 @@
 import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
-import { betterAlert, betterConfirm, betterToast } from "./betterDialog";
+import { betterAlert, betterToast } from "./betterDialog";
+import { AssetTxConfirm } from "./AssetTxConfirm";
 
 type Mode =
   | "root"
@@ -11,10 +12,19 @@ type Mode =
   | "restricted"
   | "reissue";
 
+/**
+ * What an asset operation returns. Built and signed, and — because every call
+ * here passes `broadcast: false` — not yet sent, which is what lets the review
+ * step show real numbers and still be cancellable.
+ */
 type AssetOpResult = {
   transactionId: string | null;
+  signedTransaction: string;
   fee: number;
   burnAmount: number;
+  changeAmount: number | null;
+  changeAddress: string | null;
+  outputs: Array<Record<string, unknown>>;
 };
 
 const MODE_LABELS: Record<Mode, string> = {
@@ -124,6 +134,19 @@ export function Asset({ wallet }: { wallet: Wallet }) {
   const [tagsCsv, setTagsCsv] = React.useState("");
   const [toAddress, setToAddress] = React.useState("");
   const [isBusy, setIsBusy] = React.useState(false);
+  /**
+   * A signed asset transaction waiting for the user to accept it. Held here and
+   * nowhere else: while this is set, nothing has been broadcast.
+   */
+  const [prepared, setPrepared] = React.useState<{
+    result: AssetOpResult;
+    title: string;
+    assetName: string;
+    /** Which form to clear once this has actually been sent. */
+    onDone: () => void;
+  } | null>(null);
+  const [broadcasting, setBroadcasting] = React.useState(false);
+  const [broadcastError, setBroadcastError] = React.useState<string | null>(null);
 
   // Configure-panel state
   const [cfMode, setCfMode] = React.useState<ConfigureMode>("tag");
@@ -224,9 +247,9 @@ export function Asset({ wallet }: { wallet: Wallet }) {
       const trimmedTo = toAddress.trim();
       const ipfs = ipfsHash.trim();
       const reissuableFlag = reissuable;
-      const opts: { toAddress?: string } = trimmedTo
-        ? { toAddress: trimmedTo }
-        : {};
+      const opts: { toAddress?: string; broadcast: false } = trimmedTo
+        ? { toAddress: trimmedTo, broadcast: false }
+        : { broadcast: false };
 
       let result: AssetOpResult;
 
@@ -346,14 +369,14 @@ export function Asset({ wallet }: { wallet: Wallet }) {
         }
       }
 
-      const ok = await betterConfirm(
-        `${MODE_LABELS[mode]} created`,
-        `Asset operation submitted.\nTransaction: ${result.transactionId ?? "(pending)"}\nFee: ${result.fee} XNA\nBurned: ${result.burnAmount} XNA\n\nClose?`
-      );
-      if (ok) {
-        reset();
-        betterToast("✓ Submitted");
-      }
+      // Signed and held. Nothing reaches the network until the review below is
+      // accepted, so Cancel really cancels.
+      setPrepared({
+        result,
+        title: `Create ${MODE_LABELS[mode]}`,
+        assetName: trimmedAssetName,
+        onDone: reset,
+      });
     } catch (e: any) {
       const message =
         e instanceof Error ? e.message : typeof e === "string" ? e : JSON.stringify(e);
@@ -409,10 +432,12 @@ export function Asset({ wallet }: { wallet: Wallet }) {
             ? wallet.tagAddresses({
                 qualifierName: tokenName,
                 targetAddresses: addrs,
+                broadcast: false,
               })
             : wallet.untagAddresses({
                 qualifierName: tokenName,
                 targetAddresses: addrs,
+                broadcast: false,
               }))) as AssetOpResult;
           break;
         }
@@ -428,6 +453,7 @@ export function Asset({ wallet }: { wallet: Wallet }) {
             return;
           }
           result = (await wallet.reissueRestricted({
+            broadcast: false,
             assetName: tokenName,
             quantity: qty,
             verifierString: cfChangeVerifier
@@ -443,9 +469,10 @@ export function Asset({ wallet }: { wallet: Wallet }) {
         case "unfreeze": {
           if (cfIsGlobal) {
             result = (await (cfMode === "freeze"
-              ? wallet.freezeAssetGlobally({ assetName: tokenName })
+              ? wallet.freezeAssetGlobally({ assetName: tokenName, broadcast: false })
               : wallet.unfreezeAssetGlobally({
                   assetName: tokenName,
+                  broadcast: false,
                 }))) as AssetOpResult;
           } else {
             const addrs = cfAddresses
@@ -464,24 +491,24 @@ export function Asset({ wallet }: { wallet: Wallet }) {
               ? wallet.freezeAddresses({
                   assetName: tokenName,
                   targetAddresses: addrs,
+                  broadcast: false,
                 })
               : wallet.unfreezeAddresses({
                   assetName: tokenName,
                   targetAddresses: addrs,
+                  broadcast: false,
                 }))) as AssetOpResult;
           }
           break;
         }
       }
 
-      const ok = await betterConfirm(
-        `${CONFIGURE_LABELS[cfMode]} submitted`,
-        `Asset operation submitted.\nTransaction: ${result!.transactionId ?? "(pending)"}\nFee: ${result!.fee} XNA\nBurned: ${result!.burnAmount} XNA\n\nClose?`
-      );
-      if (ok) {
-        cfResetForm();
-        betterToast("✓ Submitted");
-      }
+      setPrepared({
+        result: result!,
+        title: CONFIGURE_LABELS[cfMode],
+        assetName: tokenName,
+        onDone: cfResetForm,
+      });
     } catch (e: any) {
       const message =
         e instanceof Error ? e.message : typeof e === "string" ? e : JSON.stringify(e);
@@ -497,8 +524,41 @@ export function Asset({ wallet }: { wallet: Wallet }) {
       ? "Issue new tokens or NFTs on the Neurai network."
       : "Tag, freeze or reissue assets you already own.";
 
+  /** Sends the transaction the user just reviewed, and only then. */
+  const broadcastPrepared = async () => {
+    if (!prepared) return;
+    setBroadcasting(true);
+    setBroadcastError(null);
+    try {
+      const txid = await wallet.sendRawTransaction(prepared.result.signedTransaction);
+      prepared.onDone();
+      setPrepared(null);
+      betterToast(`✓ Broadcast\n${txid}`);
+    } catch (e: unknown) {
+      // Stay on the review: the transaction is signed and still unsent, so the
+      // user can retry without rebuilding it.
+      setBroadcastError(e instanceof Error ? e.message : typeof e === "string" ? e : JSON.stringify(e));
+    } finally {
+      setBroadcasting(false);
+    }
+  };
+
   return (
     <div className="neurai-card">
+      {prepared && (
+        <AssetTxConfirm
+          title={prepared.title}
+          assetName={prepared.assetName}
+          prepared={prepared.result}
+          busy={broadcasting}
+          error={broadcastError}
+          onCancel={() => {
+            setPrepared(null);
+            setBroadcastError(null);
+          }}
+          onBroadcast={broadcastPrepared}
+        />
+      )}
       <div className="grid gap-6 lg:grid-cols-[minmax(220px,300px)_minmax(0,1fr)] lg:items-start">
         {/* Sidebar */}
         <aside className="flex flex-col gap-5 min-w-0">

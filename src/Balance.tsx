@@ -3,7 +3,7 @@ import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { getAssetBalanceFromMempool, type MempoolAsset } from "./utils";
 
-function isTestnet(wallet: Wallet | null | undefined): boolean {
+export function isTestnet(wallet: Wallet | null | undefined): boolean {
   const net = wallet?.network;
   return net === "xna-test" || net === "xna-legacy-test" || net === "xna-pq-test";
 }
@@ -61,7 +61,13 @@ export function Balance({
   );
 }
 
-function useUSDPrice(wallet: Wallet, skip: boolean) {
+/**
+ * XNA price in USD, polled every minute. Exported so the home page shows the
+ * same number as the header rather than fetching its own.
+ *
+ * @param skip - True on testnet, where a price is meaningless. Returns 0.
+ */
+export function useUSDPrice(wallet: Wallet, skip: boolean) {
   const [price, setPrice] = React.useState(0);
 
   React.useEffect(() => {

@@ -89,7 +89,9 @@ export function Navigator({
           ? "error"
           : "muted";
 
-  const [isCompactPref, setIsCompact] = usePersistentState<boolean>("rebelNavigatorCompact", false);
+  // Compact by default: the icon rail is the calmer first impression, and the
+  // expanded menu is one click away. A saved preference still wins over this.
+  const [isCompactPref, setIsCompact] = usePersistentState<boolean>("rebelNavigatorCompact", true);
   // Below the `xl` breakpoint the expanded layout is too wide to fit, so we
   // force compact regardless of the user's saved preference.
   const isXl = useIsXlViewport();
