@@ -21,6 +21,8 @@
 import {
   clearDepinMessages,
   createSoftwareIdentity,
+  decodePlainReply,
+  verifyDepinReply,
   type SenderIdentity,
   buildDepinMessageForPool,
   receiveDepinMessages,
@@ -361,6 +363,30 @@ export function createDepinClient(options: DepinClientOptions) {
         const messageHash =
           typeof receipt === 'object' && receipt?.messageHash ? receipt.messageHash : built.messageHash;
         return { messageHash, recipientCount: built.recipientCount ?? 0 };
+      });
+    },
+
+    /**
+     * Pool statistics, through their signed envelope.
+     *
+     * Protocol 2 wrapped this reply too: it arrives as `{ body, poolsig }` and
+     * reading a field straight off it yields `undefined`. The library has no
+     * flow of its own for this call, so the envelope is verified here with the
+     * same primitives its flows use. The signature binds the pool ROOT token —
+     * established against the live testnet node, which does not verify unbound
+     * — and only a value branded by the verifier can be decoded.
+     */
+    poolStats(): Promise<Record<string, unknown>> {
+      return enqueue(async () => {
+        const verified = await pool();
+        const reply = await options.rpc('depinpoolstats', []);
+        const branded = verifyDepinReply({
+          reply,
+          method: 'depinpoolstats',
+          token: verified.info.token,
+          poolPublicKey: verified.info.depinpoolpkey,
+        });
+        return (decodePlainReply(branded) ?? {}) as Record<string, unknown>;
       });
     },
 

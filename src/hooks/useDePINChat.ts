@@ -1,88 +1,69 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Wallet } from '@neuraiproject/neurai-jswallet';
+/**
+ * DePIN chat, protocol 2.
+ *
+ * Every call is authenticated and every answer is verified before anything is
+ * decrypted. The ordering that makes this work — one operation at a time, a
+ * single-use nonce chained from each reply — lives in `src/depin/client.ts`;
+ * this hook is the React adapter around it and owns nothing but state.
+ *
+ * ## Private messages are not available in this delivery
+ *
+ * A private message needs the recipient's public key, and it has to be a key
+ * the client can trust. Under protocol 2 the only authenticated source of
+ * recipient keys is the pool's resolution, and the published API surfaces it as
+ * a bare list of keys — the addresses each one belongs to are verified inside
+ * the library and then dropped. So there is no supported way to ask "the key
+ * for THIS address" without re-implementing the pubkey-to-address binding the
+ * library exists to enforce.
+ *
+ * The old path asked the messaging server with `getpubkey` and used whatever it
+ * answered, which is precisely the substitution a hostile endpoint would make.
+ * Nothing is lost by removing it: that path stopped working the moment the node
+ * moved to protocol 2. Private messaging returns when the library exposes the
+ * verified address/key pairs it already checks.
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Wallet } from '@neuraiproject/neurai-jswallet';
+
+import { createDepinClient, type DepinClient, type DepinPlainMessage } from '../depin/client';
+import { chatAvailability } from '../depin/network';
+import { DepinPoolPinMismatchError, type VerifiedPool } from '../depin/poolTrust';
+import { formatRpcError } from '../utils/rpcError';
 import type { DepinChatIdentity } from '../utils/depinChatIdentity';
-import type { PubkeyResponse } from '../types/rpc';
 
-// Side-effect import: attaches globalThis.neuraiDepinMsg (IIFE bundle)
-import '@neuraiproject/neurai-depin-msg/dist/neurai-depin-msg.js';
+const POLL_INTERVAL_MS = 5_000;
+/** Consecutive failures before polling gives up, so a broken endpoint is not hammered. */
+const MAX_CONSECUTIVE_FAILURES = 5;
 
-const DEPIN_POLL_INTERVAL_MS = 5_000;
-
-type DepinMsgApi = {
-  unwrapMessageFromServer?: (payload: string, privateKey: string) => Promise<string>;
-  decryptDepinReceiveEncryptedPayload?: (payloadHex: string, privateKey: string) => Promise<string>;
-  buildDepinMessage?: (input: DepinBuildInput) => Promise<DepinBuildResult>;
-  wrapMessageForServer?: (hexMessage: string, poolKey: string, senderAddress: string) => Promise<string | Record<string, unknown>>;
-};
-
-type DepinBuildInput = {
-  token: string;
-  senderAddress: string;
-  senderPubKey: string;
-  privateKey: string;
-  timestamp: number;
-  message: string;
-  recipientPubKeys: string[];
-  messageType: 'private' | 'group';
-};
-
-type DepinBuildResult = {
-  hex: string;
-  messageHash: string;
-  [key: string]: unknown;
-};
-
-type DepinEncryptedResult = {
-  encrypted: string;
-};
-
-type RpcErrorShape = {
-  message?: string;
-  description?: string;
-  error?: {
-    message?: string;
-    error?: {
-      message?: string;
-    };
-  };
-  code?: unknown;
-  status?: unknown;
-  statusText?: unknown;
-  stack?: string;
-};
-
-type MsgInfoResult = {
-  depinpoolpkey?: string;
-};
-
-const getDepinMsgApi = (): DepinMsgApi | null => {
-  const depinMsg = (globalThis as typeof globalThis & { neuraiDepinMsg?: DepinMsgApi }).neuraiDepinMsg;
-  return depinMsg ?? null;
-};
-
-const isEncryptedResult = (value: unknown): value is DepinEncryptedResult => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  return typeof (value as DepinEncryptedResult).encrypted === 'string';
-};
-
-const asRpcError = (err: unknown): RpcErrorShape => {
-  if (!err || typeof err !== 'object') return {};
-  return err as RpcErrorShape;
-};
-
-interface DePINMessage {
-  recipient: string;
+export interface DePINMessage {
   sender: string;
   message: string;
   timestamp: number;
   date: string;
-  expires: string;
-  messageHash?: string;
-  messageType?: 'private' | 'group'; // From server
-  contactAddress?: string; // For private messages: the other party's address
+  messageHash: string;
 }
 
-interface PrivateConversation {
+export interface PoolStats {
+  enabled?: boolean;
+  token?: string;
+  total_messages?: number;
+  total_size_bytes?: number;
+  memory_usage_bytes?: number;
+  oldest_message?: string;
+  newest_message?: string;
+  unique_senders?: number;
+  avg_message_size?: number;
+  expiring_in_24h?: number;
+  messageexpiryhours?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Kept in the surface while private messaging is disabled (see the note at the
+ * top of this file), so the conversation UI stays in place for the day the
+ * library exposes verified address/key pairs. It is always empty today.
+ */
+export interface PrivateConversation {
   address: string;
   displayName: string;
   unreadCount: number;
@@ -90,903 +71,256 @@ interface PrivateConversation {
   messages: DePINMessage[];
 }
 
-interface PoolStats {
-  enabled: boolean;
-  token: string;
-  total_messages: number;
-  total_size_bytes: number;
-  memory_usage_bytes: number;
-  oldest_message?: string;
-  newest_message?: string;
-  messages_by_age?: {
-    last_hour: number;
-    last_day: number;
-    last_week: number;
-  };
-  unique_senders: number;
-  avg_message_size: number;
-  expiring_in_24h: number;
-}
+/** Why the private path is closed, in the words the UI should use. */
+export const PRIVATE_MESSAGES_UNAVAILABLE =
+  'Private messages are unavailable for now: there is no verified way to obtain a specific recipient\'s public key under the new protocol. Group messages work normally.';
 
-interface AssetValidity {
-  has_asset: boolean;
+export interface AssetValidity {
+  has_asset?: boolean;
   amount?: number;
-  valid?: 0 | 1;
+  valid?: number;
   blocked?: boolean;
 }
 
-interface RecipientInfo {
-  address: string;
-  pubkey: string | null;
+export interface UseDePINChatParams {
+  wallet: Wallet;
+  /** Wallet chain, for availability and for the pin's identity. */
+  chain: string;
+  /** The RPC URL actually in use. Propagated from where it is chosen, never inferred. */
+  rpcUrl: string;
+  selectedAsset: string | null;
+  /** Address of the DePIN chat identity. */
+  chatAddress: string | null;
+  identity: DepinChatIdentity | null;
 }
 
-interface DepinReceiveMsgItem {
-  hash: string;
-  token?: string; // May not be present in all responses
-  sender: string;
-  timestamp: number;
-  message_type?: 'private' | 'group'; // Added by server
-  date?: string; // Optional: formatted date
-  expires?: string; // Optional: expiry date
-  encryption_type?: string; // Optional: encryption method
-  encrypted_payload_size?: number; // Optional: size info
-  signature_size?: number; // Optional: size info
-  encrypted_payload_hex: string;
-  signature_hex: string;
-  total_size?: number; // Optional: total size
+function toMessage(entry: DepinPlainMessage): DePINMessage {
+  return {
+    sender: entry.sender,
+    message: entry.plaintext,
+    timestamp: entry.timestamp,
+    date: new Date(entry.timestamp * 1000).toLocaleString(),
+    messageHash: entry.hash,
+  };
 }
 
-export function useDePINChat(
-  wallet: Wallet,
-  selectedAsset: string | null,
-  myAddress: string | null,
-  recipientList?: RecipientInfo[],
-  depinChatIdentity?: DepinChatIdentity | null
-) {
+export function useDePINChat(params: UseDePINChatParams) {
+  const { wallet, chain, rpcUrl, selectedAsset, chatAddress, identity } = params;
+
   const [groupMessages, setGroupMessages] = useState<DePINMessage[]>([]);
-  const [privateConversations, setPrivateConversations] = useState<Map<string, PrivateConversation>>(new Map());
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<PoolStats | null>(null);
   const [lastPoll, setLastPoll] = useState<Date | null>(null);
+  const [pool, setPool] = useState<VerifiedPool | null>(null);
 
-  const effectiveAddress = depinChatIdentity?.address ?? myAddress;
+  const seenHashesRef = useRef<Set<string>>(new Set());
+  const consecutiveFailuresRef = useRef(0);
+  const pollInFlightRef = useRef(false);
 
-  const lastTimestampRef = useRef<number>(0);
-  const seenMessageKeysRef = useRef<Set<string>>(new Set());
-  const privateConversationsRef = useRef<Map<string, PrivateConversation>>(new Map());
+  const available = chatAvailability(chain).available;
 
-  // Cache sender pubkey per address to avoid repeated getpubkey calls
-  const senderPubKeyCacheRef = useRef<{ address: string | null; pubkey: string | null }>({
-    address: null,
-    pubkey: null,
-  });
-
-  // Cache recipient pubkeys per address to avoid repeated getpubkey calls
-  const recipientPubKeyCacheRef = useRef<Map<string, string | null>>(new Map());
-
-  // OPTIMIZACIÓN: Pre-cargar todas las pubkeys del asset en una sola llamada RPC
-  const preloadRecipientPubkeys = useCallback(async (assetName: string) => {
-    if (!assetName) return;
-
+  /**
+   * One client per identity+endpoint. Rebuilding it on any of those changing is
+   * what keeps a reply from the previous configuration out of the new one.
+   */
+  const client: DepinClient | null = useMemo(() => {
+    if (!available || !identity?.wif || !rpcUrl) return null;
     try {
-
-      const depinAddressesData: Array<{ address: string, pubkey: string }> = await wallet.rpc('listdepinaddresses', [assetName]) as Array<{ address: string, pubkey: string }>;
-
-      let loadedCount = 0;
-      for (const item of depinAddressesData) {
-        if (item.pubkey) {
-          const pkRaw = item.pubkey.trim().toLowerCase();
-          // Validar que sea una pubkey comprimida válida
-          if (pkRaw.length === 66 && (pkRaw.startsWith('02') || pkRaw.startsWith('03'))) {
-            recipientPubKeyCacheRef.current.set(item.address, pkRaw);
-            loadedCount++;
-          } else {
-            recipientPubKeyCacheRef.current.set(item.address, null);
-          }
-        } else {
-          recipientPubKeyCacheRef.current.set(item.address, null);
-        }
-      }
-
-    } catch (error) {
-      console.warn('[DePIN Cache] Failed to preload pubkeys:', error);
-      // No es crítico si falla, resolveRecipientPubkey hará las llamadas individuales
-    }
-  }, [wallet]);
-
-  const resolveRecipientPubkey = useCallback(async (address: string, existing: string | null) => {
-    const normalizedExisting = (existing || '').trim().toLowerCase();
-    if (normalizedExisting) return normalizedExisting;
-
-    if (recipientPubKeyCacheRef.current.has(address)) {
-      return recipientPubKeyCacheRef.current.get(address) ?? null;
-    }
-
-    // Fallback: llamada individual si no está en caché
-    try {
-      const res = await wallet.rpc('getpubkey', [address]) as PubkeyResponse | string | null;
-      const revealed = typeof res?.revealed === 'number' ? res.revealed === 1 : null;
-      const pkRaw = typeof res?.pubkey === 'string' ? res.pubkey.trim().toLowerCase() : '';
-
-      // If revealed is explicitly false, treat as no pubkey.
-      if (revealed === false) {
-        recipientPubKeyCacheRef.current.set(address, null);
-        return null;
-      }
-
-      // Accept only compressed 33-byte pubkeys for message encryption.
-      if (pkRaw.length === 66 && (pkRaw.startsWith('02') || pkRaw.startsWith('03'))) {
-        recipientPubKeyCacheRef.current.set(address, pkRaw);
-        return pkRaw;
-      }
-
-      recipientPubKeyCacheRef.current.set(address, null);
-      return null;
-    } catch {
-      recipientPubKeyCacheRef.current.set(address, null);
+      return createDepinClient({
+        rpc: (method, rpcParams) => wallet.rpc(method, rpcParams as never[]),
+        chain,
+        url: rpcUrl,
+        wif: identity.wif,
+      });
+    } catch (err) {
+      // A malformed endpoint (a query string, say) is a configuration problem,
+      // not a transient failure: there is nothing to retry.
+      console.warn('useDePINChat: cannot start DePIN client', err);
       return null;
     }
-  }, [wallet]);
+  }, [available, wallet, chain, rpcUrl, identity?.wif]);
 
-  // Get contact address for private messages
-  const getContactAddress = useCallback((
-    messageHash: string,
-    sender: string,
-    myAddr: string,
-    messageType?: 'private' | 'group'
-  ): string | undefined => {
-    if (messageType !== 'private') return undefined;
+  // Changing channel or identity invalidates everything already fetched.
+  useEffect(() => {
+    seenHashesRef.current = new Set();
+    consecutiveFailuresRef.current = 0;
+    setGroupMessages([]);
+    setError(null);
+    setLastPoll(null);
+    setPool(null);
+    return () => {
+      client?.reset();
+    };
+  }, [client, selectedAsset, chatAddress]);
 
-    // If I sent this message, get recipient from localStorage
-    if (sender === myAddr) {
-      const storedRecipient = localStorage.getItem(`private_msg_${messageHash}`);
-      if (storedRecipient) {
-        return storedRecipient;
-      }
-      
-      // Fallback: if it's a private message sent by me but recipient not found,
-      // it's likely a message to myself or our own session lost the recipient info.
-      // Defaulting to my own address puts it in a "self" private tab instead of Group.
-      return myAddr;
+  /** Turns a failure into something the user can act on. */
+  const describe = useCallback((err: unknown): string => {
+    if (err instanceof DepinPoolPinMismatchError) {
+      return `${err.message} Expected key ${err.expectedFingerprint}, server offered ${err.seenFingerprint}.`;
     }
-
-    // If I received this message, contact is the sender
-    return sender;
+    const text = formatRpcError(err);
+    // The node's own wording for a state polling cannot escape.
+    if (/has not revealed its public key/i.test(text)) {
+      return 'This address has never sent a transaction, so the network does not know its public key yet and cannot deliver messages to it. Send any amount from this address once, then reopen the chat.';
+    }
+    return text;
   }, []);
 
-  useEffect(() => {
-    // Reset cache when effective address changes
-    senderPubKeyCacheRef.current = {
-      address: effectiveAddress,
-      pubkey: depinChatIdentity?.publicKey ? String(depinChatIdentity.publicKey).trim().toLowerCase() : null,
-    };
-  }, [effectiveAddress, depinChatIdentity?.publicKey]);
-
-  // Update ref whenever privateConversations changes
-  useEffect(() => {
-    privateConversationsRef.current = privateConversations;
-  }, [privateConversations]);
-
-  useEffect(() => {
-    // Reset incremental polling + dedupe on token/address change
-    lastTimestampRef.current = 0;
-    seenMessageKeysRef.current = new Set();
-    setGroupMessages([]);
-    setPrivateConversations(new Map());
-    privateConversationsRef.current = new Map();
-
-    // OPTIMIZACIÓN: Pre-cargar pubkeys del nuevo asset
-    recipientPubKeyCacheRef.current.clear();
-    if (selectedAsset) {
-      preloadRecipientPubkeys(selectedAsset);
+  const ingest = useCallback((entries: DepinPlainMessage[]) => {
+    if (entries.length === 0) return;
+    const seen = seenHashesRef.current;
+    const fresh: DePINMessage[] = [];
+    for (const entry of entries) {
+      if (seen.has(entry.hash)) continue;
+      seen.add(entry.hash);
+      fresh.push(toMessage(entry));
     }
-  }, [selectedAsset, effectiveAddress, preloadRecipientPubkeys]);
+    if (fresh.length === 0) return;
+    setGroupMessages((prev) => [...prev, ...fresh].sort((a, b) => a.timestamp - b.timestamp));
+  }, []);
 
-  // Automatic message polling every 5 seconds
-  useEffect(() => {
-    if (!selectedAsset || !effectiveAddress || !isPolling) {
-      return;
-    }
-
-    const pollMessages = async () => {
-      try {
-        const recipientPrivateKey = depinChatIdentity?.wif
-          ? String(depinChatIdentity.wif)
-          : (() => {
-            const addressObjects = wallet.getAddressObjects();
-            const addressObj = addressObjects.find(obj => obj.address === effectiveAddress);
-            return addressObj?.privateKey;
-          })();
-        if (!recipientPrivateKey) {
-          throw new Error('Private key not available for selected address');
-        }
-
-        const params: (string | number)[] = [selectedAsset, effectiveAddress];
-        if (lastTimestampRef.current > 0) {
-          params.push(lastTimestampRef.current);
-        }
-
-        const result = await wallet.rpc('depinreceivemsg', params);
-
-        let items: DepinReceiveMsgItem[] = [];
-        const depinMsg = getDepinMsgApi();
-
-        // Privacy layer: check if result is { encrypted: "..." }
-        if (isEncryptedResult(result)) {
-          if (depinMsg?.unwrapMessageFromServer) {
-            try {
-              const decryptedJson = await depinMsg.unwrapMessageFromServer(
-                result.encrypted,
-                String(recipientPrivateKey)
-              );
-              if (decryptedJson && typeof decryptedJson === 'string') {
-                items = JSON.parse(decryptedJson);
-              }
-            } catch (e) {
-              console.error('[DePIN] Failed to parse decrypted JSON response:', e);
-            }
-          } else {
-            console.warn('[DePIN] unwrapMessageFromServer not available in library');
-          }
-        } else {
-          items = Array.isArray(result) ? result : [];
-        }
-
-        let maxTimestamp = lastTimestampRef.current;
-        const newDecrypted: DePINMessage[] = [];
-        const seen = seenMessageKeysRef.current;
-
-        for (const item of items) {
-          if (typeof item?.timestamp === 'number') {
-            maxTimestamp = Math.max(maxTimestamp, item.timestamp);
-          }
-
-          const key = `${String(item?.hash ?? '')}|${String(item?.signature_hex ?? '')}`;
-          if (!item?.hash || seen.has(key)) continue;
-
-          let plaintext: string | null = null;
-          try {
-            const depinMsg = getDepinMsgApi();
-            if (!depinMsg?.decryptDepinReceiveEncryptedPayload) {
-              throw new Error('neuraiDepinMsg.decryptDepinReceiveEncryptedPayload is not available');
-            }
-            plaintext = await depinMsg.decryptDepinReceiveEncryptedPayload(
-              String(item.encrypted_payload_hex ?? ''),
-              String(recipientPrivateKey)
-            );
-          } catch (e) {
-            // Non-decryptable or malformed payload; ignore.
-            plaintext = null;
-          }
-
-          if (typeof plaintext !== 'string' || plaintext.length === 0) {
-            continue;
-          }
-
-          seen.add(key);
-          const ts = typeof item.timestamp === 'number' ? item.timestamp : Math.floor(Date.now() / 1000);
-
-          const messageHash = String(item.hash ?? '');
-          const sender = String(item.sender ?? '');
-          const contactAddress = getContactAddress(messageHash, sender, effectiveAddress, item.message_type);
-
-          newDecrypted.push({
-            recipient: effectiveAddress,
-            sender,
-            message: plaintext,
-            timestamp: ts,
-            date: new Date(ts * 1000).toLocaleString(),
-            expires: '',
-            messageHash,
-            messageType: item.message_type,
-            contactAddress,
-          });
-        }
-
-        lastTimestampRef.current = maxTimestamp;
-
-        if (newDecrypted.length > 0) {
-
-
-          // Separate messages by type
-          const newGroupMessages: DePINMessage[] = [];
-          const privateUpdates = new Map<string, DePINMessage[]>();
-
-          for (const msg of newDecrypted) {
-
-
-            if (msg.messageType === 'private' && msg.contactAddress) {
-              if (!privateUpdates.has(msg.contactAddress)) {
-                privateUpdates.set(msg.contactAddress, []);
-              }
-              privateUpdates.get(msg.contactAddress)!.push(msg);
-            } else {
-              newGroupMessages.push(msg);
-            }
-          }
-
-
-
-          // Update both states atomically using React's batching
-          // This prevents race conditions between the two updates
-          if (newGroupMessages.length > 0) {
-            setGroupMessages(prev => {
-              const merged = [...prev, ...newGroupMessages];
-              merged.sort((a, b) => a.timestamp - b.timestamp);
-              return merged;
-            });
-          }
-
-          if (privateUpdates.size > 0) {
-            setPrivateConversations(prev => {
-              const updated = new Map(prev);
-
-              for (const [contactAddress, msgs] of privateUpdates.entries()) {
-                const existing = updated.get(contactAddress);
-                const allMessages = existing
-                  ? [...existing.messages, ...msgs].sort((a, b) => a.timestamp - b.timestamp)
-                  : msgs;
-
-                const displayName = contactAddress === effectiveAddress
-                  ? 'Me (Private Notes)'
-                  : contactAddress.substring(0, 4) + '...' + contactAddress.substring(contactAddress.length - 4);
-
-                updated.set(contactAddress, {
-                  address: contactAddress,
-                  displayName,
-                  unreadCount: (existing?.unreadCount || 0) + msgs.length,
-                  lastMessageTime: Math.max(...allMessages.map(m => m.timestamp)),
-                  messages: allMessages,
-                });
-              }
-
-              return updated;
-            });
-          }
-        }
-
-        setLastPoll(new Date());
-        setError(null);
-      } catch (err) {
-        const errorInfo = asRpcError(err);
-        console.error('❌ RPC ERROR: depinreceivemsg failed');
-        console.error('Error object:', err);
-        console.error('Error message:', errorInfo.message);
-        console.error('Error description:', errorInfo.description);
-        console.error('Error code:', errorInfo.code);
-        console.error('Error status:', errorInfo.status);
-        console.error('Error statusText:', errorInfo.statusText);
-        console.error('Full error:', JSON.stringify(errorInfo, null, 2));
-
-        // Extract nested error message if exists
-        const errorMsg = errorInfo.message
-          || errorInfo.description
-          || errorInfo.error?.message
-          || errorInfo.error?.error?.message
-          || 'Failed to fetch messages';
-
-        console.error('⚠️ Extracted error message:', errorMsg);
-        setError(errorMsg);
-      }
-    };
-
-    pollMessages(); // Initial call
-    const interval = setInterval(pollMessages, DEPIN_POLL_INTERVAL_MS);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [wallet, selectedAsset, effectiveAddress, depinChatIdentity?.wif, isPolling]);
-
-  // Manual refresh
-  const refreshMessages = useCallback(async () => {
-    if (!selectedAsset || !effectiveAddress) {
-      console.log('Cannot refresh: no asset or address selected');
-      return;
-    }
-
+  const pollOnce = useCallback(async () => {
+    if (!client || !selectedAsset) return;
+    if (pollInFlightRef.current) return;
+    pollInFlightRef.current = true;
     try {
-      // Trigger an immediate poll (same incremental + dedupe logic)
-      // Note: we keep lastTimestampRef as-is to avoid re-downloading the whole pool.
-      const recipientPrivateKey = depinChatIdentity?.wif
-        ? String(depinChatIdentity.wif)
-        : (() => {
-          const addressObjects = wallet.getAddressObjects();
-          const addressObj = addressObjects.find(obj => obj.address === effectiveAddress);
-          return addressObj?.privateKey;
-        })();
-      if (!recipientPrivateKey) return;
-
-      const params: (string | number)[] = [selectedAsset, effectiveAddress];
-      if (lastTimestampRef.current > 0) {
-        params.push(lastTimestampRef.current);
-      }
-
-      console.log('🔄 Manual refresh: depinreceivemsg');
-      console.log('📤 Parameters:', JSON.stringify(params, null, 2));
-
-      const result = await wallet.rpc('depinreceivemsg', params);
-
-      let items: DepinReceiveMsgItem[] = [];
-      const depinMsg = getDepinMsgApi();
-
-      // Privacy layer: check if result is { encrypted: "..." }
-      if (isEncryptedResult(result)) {
-        if (depinMsg?.unwrapMessageFromServer) {
-          try {
-            const decryptedJson = await depinMsg.unwrapMessageFromServer(
-              result.encrypted,
-              String(recipientPrivateKey)
-            );
-            if (decryptedJson && typeof decryptedJson === 'string') {
-              items = JSON.parse(decryptedJson);
-            }
-          } catch (e) {
-            console.error('[DePIN] Failed to parse decrypted JSON response:', e);
-          }
-        } else {
-          console.warn('[DePIN] unwrapMessageFromServer not available in library');
-        }
-      } else {
-        items = Array.isArray(result) ? result : [];
-      }
-
-      let maxTimestamp = lastTimestampRef.current;
-      const newDecrypted: DePINMessage[] = [];
-      const seen = seenMessageKeysRef.current;
-
-      for (const item of items) {
-        if (typeof item?.timestamp === 'number') {
-          maxTimestamp = Math.max(maxTimestamp, item.timestamp);
-        }
-
-        const key = `${String(item?.hash ?? '')}|${String(item?.signature_hex ?? '')}`;
-        if (!item?.hash || seen.has(key)) continue;
-
-        let plaintext: string | null = null;
-        try {
-          const depinMsg = getDepinMsgApi();
-          if (!depinMsg?.decryptDepinReceiveEncryptedPayload) {
-            throw new Error('neuraiDepinMsg.decryptDepinReceiveEncryptedPayload is not available');
-          }
-          plaintext = await depinMsg.decryptDepinReceiveEncryptedPayload(
-            String(item.encrypted_payload_hex ?? ''),
-            String(recipientPrivateKey)
-          );
-        } catch {
-          plaintext = null;
-        }
-
-        if (typeof plaintext !== 'string' || plaintext.length === 0) continue;
-        seen.add(key);
-        const ts = typeof item.timestamp === 'number' ? item.timestamp : Math.floor(Date.now() / 1000);
-
-        const messageHash = String(item.hash ?? '');
-        const sender = String(item.sender ?? '');
-        const contactAddress = getContactAddress(messageHash, sender, effectiveAddress, item.message_type);
-
-        newDecrypted.push({
-          recipient: effectiveAddress,
-          sender,
-          message: plaintext,
-          timestamp: ts,
-          date: new Date(ts * 1000).toLocaleString(),
-          expires: '',
-          messageHash,
-          messageType: item.message_type,
-          contactAddress,
-        });
-      }
-
-      lastTimestampRef.current = maxTimestamp;
-      if (newDecrypted.length > 0) {
-        // Separate messages by type
-        const newGroupMessages: DePINMessage[] = [];
-        const privateUpdates = new Map<string, DePINMessage[]>();
-
-        for (const msg of newDecrypted) {
-          if (msg.messageType === 'private' && msg.contactAddress) {
-            if (!privateUpdates.has(msg.contactAddress)) {
-              privateUpdates.set(msg.contactAddress, []);
-            }
-            privateUpdates.get(msg.contactAddress)!.push(msg);
-          } else {
-            newGroupMessages.push(msg);
-          }
-        }
-
-        // Update group messages
-        if (newGroupMessages.length > 0) {
-          setGroupMessages(prev => {
-            const merged = [...prev, ...newGroupMessages];
-            merged.sort((a, b) => a.timestamp - b.timestamp);
-            return merged;
-          });
-        }
-
-        // Update private conversations
-        if (privateUpdates.size > 0) {
-
-          setPrivateConversations(prev => {
-            const updated = new Map(prev);
-
-            for (const [contactAddress, msgs] of privateUpdates.entries()) {
-              const existing = updated.get(contactAddress);
-              const allMessages = existing
-                ? [...existing.messages, ...msgs].sort((a, b) => a.timestamp - b.timestamp)
-                : msgs;
-
-
-
-              updated.set(contactAddress, {
-                address: contactAddress,
-                displayName: contactAddress.substring(0, 4) + '...' + contactAddress.substring(contactAddress.length - 4),
-                unreadCount: (existing?.unreadCount || 0) + msgs.length,
-                lastMessageTime: Math.max(...allMessages.map(m => m.timestamp)),
-                messages: allMessages,
-              });
-            }
-
-            return updated;
-          });
-        }
-      }
-
-      setLastPoll(new Date());
+      const verified = await client.pool();
+      setPool(verified);
+      const page = await client.receiveAll({ token: selectedAsset });
+      ingest(page.readable);
+      consecutiveFailuresRef.current = 0;
       setError(null);
+      setLastPoll(new Date());
     } catch (err) {
-      const errorInfo = asRpcError(err);
-      console.error('❌ Refresh failed:', errorInfo.message);
-      // Don't set error on refresh failure, just log it
+      consecutiveFailuresRef.current += 1;
+      const message = describe(err);
+      // A pin mismatch or a misconfigured endpoint never recovers by retrying:
+      // surface it at once and stop, instead of counting failures in silence.
+      const fatal = err instanceof DepinPoolPinMismatchError;
+      if (fatal || consecutiveFailuresRef.current >= 2) setError(message);
+      if (fatal || consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES) setIsPolling(false);
+    } finally {
+      pollInFlightRef.current = false;
     }
-  }, [wallet, selectedAsset, effectiveAddress, depinChatIdentity?.wif]);
+  }, [client, selectedAsset, ingest, describe]);
 
-  // Fetch pool statistics
-  const fetchStats = useCallback(async () => {
-    try {
+  useEffect(() => {
+    if (!isPolling || !client || !selectedAsset) return;
+    let active = true;
+    void pollOnce();
+    const timer = setInterval(() => {
+      if (active) void pollOnce();
+    }, POLL_INTERVAL_MS);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [isPolling, client, selectedAsset, pollOnce]);
 
+  const refreshMessages = useCallback(async () => {
+    await pollOnce();
+  }, [pollOnce]);
 
-      const result = await wallet.rpc('depinpoolstats', []) as PoolStats;
-
-
-
-      setStats(result);
-      return result;
-    } catch (err) {
-      const errorInfo = asRpcError(err);
-      console.error('❌ RPC ERROR: depinpoolstats failed');
-      console.error('Error object:', err);
-      console.error('Full error:', JSON.stringify(errorInfo, null, 2));
-      return null;
-    }
-  }, [wallet]);
-
-  // Send message via depinsubmismsg with client-side ECIES encryption
-  const sendMessage = useCallback(async (
-    message: string
-  ) => {
-
-
-    if (!selectedAsset || !effectiveAddress) {
-      console.error('❌ Asset or address not selected');
-      throw new Error('Asset or address not selected');
-    }
-
-    if (!recipientList || recipientList.length === 0) {
-      console.error('❌ No recipients available');
-      throw new Error('No recipients available. Click "Show All Addresses" first to load token holders.');
-    }
-
-    // Detectar si es un mensaje privado (@dirección)
-    // Flag 's' permite que . coincida con saltos de línea
-    const privateMessageMatch = message.match(/^@(N[a-zA-Z0-9]{33,34})\s+([\s\S]*)$/);
-    const isPrivateMessage = !!privateMessageMatch;
-    let targetRecipientAddress: string | null = null;
-    let cleanedMessage = message;
-
-    if (isPrivateMessage && privateMessageMatch) {
-      targetRecipientAddress = privateMessageMatch[1];
-      cleanedMessage = privateMessageMatch[2];
-
-    }
-
-    try {
-      // Get sender's private key
-
-      const senderPrivateKey = depinChatIdentity?.wif
-        ? String(depinChatIdentity.wif)
-        : (() => {
-          const addressObjects = wallet.getAddressObjects();
-
-          const addressObj = addressObjects.find(obj => obj.address === effectiveAddress);
-          if (!addressObj) {
-            console.error('❌ Address object not found for:', effectiveAddress);
-            throw new Error('Address not found in wallet: ' + effectiveAddress);
-          }
-          if (!addressObj.privateKey) {
-            console.error('❌ Private key not found for address');
-            throw new Error('Private key not found for address: ' + effectiveAddress);
-          }
-          return String(addressObj.privateKey);
-        })();
-
-
-
-
-
-      // Build recipient pubkeys list
-
-      const recipientPubKeys: string[] = [];
-      const recipientSet = new Set<string>();
-
-      let recipientsWithPubkeys = 0;
-
-      if (isPrivateMessage && targetRecipientAddress) {
-        // Modo privado: solo cifrar para el destinatario específico
-
-        const targetRecipient = recipientList.find((r) => r.address === targetRecipientAddress);
-
-        if (!targetRecipient) {
-          console.error('❌ Target recipient not found in recipient list');
-          throw new Error(`Recipient ${targetRecipientAddress} not found in token holders. They must hold the ${selectedAsset} token.`);
-        }
-
-        const pk = await resolveRecipientPubkey(String(targetRecipient.address), targetRecipient.pubkey ?? null);
-        if (!pk) {
-          console.error('❌ Could not resolve pubkey for target recipient');
-          throw new Error(`Could not get public key for ${targetRecipientAddress}. Recipient may need to reveal their pubkey first.`);
-        }
-
-        recipientPubKeys.push(pk);
-        recipientsWithPubkeys = 1;
-
-      } else {
-        // Modo grupo: cifrar para todos los destinatarios
-
-        for (const recipient of recipientList) {
-          const pk = await resolveRecipientPubkey(String(recipient.address), recipient.pubkey ?? null);
-          if (!pk) continue;
-          recipientsWithPubkeys++;
-          if (!recipientSet.has(pk)) {
-            recipientSet.add(pk);
-            recipientPubKeys.push(pk);
-          }
-        }
+  const sendMessage = useCallback(
+    async (message: string): Promise<string | null> => {
+      if (!client || !selectedAsset) {
+        setError('DePIN messaging is not available for this wallet.');
+        return null;
       }
+      const cleaned = message.trim();
+      if (!cleaned) return null;
 
-
-      if (recipientPubKeys.length === 0) {
-        console.error('❌ No valid public keys found');
-        throw new Error('No valid public keys found for recipients');
-      }
-
-      // Get sender pubkey from cache/RPC (required by neuraiDepinMsg)
-      let senderPubKey: string | null = null;
-      if (depinChatIdentity?.publicKey) {
-        senderPubKey = String(depinChatIdentity.publicKey).trim().toLowerCase();
-        senderPubKeyCacheRef.current = { address: effectiveAddress, pubkey: senderPubKey };
-
-      } else {
-        const cache = senderPubKeyCacheRef.current;
-        if (cache.address === effectiveAddress && cache.pubkey) {
-          senderPubKey = cache.pubkey;
-
-        } else {
-
-          try {
-            const pubkeyResult = await wallet.rpc('getpubkey', [effectiveAddress]) as PubkeyResponse | string | null;
-            const pubkeyValue = typeof pubkeyResult === 'string'
-              ? pubkeyResult
-              : typeof pubkeyResult?.pubkey === 'string'
-                ? pubkeyResult.pubkey
-                : typeof pubkeyResult?.result === 'string'
-                  ? pubkeyResult.result
-                  : typeof pubkeyResult?.result === 'object' && typeof pubkeyResult.result?.pubkey === 'string'
-                    ? pubkeyResult.result.pubkey
-                    : null;
-            senderPubKey = pubkeyValue ? String(pubkeyValue).trim().toLowerCase() : null;
-            senderPubKeyCacheRef.current = { address: effectiveAddress, pubkey: senderPubKey };
-          } catch (e) {
-            const errorInfo = asRpcError(e);
-            console.warn('❌ getpubkey failed for sender address:', errorInfo.message ?? String(e));
-          }
-        }
-      }
-
-      if (!senderPubKey || senderPubKey.length !== 66) {
-        throw new Error('Sender public key not available. You must reveal the pubkey for this address (send any tx from it) and ensure RPC method getpubkey is available.');
-      }
-
-      // Build the encrypted and signed message using @neuraiproject/neurai-depin-msg
-      console.log('\nCalling neuraiDepinMsg.buildDepinMessage...');
-      const depinMsg = getDepinMsgApi();
-      if (!depinMsg?.buildDepinMessage) {
-        throw new Error('neuraiDepinMsg is not available. Ensure @neuraiproject/neurai-depin-msg is installed and bundled.');
-      }
-
-      const messageType = isPrivateMessage ? 'private' : 'group';
-      console.log('  Message type:', messageType);
-
-      const buildResult = await depinMsg.buildDepinMessage({
-        token: selectedAsset,
-        senderAddress: effectiveAddress,
-        senderPubKey,
-        privateKey: senderPrivateKey, // accepts WIF or 64-hex
-        timestamp: Math.floor(Date.now() / 1000),
-        message: cleanedMessage,
-        recipientPubKeys,
-        messageType
-      });
-
-      const hexMessage: string = buildResult.hex;
-      console.log('  ✓ Built HEX length:', hexMessage.length);
-      console.log('  ✓ messageHash:', buildResult.messageHash);
-
-      let submissionPayload: string | Record<string, unknown> = hexMessage;
-
-      // Privacy Layer: check if server privacy is enabled
       try {
-        const msgInfoResult = await wallet.rpc('depingetmsginfo', []) as MsgInfoResult;
-        if (msgInfoResult && msgInfoResult.depinpoolpkey && msgInfoResult.depinpoolpkey !== '0') {
-          console.log('\n🔒 Server privacy layer active (pool key found). Wrapping message...');
-          if (depinMsg.wrapMessageForServer) {
-            console.log('🔒 ENCRYPTED TRANSMISSION: Message encrypted with server key', msgInfoResult.depinpoolpkey);
-            submissionPayload = await depinMsg.wrapMessageForServer(
-              hexMessage,
-              msgInfoResult.depinpoolpkey,
-              effectiveAddress
-            );
-            console.log('  ✓ Message wrapped successfully for server');
-          } else {
-            console.warn('  ⚠️ wrapMessageForServer not available in library. Sending unwrapped.');
-          }
-        }
-      } catch (e) {
-        console.warn('  ⚠️ Failed to check server privacy layer info:', e);
+        const sent = await client.send({
+          token: selectedAsset,
+          message: cleaned,
+          timestamp: Math.floor(Date.now() / 1000),
+        });
+        setError(null);
+        return sent.messageHash;
+      } catch (err) {
+        setError(describe(err));
+        throw err;
       }
+    },
+    [client, selectedAsset, describe],
+  );
 
-      console.log('\n🔵 RPC CALL: depinsubmitmsg');
-      console.log('📤 Payload type:', typeof submissionPayload === 'string' ? 'HEX' : 'JSON Object');
-
-      const result = await wallet.rpc('depinsubmitmsg', [submissionPayload]);
-
-      console.log('✅ RPC SUCCESS: depinsubmitmsg');
-      console.log('📥 Response:', JSON.stringify(result, null, 2));
-
-      // Store recipient for private messages (needed when we receive our own message back)
-      if (isPrivateMessage && targetRecipientAddress) {
-        // Store with buildResult.messageHash (calculated by library)
-        localStorage.setItem(
-          `private_msg_${buildResult.messageHash}`,
-          targetRecipientAddress
-        );
-        console.log('  ✓ Private message recipient stored (lib hash):', buildResult.messageHash);
-
-        // ALSO store with RPC result if it's a string (this is the authoritative hash on the pool)
-        if (typeof result === 'string' && result !== buildResult.messageHash) {
-          localStorage.setItem(
-            `private_msg_${result}`,
-            targetRecipientAddress
-          );
-          console.log('  ✓ Private message recipient stored (RPC hash):', result);
-        }
-      }
-
-      console.log('='.repeat(60));
-      console.log('🚀 SEND MESSAGE - COMPLETE');
-      console.log('='.repeat(60));
-
-      return result;
-    } catch (err) {
-      const errorInfo = asRpcError(err);
-      console.error('\n' + '='.repeat(60));
-      console.error('❌ SEND MESSAGE - ERROR');
-      console.error('='.repeat(60));
-      console.error('Error object:', err);
-      console.error('Error message:', errorInfo.message);
-      console.error('Error stack:', errorInfo.stack);
-
-      if (errorInfo.error) {
-        console.error('Nested error:', JSON.stringify(errorInfo.error, null, 2));
-      }
-
-      const actualError = errorInfo.error?.error?.message
-        || errorInfo.error?.message
-        || errorInfo.message
-        || errorInfo.description
-        || 'Failed to send message';
-      console.error('Actual error to throw:', actualError);
-      throw new Error(actualError);
-    }
-  }, [wallet, selectedAsset, effectiveAddress, depinChatIdentity?.wif, depinChatIdentity?.publicKey, recipientList, resolveRecipientPubkey]);
-
-  // Check DePIN asset validity
-  const checkAssetValidity = useCallback(async (): Promise<AssetValidity | null> => {
-    if (!selectedAsset || !effectiveAddress) return null;
-
-    const params = [selectedAsset, effectiveAddress];
-
+  /**
+   * Pool statistics, read through their signed envelope.
+   *
+   * Protocol 2 wrapped this reply too. Reading `total_messages` straight off the
+   * result — as the protocol-1 code did — yields `undefined` against an updated
+   * node, silently.
+   */
+  const fetchStats = useCallback(async (): Promise<PoolStats | null> => {
+    if (!client) return null;
     try {
-      console.log('🔵 RPC CALL: checkdepinvalidity');
-      console.log('📤 Parameters:', JSON.stringify(params, null, 2));
-
-      const result = await wallet.rpc('checkdepinvalidity', params) as AssetValidity;
-
-      console.log('✅ RPC SUCCESS: checkdepinvalidity');
-      console.log('📥 Response:', JSON.stringify(result, null, 2));
-
-      return result;
+      const verified = await client.pool();
+      setPool(verified);
+      const body = (await client.poolStats()) as PoolStats;
+      setStats(body);
+      return body;
     } catch (err) {
-      const errorInfo = asRpcError(err);
-      console.error('❌ RPC ERROR: checkdepinvalidity failed');
-      console.error('Error object:', err);
-      console.error('Full error:', JSON.stringify(errorInfo, null, 2));
+      console.debug('useDePINChat: pool stats unavailable', err);
       return null;
     }
-  }, [wallet, selectedAsset, effectiveAddress]);
+  }, [client]);
 
-  // Get messaging system info
-  const getMsgInfo = useCallback(async () => {
-    try {
-      const result = await wallet.rpc('depingetmsginfo', []);
-      return result;
-    } catch (err) {
-      console.error('Error getting msg info:', err);
-      return null;
-    }
-  }, [wallet]);
-
-  // Clear old messages
-  const clearMessages = useCallback(async (mode?: 'all' | number) => {
-    try {
-      const params = mode !== undefined ? [mode] : [];
-      const result = await wallet.rpc('depinclearmsg', params);
-      return result;
-    } catch (err) {
-      console.error('Error clearing messages:', err);
-      return null;
-    }
-  }, [wallet]);
-
-  // Create an empty private conversation
-  const createPrivateConversation = useCallback((address: string) => {
-    setPrivateConversations(prev => {
-      if (prev.has(address)) {
-        return prev; // Already exists
+  const checkAssetValidity = useCallback(
+    async (assetName: string, address: string): Promise<AssetValidity | null> => {
+      try {
+        return (await wallet.rpc('checkdepinvalidity', [assetName, address])) as AssetValidity;
+      } catch (err) {
+        console.debug('useDePINChat: checkdepinvalidity failed', err);
+        return null;
       }
+    },
+    [wallet],
+  );
 
-      const updated = new Map(prev);
-      const displayName = address === effectiveAddress
-        ? 'Me (Private Notes)'
-        : address.substring(0, 4) + '...' + address.substring(address.length - 4);
+  /**
+   * Clears the pool. The node authorises this against the signature over a
+   * fresh `admin` challenge — the UI only decides whether to offer it.
+   */
+  const clearMessages = useCallback(
+    async (mode?: 'all' | number) => {
+      if (!client) return null;
+      try {
+        return await client.clear(mode !== undefined ? { mode } : {});
+      } catch (err) {
+        setError(describe(err));
+        throw err;
+      }
+    },
+    [client, describe],
+  );
 
-      updated.set(address, {
-        address,
-        displayName,
-        unreadCount: 0,
-        lastMessageTime: Date.now() / 1000,
-        messages: []
-      });
-      console.log('[DePIN] Created empty conversation for:', address);
-      return updated;
-    });
-  }, [effectiveAddress]);
+  /** Always empty: private messaging is disabled in this delivery. */
+  const privateConversations = useMemo(() => new Map<string, PrivateConversation>(), []);
+
+  // Signature kept so the call sites survive unchanged for the day private
+  // messaging returns; today it only explains why nothing happened.
+  const createPrivateConversation = useCallback((_address: string) => {
+    setError(PRIVATE_MESSAGES_UNAVAILABLE);
+  }, []);
 
   return {
     groupMessages,
     privateConversations,
+    createPrivateConversation,
     isPolling,
     setIsPolling,
     error,
     stats,
     lastPoll,
+    /** The verified pool, once known. Carries the fingerprint the UI shows. */
+    pool,
     sendMessage,
     refreshMessages,
     fetchStats,
     checkAssetValidity,
-    getMsgInfo,
     clearMessages,
-    createPrivateConversation
   };
 }

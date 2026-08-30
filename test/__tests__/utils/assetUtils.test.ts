@@ -1,7 +1,6 @@
 import {
   getAssetType,
   getAssetTypeLabel,
-  isValidMessagingAsset
 } from "@/utils/assetUtils";
 
 describe("getAssetType", () => {
@@ -23,19 +22,5 @@ describe("getAssetTypeLabel", () => {
     expect(getAssetTypeLabel("&TESTDEPIN")).toBe("DePIN");
     expect(getAssetTypeLabel("#VERIFIED")).toBe("Qualifier");
     expect(getAssetTypeLabel("MY_TOKEN")).toBe("Asset");
-  });
-});
-
-describe("isValidMessagingAsset", () => {
-  it("returns true for assets with balance", () => {
-    expect(isValidMessagingAsset("&TESTDEPIN", { "&TESTDEPIN": 1.5 })).toBe(true);
-  });
-
-  it("returns false for assets with zero balance", () => {
-    expect(isValidMessagingAsset("&TESTDEPIN", { "&TESTDEPIN": 0 })).toBe(false);
-  });
-
-  it("returns false for missing assets", () => {
-    expect(isValidMessagingAsset("&TESTDEPIN", {})).toBe(false);
   });
 });

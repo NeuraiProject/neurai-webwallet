@@ -31,24 +31,6 @@ export function getAssetType(assetName: string): 'depin' | 'qualifier' | 'normal
   return 'normal';
 }
 
-/**
- * Checks if an asset is valid for messaging
- *
- * An asset is valid for messaging if it exists in the user's balance
- * and has a balance greater than 0.
- *
- * @param assetName - The name of the asset to check
- * @param chatAssets - Object mapping asset names to their balances
- * @returns true if the asset can be used for messaging, false otherwise
- *
- * @example
- * isValidMessagingAsset("&TESTDEPIN", { "&TESTDEPIN": 1.5 }) // Returns true
- * isValidMessagingAsset("&TESTDEPIN", { "&TESTDEPIN": 0 }) // Returns false
- * isValidMessagingAsset("&TESTDEPIN", {}) // Returns false
- */
-export function isValidMessagingAsset(assetName: string, chatAssets: Record<string, number>): boolean {
-  return !!(assetName && chatAssets[assetName] && chatAssets[assetName] > 0);
-}
 
 /**
  * Returns an icon component representing the asset type

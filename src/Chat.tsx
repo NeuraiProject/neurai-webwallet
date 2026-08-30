@@ -9,7 +9,8 @@ import { betterAlert, betterToast } from "./betterDialog";
 import type { DepinChatIdentity } from "./utils/depinChatIdentity";
 import { normalizeAssetAmountMaybe, shortenAddress, formatUnixTimestampNoSeconds, formatUnixTimestampNoSecondsShortYear } from './utils/formatting';
 import { parsePubkeyMaybe, parsePubkeyRevealedMaybe } from './utils/cryptoUtils';
-import { getAssetType, isValidMessagingAsset, getAssetIcon, getAssetTypeLabel } from './utils/assetUtils';
+import { getAssetType, getAssetIcon, getAssetTypeLabel } from './utils/assetUtils';
+import { assetEligibility, isEligible, type AssetEligibility } from './depin/eligibility';
 import { copyToClipboard, autoResizeTextarea, scrollToLastUnread } from './utils/domUtils';
 import { extractBotModel, computeExpiresDate, getUnreadCount } from './utils/messageUtils';
 import { pickForcedUtxosForAmount } from './utils/utxoUtils';
@@ -85,9 +86,17 @@ interface ChatProps {
   assets: unknown[];
   mempool: unknown;
   depinChatIdentity?: DepinChatIdentity | null;
+  /** Wallet chain: decides availability and identifies the pinned pool. */
+  chain: string;
+  /**
+   * The RPC URL actually in use. Passed in rather than read off `wallet`:
+   * jswallet captures it in a closure and never exposes it, and a pin recorded
+   * against the wrong endpoint would be applied to another server.
+   */
+  rpcUrl: string;
 }
 
-export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) {
+export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl }: ChatProps) {
   // Cache de mensajes por pestaña para evitar recalcular
   const [messagesByTab, setMessagesByTab] = React.useState<Map<string, Message[]>>(new Map());
 
@@ -110,9 +119,6 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   const chatInputRef = React.useRef<HTMLTextAreaElement>(null);
 
   // Estado para el listado de direcciones con pubkeys
-  const [showAddressList, setShowAddressList] = React.useState(false);
-  const [addressList, setAddressList] = React.useState<Array<{ address: string, amount: number, pubkey: string | null }>>([]);
-  const [loadingAddressList, setLoadingAddressList] = React.useState(false);
   const [showDepinAddressQr, setShowDepinAddressQr] = React.useState(false);
   const [depinChatPubkeyRevealed, setDepinChatPubkeyRevealed] = React.useState<boolean | null>(null);
   const depinPubkeyIntervalRef = React.useRef<number | null>(null);
@@ -120,12 +126,6 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
   const [isSidebarOpen, setSidebarOpen] = React.useState(true); // Default open on desktop? Maybe make responsive later
 
   // Preparar lista de recipients para el hook (address + pubkey)
-  const recipientInfoList = React.useMemo(() => {
-    return addressList.map(item => ({
-      address: item.address,
-      pubkey: item.pubkey
-    }));
-  }, [addressList]);
 
   const chatAddress = depinChatIdentity?.address ?? null;
   const depinAddressText = chatAddress ?? selectedAddress ?? "";
@@ -220,9 +220,17 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     sendMessage: sendDePINMessage,
     refreshMessages,
     fetchStats,
-    getMsgInfo,
     createPrivateConversation,
-  } = useDePINChat(wallet, selectedAsset, selectedAddress, recipientInfoList, depinChatIdentity ?? null);
+    checkAssetValidity,
+    pool,
+  } = useDePINChat({
+    wallet,
+    chain,
+    rpcUrl,
+    selectedAsset,
+    chatAddress: selectedAddress,
+    identity: depinChatIdentity ?? null,
+  });
 
   const burnDepinPubkeyAddress = React.useMemo(() => {
     return "NbURNXXXXXXXXXXXXXXXXXXXXXXXT65Gdr";
@@ -340,11 +348,54 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     [lastReadMessageByTab, messagesByTab]
   );
 
-  // Wrapper for isValidMessagingAsset with local chatAssets
+  // On-chain holder validity, one entry per asset once it has been asked for.
+  const [validityByAsset, setValidityByAsset] = React.useState<Record<string, AssetValidityStatus | null>>({});
+
+  /**
+   * The chat is for DePIN tokens and only for those, so the picker shows a
+   * decision per asset rather than a filtered list: a token that cannot be used
+   * is more useful shown with its reason than quietly missing.
+   */
+  const eligibilityByAsset = React.useMemo<Record<string, AssetEligibility>>(() => {
+    const context = {
+      chain,
+      poolRoot: (pool?.info.token as string | undefined) ?? null,
+      pubkeyRevealed: depinChatPubkeyRevealed !== false,
+    };
+    const out: Record<string, AssetEligibility> = {};
+    for (const [assetName, amount] of Object.entries(chatAssets)) {
+      if (isBaseAssetName(assetName, wallet.baseCurrency)) continue;
+      out[assetName] = assetEligibility(assetName, amount, context, validityByAsset[assetName] ?? null);
+    }
+    return out;
+  }, [chatAssets, chain, pool, depinChatPubkeyRevealed, validityByAsset, wallet.baseCurrency]);
+
   const isValidMessagingAssetLocal = React.useCallback(
-    (assetName: string) => isValidMessagingAsset(assetName, chatAssets),
-    [chatAssets]
+    (assetName: string) => isEligible(eligibilityByAsset[assetName] ?? ({ selectable: false, reason: 'no-balance' } as AssetEligibility)),
+    [eligibilityByAsset]
   );
+
+  // Holder validity costs one RPC per asset, so it is only asked for tokens
+  // that already passed every cheaper check.
+  React.useEffect(() => {
+    if (!showAssets || !pool) return;
+    let cancelled = false;
+    (async () => {
+      for (const [assetName, decision] of Object.entries(eligibilityByAsset)) {
+        if (cancelled) return;
+        if (decision.reason !== 'pool-not-ready') continue;
+        if (validityByAsset[assetName] !== undefined) continue;
+        const address = assetAddresses[assetName];
+        if (!address) continue;
+        const validity = (await checkAssetValidity(assetName, address)) as AssetValidityStatus | null;
+        if (cancelled) return;
+        setValidityByAsset((prev) => ({ ...prev, [assetName]: validity }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showAssets, pool, eligibilityByAsset, validityByAsset, assetAddresses, checkAssetValidity]);
 
   // Update message cache when DePIN data changes
   React.useEffect(() => {
@@ -379,7 +430,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
         deliveryKey: `${selectedAsset}|${msg.sender}|${unixTimestamp}|${msg.message}`,
         senderAddress: msg.sender,
         sendDate: formatUnixTimestampNoSeconds(unixTimestamp),
-        expiresDate: computeExpiresDateLocal(unixTimestamp) ?? msg.expires,
+        expiresDate: computeExpiresDateLocal(unixTimestamp) ?? '',
         isDePIN: true,
         delivery: "confirmed" as const,
       };
@@ -419,7 +470,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
           deliveryKey: `${selectedAsset}|${msg.sender}|${unixTimestamp}|${msg.message}`,
           senderAddress: msg.sender,
           sendDate: formatUnixTimestampNoSeconds(unixTimestamp),
-          expiresDate: computeExpiresDate(unixTimestamp) ?? msg.expires,
+          expiresDate: computeExpiresDate(unixTimestamp) ?? '',
           isDePIN: true,
           delivery: "confirmed" as const,
         };
@@ -555,27 +606,19 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     if (!isConnected) return;
     let cancelled = false;
 
-    (async () => {
-      try {
-        // Protocol 1 shape. Against a protocol-2 node `depingetmsginfo` answers a
-        // signed `{ body, poolsig }` envelope and these fields are absent, so the
-        // expiry below simply stays null. Replaced by the verified pool lookup in
-        // the protocol-2 migration; cast only to keep the type checker honest
-        // about the fact that the RPC returns `unknown`.
-        const info = (await getMsgInfo()) as MsgInfo | null;
-        const hours = typeof info?.messageexpiryhours === 'number' ? info.messageexpiryhours : null;
-        if (!cancelled) setMsgInfo(info ?? null);
-        if (!cancelled) setMessageExpiryHours(hours);
-      } catch {
-        if (!cancelled) setMsgInfo(null);
-        if (!cancelled) setMessageExpiryHours(null);
-      }
-    })();
+    // The expiry comes from the pool description whose signature was verified,
+    // not from a plain read of `depingetmsginfo`.
+    const info = pool?.info as MsgInfo | undefined;
+    const hours = typeof info?.messageexpiryhours === 'number' ? info.messageexpiryhours : null;
+    if (!cancelled) {
+      setMsgInfo(info ?? null);
+      setMessageExpiryHours(hours);
+    }
 
     return () => {
       cancelled = true;
     };
-  }, [isConnected, getMsgInfo]);
+  }, [isConnected, pool]);
 
   const handleSend = async () => {
 
@@ -604,15 +647,9 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     if (privateCommandMatch) {
       const targetAddress = privateCommandMatch[1];
 
-
-      // Verify the address is in the recipient list
-      if (!addressList.find(r => r.address === targetAddress)) {
-        alert(`Address ${targetAddress} is not a holder of ${selectedAsset}. Cannot open private conversation.`);
-        setInputText("");
-        return;
-      }
-
-      // Create empty conversation if it doesn't exist
+      // Private messaging is closed in this delivery: there is no verified way
+      // to obtain one recipient's public key under protocol 2. The hook says so
+      // rather than opening a conversation that could never be sent.
       createPrivateConversation(targetAddress);
 
       // Switch to private tab
@@ -785,7 +822,6 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
     // Auto-load addresses list when selecting an asset
 
     setTimeout(() => {
-      loadAddressesWithPubkeysInternal(assetName);
     }, 100);
 
     // La dirección ya fue validada arriba, proceder a conectar
@@ -813,69 +849,6 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
       // No hay pubkey - no podemos descifrar mensajes
       alert(`Cannot connect: Asset ${assetName} doesn't have a public key.\n\nTo use messaging, you need to reveal the public key for this address by sending a transaction from it.`);
     }
-  };
-
-  // Internal function that accepts asset parameter for auto-loading
-  const loadAddressesWithPubkeysInternal = async (assetName: string) => {
-    if (!assetName) return;
-
-    setLoadingAddressList(true);
-    setShowAddressList(true);
-
-    try {
-      // OPTIMIZACIÓN: Usar listdepinaddresses para obtener todas las pubkeys en una sola llamada RPC
-
-
-      const depinAddressesData = await wallet.rpc("listdepinaddresses", [assetName]) as Array<{ address: string; pubkey?: string }>;
-
-
-
-      // Crear un mapa de address -> pubkey para búsqueda rápida
-      const pubkeyMap = new Map<string, string>();
-      for (const item of depinAddressesData) {
-        if (item.pubkey) {
-          pubkeyMap.set(item.address, item.pubkey);
-        }
-      }
-
-
-
-      // Obtener los amounts de cada dirección
-      const addressesData: Record<string, unknown> = await wallet.rpc("listaddressesbyasset", [assetName]) as Record<string, unknown>;
-
-
-
-      const addresses = Object.keys(addressesData);
-      const results: Array<{ address: string, amount: number, pubkey: string | null }> = [];
-
-      // Combinar amounts con pubkeys obtenidas en batch
-      for (const address of addresses) {
-        const amount = normalizeAssetAmountMaybe(addressesData[address]);
-        const pubkey = pubkeyMap.get(address) ?? null;
-
-        results.push({
-          address,
-          amount,
-          pubkey
-        });
-      }
-
-      setAddressList(results);
-
-
-    } catch (error) {
-      console.error("Error loading addresses with pubkeys:", error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      alert(`Failed to load addresses: ${errorMessage}`);
-    } finally {
-      setLoadingAddressList(false);
-    }
-  };
-
-  // Public wrapper for button click (uses selectedAsset)
-  const loadAddressesWithPubkeys = async () => {
-    if (!selectedAsset) return;
-    loadAddressesWithPubkeysInternal(selectedAsset);
   };
 
   return (
@@ -1125,36 +1098,48 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                 </tr>
               </thead>
               <tbody>
-                {Object.keys(chatAssets).map((assetName) => {
-                  if (isBaseAssetName(assetName, wallet.baseCurrency)) return null;
-                  if (chatAssets[assetName] === 0) return null;
-
+                {Object.entries(eligibilityByAsset).length === 0 ? (
+                  <tr>
+                    <td colSpan={3}>
+                      This address holds no DePIN tokens. Messaging needs a token from the pool this
+                      server serves.
+                    </td>
+                  </tr>
+                ) : null}
+                {Object.entries(eligibilityByAsset).map(([assetName, decision]) => {
                   const address = assetAddresses[assetName] || "Loading...";
+                  const selectable = isEligible(decision);
+                  const select = () => {
+                    if (!selectable) return;
+                    handleAssetSelection(assetName);
+                    setShowAssets(false);
+                  };
 
                   return (
                     <tr
                       key={assetName}
-                      onClick={() => {
-                        handleAssetSelection(assetName);
-                        setShowAssets(false); // Auto-close on selection
-                      }}
-                      className={`rebel-chat__asset-row ${selectedAsset === assetName ? 'rebel-chat__asset-row--selected' : ''}`}
+                      onClick={select}
+                      aria-disabled={!selectable || undefined}
+                      className={`rebel-chat__asset-row ${selectedAsset === assetName ? 'rebel-chat__asset-row--selected' : ''} ${selectable ? '' : 'opacity-60 cursor-not-allowed'}`}
                     >
                       <td className="rebel-chat__asset-table-select">
                         <input
                           type="radio"
                           name="selected-asset"
                           checked={selectedAsset === assetName}
-                          onChange={() => {
-                            handleAssetSelection(assetName);
-                            setShowAssets(false);
-                          }}
+                          disabled={!selectable}
+                          onChange={select}
                           className="rebel-chat__asset-radio"
                         />
                       </td>
                       <td>
                         <span title={getAssetTypeLabel(assetName)}>{getAssetIcon(assetName)} </span>
                         {assetName}
+                        {/* The reason travels with the row: a token that quietly
+                            disappeared from the list would be a support ticket. */}
+                        {selectable ? null : (
+                          <div className="text-xs opacity-70">{decision.message}</div>
+                        )}
                       </td>
                       <td className="rebel-chat__asset-address">
                         {address}
@@ -1241,36 +1226,6 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity }: ChatProps) 
                     </div>
                   ))}
 
-                {/* Other Contacts (Holders) */}
-                {addressList.length > 0 && addressList.some(item => !privateConversations.has(item.address) && item.pubkey) && (
-                  <>
-                    <div className="rebel-chat__sidebar-section-header">
-                      Contacts
-                    </div>
-                    {addressList
-                      .filter(item => !privateConversations.has(item.address) && item.pubkey)
-                      .map((item) => (
-                        <div
-                          key={item.address}
-                          onClick={() => {
-                            createPrivateConversation(item.address);
-                            setActiveTab(item.address);
-                            if (window.innerWidth < 768) setSidebarOpen(false);
-                          }}
-                          className={`rebel-chat__sidebar-item ${item.address === chatAddress ? "rebel-chat__sidebar-item--self" : "rebel-chat__sidebar-item--other"}`}
-                        >
-                          <div className="rebel-chat__sidebar-avatar rebel-chat__sidebar-avatar--other">
-                            {item.address === chatAddress ? "⭐" : (item.pubkey ? "👤" : "?")}
-                          </div>
-                          <div className="rebel-chat__sidebar-info">
-                            <div className="rebel-chat__sidebar-name rebel-chat__sidebar-name--small">
-                              {item.address === chatAddress ? "Me (Private Notes)" : shortenAddress(item.address)}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </>
-                )}
               </div>
             </div>
           )}

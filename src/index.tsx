@@ -205,7 +205,7 @@ function App() {
     return 50;
   }, []);
 
-  const buildWalletConfig = React.useCallback(() => {
+  const buildWalletConfig = React.useCallback((): WalletConfig => {
     const walletConfig: WalletConfig = {
       minAmountOfAddresses,
       mnemonic,
@@ -243,6 +243,10 @@ function App() {
 
     return walletConfig;
   }, [minAmountOfAddresses, mnemonic, network, passphrase]);
+
+  // Derived from the very config the wallet is built with, so the pinned pool is
+  // always attributed to the endpoint actually in use.
+  const effectiveRpcUrl = React.useMemo(() => buildWalletConfig().rpc_url ?? "", [buildWalletConfig]);
 
   const ensureWalletDefaults = React.useCallback((instance: Wallet) => {
     if (!instance.baseCurrency) {
@@ -607,7 +611,16 @@ function App() {
             }
             aria-hidden={currentRoute !== Routes.CHAT}
           >
-            <Chat wallet={wallet} assets={assets} mempool={mempool} depinChatIdentity={depinChatIdentity} />
+            <Chat
+              wallet={wallet}
+              assets={assets}
+              mempool={mempool}
+              depinChatIdentity={depinChatIdentity}
+              chain={network}
+              // The endpoint the wallet is actually talking to: it cannot be
+              // recovered from the Wallet instance, so it is passed down.
+              rpcUrl={effectiveRpcUrl}
+            />
           </div>
 
           {currentRoute === Routes.IOT && <IoT wallet={wallet} />}
