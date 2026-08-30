@@ -18,3 +18,22 @@ export function isAllowedNetwork(network: string): boolean {
   if (WALLET_BUILD === "all") return true;
   return WALLET_BUILD === "testnet" ? isTestnetChain(network) : !isTestnetChain(network);
 }
+
+/**
+ * Networks that exist in the code but are not ready to be used.
+ *
+ * Separate from the build target on purpose: that decides which networks a
+ * given build is *for*, this decides which ones work at all. Post-quantum
+ * mainnet is derivable and selectable but not enabled, so offering it hands
+ * someone a wallet that cannot do anything.
+ */
+const NOT_YET_ENABLED: readonly string[] = ["xna-pq"];
+
+export function isNetworkEnabled(network: string): boolean {
+  return !NOT_YET_ENABLED.includes(network);
+}
+
+/** Both gates: the build is for this network, and the network works. */
+export function isNetworkSelectable(network: string): boolean {
+  return isAllowedNetwork(network) && isNetworkEnabled(network);
+}

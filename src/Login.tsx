@@ -22,7 +22,7 @@ import {
   IconSweep,
 } from "./icons";
 import { autoResizeTextarea } from "./utils/domUtils";
-import { isAllowedNetwork } from "./buildTarget";
+import { isNetworkSelectable } from "./buildTarget";
 
 const neuraiLogo = new URL("../public/neurai-xna-logo.png", import.meta.url);
 
@@ -37,7 +37,7 @@ const ALL_NETWORK_OPTIONS: { value: NetworkOption; label: string }[] = [
   { value: "xna-pq-test", label: "Testnet PQ" },
 ];
 
-const NETWORK_OPTIONS = ALL_NETWORK_OPTIONS.filter((opt) => isAllowedNetwork(opt.value));
+const NETWORK_OPTIONS = ALL_NETWORK_OPTIONS.filter((opt) => isNetworkSelectable(opt.value));
 
 const NETWORK_STORAGE_KEY = "wallet_network";
 

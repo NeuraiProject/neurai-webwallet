@@ -37,7 +37,7 @@ import { Asset } from "./Asset";
 import { Sign } from "./sign/Sign";
 import { Settings } from "./Settings";
 import { IconEye, IconEyeOff, IconShield } from "./icons";
-import { isAllowedNetwork, WALLET_BUILD } from "./buildTarget";
+import { isNetworkSelectable, WALLET_BUILD } from "./buildTarget";
 
 const DEFAULT_RPC_MAINNET = "https://rpc-depin.neurai.org/rpc";
 const DEFAULT_RPC_TESTNET = "https://rpc-testnet.neurai.org/rpc";
@@ -122,7 +122,7 @@ function App() {
       "xna-pq",
       "xna-pq-test",
     ];
-    if (stored && (validStored as string[]).includes(stored) && isAllowedNetwork(stored)) {
+    if (stored && (validStored as string[]).includes(stored) && isNetworkSelectable(stored)) {
       return stored as ChainType;
     }
 
