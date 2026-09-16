@@ -15,22 +15,14 @@ import {
 } from "../icons/assetIcons";
 import { formatNumberWith8Decimals } from "../formatNumberWith8Decimals";
 import { getAssetBalanceIncludingMempool, getAssetBalanceFromMempool, isBaseAssetName, type MempoolAsset } from "../utils";
-import { BalanceChart } from "./BalanceChart";
+import { ReceiveAddress } from "../ReceiveAddress";
 import { decimalSeparator, splitAmount } from "./splitAmount";
 import { subtitleFor } from "./assetSubtitle";
 import { useAssetMeta } from "./useAssetMeta";
 import { useDepinAddressAssets } from "./useDepinAddressAssets";
 import { useWalletHistory } from "./useWalletHistory";
 
-/**
- * The wallet's home page.
- *
- * Replaces a bare assets table with the four things someone opens a wallet to
- * find out: what they hold, whether it moved, what is still in flight, and
- * which chain they are on. Everything here comes from data the app already
- * loads, except one lookup per asset that the old assets list was already
- * making for its IPFS thumbnails.
- */
+/** Home combines balances, the receive address, assets and recent activity. */
 export function Home({
   wallet,
   assets,
@@ -39,6 +31,7 @@ export function Home({
   blockCount,
   depinChatAddress,
   setRoute,
+  receiveAddress,
 }: {
   wallet: Wallet;
   assets: unknown[];
@@ -48,6 +41,7 @@ export function Home({
   /** DePIN chat address (BIP44 account 100), outside the normal address range. */
   depinChatAddress?: string | null;
   setRoute: (route: Routes) => void;
+  receiveAddress: string;
 }) {
   const onTestnet = isTestnet(wallet);
   const price = useUSDPrice(wallet, onTestnet);
@@ -56,7 +50,7 @@ export function Home({
   const pending = getAssetBalanceFromMempool(baseCurrency, mempool);
   const total = addAmounts(balance, pending);
 
-  const { balanceSeries, activity, loading } = useWalletHistory(wallet, blockCount, baseCurrency);
+  const { activity, loading } = useWalletHistory(wallet, blockCount, baseCurrency);
 
   const held = React.useMemo(() => {
     const all = getAssetBalanceIncludingMempool(wallet, assets as never, mempool) as Record<string, number | string>;
@@ -84,23 +78,10 @@ export function Home({
     React.useMemo(() => rows.map((row) => row.name), [rows]),
   );
 
-  // Change over the visible history, which is what the chart is showing. Not
-  // labelled as a time window: the series is indexed by block height, and
-  // turning heights into dates would cost one lookup per transaction.
-  const change = React.useMemo(() => {
-    if (balanceSeries.length < 2) return null;
-    const first = balanceSeries[0].balance;
-    const last = balanceSeries[balanceSeries.length - 1].balance;
-    if (first === 0) return null;
-    return ((last - first) / Math.abs(first)) * 100;
-  }, [balanceSeries]);
-
-
-
   return (
     <div className="flex flex-col gap-4">
       {/* Balance ------------------------------------------------------- */}
-      <section className="neurai-card grid gap-7 items-center md:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
+      <section className={`neurai-card grid gap-7 items-center ${wallet.network.includes("pq") ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]"}`}>
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.09em] opacity-50 m-0">Total balance</p>
           <div className="flex items-baseline gap-2.5 mt-2 mb-0.5 flex-wrap">
@@ -116,16 +97,7 @@ export function Home({
               <span className="tabular-nums">
                 {(price * Number(total)).toLocaleString("en-US", { style: "currency", currency: "USD" })}
               </span>
-              {change !== null && (
-                <>
-                  {" · "}
-                  <span className={`tabular-nums font-semibold ${change >= 0 ? "text-success" : "text-error"}`}>
-                    {change >= 0 ? "+" : ""}
-                    {change.toFixed(1)}%
-                  </span>{" "}
-                  over this history
-                </>
-              )}
+
             </p>
           )}
 
@@ -142,21 +114,7 @@ export function Home({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5 min-w-0">
-          {balanceSeries.length >= 2 ? (
-            <>
-              <BalanceChart points={balanceSeries} />
-              <div className="flex justify-between text-[11px] opacity-50 tabular-nums">
-                <span>block {balanceSeries[0].blockHeight.toLocaleString()}</span>
-                <span>block {balanceSeries[balanceSeries.length - 1].blockHeight.toLocaleString()}</span>
-              </div>
-            </>
-          ) : (
-            <p className="text-sm opacity-60 m-0">
-              {loading ? "Loading history…" : "Your balance chart appears after your first transactions."}
-            </p>
-          )}
-        </div>
+        <ReceiveAddress wallet={wallet} receiveAddress={receiveAddress} compact />
       </section>
 
 

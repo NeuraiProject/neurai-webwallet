@@ -584,6 +584,7 @@ function App() {
               blockCount={blockCount}
               depinChatAddress={depinChatIdentity?.address ?? null}
               setRoute={setCurrentRoute}
+              receiveAddress={receiveAddress}
             />
           )}
           {currentRoute === Routes.RECEIVE && (

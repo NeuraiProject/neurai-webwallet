@@ -10,6 +10,7 @@ The current application version is **1.1.0**, defined in [package.json](package.
 - Send and receive XNA, manage assets, inspect transaction history, sweep keys and sign messages.
 - Select individual UTXOs with **Coin Control** in Send and see their combined amount. On desktop, the UTXO panel opens beside the send form; its state is retained while navigating within the same wallet session.
 - Display pending transactions below the header across wallet sections.
+- See the receive address on the home page, copy it with a click and scan the inline QR with black dots and a small Neurai logo. Click the QR to enlarge it.
 - Handle XNA amounts using exact decimal strings and integer satoshis, including amounts beyond JavaScript's safe integer range.
 - Configure a custom RPC server and inspect its reported chain, block height, headers, difficulty, verification progress and best block hash in Settings.
 - View recovery words in a PIN-protected dialog. Closing it requires a new PIN verification on the next opening.

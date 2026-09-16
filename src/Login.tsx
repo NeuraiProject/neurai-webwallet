@@ -14,7 +14,6 @@ import {
   IconHistory,
   IconHome,
   IconIoT,
-  IconReceive,
   IconSend,
   IconSettings,
   IconShield,
@@ -33,7 +32,7 @@ const NETWORK_STORAGE_KEY = "wallet_network";
 const NAV_PREVIEW_ITEMS: { key: string; title: string; icon: React.JSX.Element }[] = [
   { key: "home", title: "Home", icon: <IconHome /> },
   { key: "send", title: "Send", icon: <IconSend /> },
-  { key: "receive", title: "Receive", icon: <IconReceive /> },
+  // Match the header: Receive is temporarily hidden.
   { key: "asset", title: "Asset", icon: <IconAsset /> },
   { key: "sweep", title: "Sweep", icon: <IconSweep /> },
   { key: "history", title: "History", icon: <IconHistory /> },

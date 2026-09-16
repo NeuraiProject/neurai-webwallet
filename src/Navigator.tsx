@@ -32,7 +32,7 @@ type NavItemConfig = RouteNavItemConfig | PlaceholderNavItemConfig;
 const NAV_ITEMS: NavItemConfig[] = [
   { type: "route", route: Routes.HOME, title: "Home" },
   { type: "route", route: Routes.SEND, title: "Send" },
-  { type: "route", route: Routes.RECEIVE, title: "Receive" },
+  // Receive is temporarily hidden: the home card provides the address and QR.
   { type: "route", route: Routes.ASSET, title: "Asset" },
   { type: "route", route: Routes.SWEEP, title: "Sweep" },
   { type: "route", route: Routes.HISTORY, title: "History" },
