@@ -9,6 +9,7 @@ import { useNodeStatus } from "./hooks/useNodeStatus";
 import { usePersistentState } from "./hooks/usePersistentState";
 import { FaAnglesDown, FaAnglesUp } from "react-icons/fa6";
 import { BUILD_DATE } from "./buildDate";
+import { version as walletVersion } from "../package.json";
 
 type StatusTone = "ok" | "warn" | "error" | "muted";
 
@@ -331,7 +332,7 @@ export function Navigator({
           </div>
 
           <h5 className="text-sm text-base-content/60 mt-3 mb-2 font-normal">
-            Rebel Wallet 1.0.9 - {BUILD_DATE}
+            Neurai WebWallet {walletVersion} - {BUILD_DATE}
           </h5>
 
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] items-center gap-4 my-3">

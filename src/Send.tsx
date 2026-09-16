@@ -1,5 +1,7 @@
 import { addAmounts, amountFromInput } from "./exactAmounts";
 import React from "react";
+import { CoinControl } from "./CoinControl";
+import { createCoinControlledTransaction, loadCoinUtxos, selectedTotal, utxoId, type CoinUtxo } from "./coinControlWallet";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "./Types";
 import { Scanner } from "@yudiel/react-qr-scanner";
@@ -34,7 +36,9 @@ export function Send({
   balance,
   mempool,
   wallet,
+  active = true,
 }: {
+  active?: boolean;
   assets: IAsset[];
   balance: number | string;
   mempool: MempoolAsset[] | null;
@@ -46,6 +50,12 @@ export function Send({
   const [asset, setAsset] = React.useState(defaultValueAssets);
   const [showQRCode, setShowQRCode] = React.useState(false);
   const [isBusy, setIsBusy] = React.useState(false);
+  const [coinControl, setCoinControl] = React.useState(false);
+  const [utxos, setUtxos] = React.useState<CoinUtxo[]>([]);
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [loadingUtxos, setLoadingUtxos] = React.useState(false);
+  const [utxoError, setUtxoError] = React.useState<string | null>(null);
+  const [refreshUtxos, setRefreshUtxos] = React.useState(0);
   // True when the user pressed "Max" and hasn't manually edited the amount
   // since. Tells onSubmit to compute (balance − fee) at send time so the
   // wallet drains without leaving dust.
@@ -58,16 +68,44 @@ export function Send({
 
   const hasSelectedAsset =
     typeof asset === "string" && asset.trim().length > 0 && asset !== defaultValueAssets;
-  const isSendButtenDisabled = isBusy === true || !hasSelectedAsset;
+  const selectedUtxos = utxos.filter(u => selected.has(utxoId(u)));
+  const fundingAsset = hasSelectedAsset ? asset : walletBaseCurrency;
+  const selectedAmount = selectedTotal(selectedUtxos, fundingAsset);
+  const isSendButtenDisabled = isBusy || !hasSelectedAsset ||
+    (coinControl && (loadingUtxos || !!utxoError || !selectedUtxos.length || selectedAmount === "0"));
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setSelected(new Set());
+    setIsMaxIntent(false);
+    setUtxos([]);
+    setUtxoError(null);
+    if (!coinControl) return;
+    setLoadingUtxos(true);
+    loadCoinUtxos(wallet).then(items => {
+      if (!cancelled) setUtxos(items.filter(u => u.assetName === fundingAsset || u.assetName === walletBaseCurrency));
+    }).catch(error => {
+      if (!cancelled) setUtxoError(error instanceof Error ? error.message : "Unable to load UTXOs. Try refreshing.");
+    }).finally(() => { if (!cancelled) setLoadingUtxos(false); });
+    return () => { cancelled = true; };
+  }, [wallet, fundingAsset, walletBaseCurrency, coinControl, refreshUtxos]);
+
+  React.useEffect(() => {
+    if (coinControl && isMaxIntent) setAmount(selectedAmount);
+  }, [coinControl, selectedAmount, isMaxIntent]);
 
   function onResult(value: string | null) {
     setTo(value ?? "");
     setShowQRCode(false);
   }
-  const qr = useQRReader(showQRCode, onResult);
+  React.useEffect(() => {
+    if (!active) setShowQRCode(false);
+  }, [active]);
+  const qr = useQRReader(showQRCode && active, onResult);
 
   async function onSubmit(event: React.SyntheticEvent) {
     event.preventDefault();
+    if (isSendButtenDisabled) return;
     try {
       amountFromInput(amount);
     } catch {
@@ -83,17 +121,11 @@ export function Send({
       setAmount("");
       setAsset(defaultValueAssets);
       setIsMaxIntent(false);
+      setSelected(new Set());
+      setRefreshUtxos(n => n + 1);
       triggerEvent(Events.INFO__TRANSFER_IN_PROCESS);
       betterToast("✓ Success");
     };
-
-    //Validate that "to address" is a valid address
-    const validateAddressResponse = (await wallet.rpc("validateaddress", [to])) as ValidateAddressResponse;
-
-    if (validateAddressResponse.isvalid === false) {
-      betterAlert("Error", to + " does not seem to be a valid address");
-      return false;
-    }
 
     if (!hasSelectedAsset) {
       betterAlert("Select an asset", "Please choose an asset before sending.");
@@ -117,20 +149,22 @@ export function Send({
     // (no float drift), absorbs sub-dust residue into the miner fee, and
     // returns the actual amount + fee in `debug` for the confirm dialog.
     const useSendMax = isMaxIntent && assetToSend === walletBaseCurrency;
-    const promise = send({
-      wallet,
-      to,
-      asset: assetToSend,
-      amount,
-      clearForm,
-      sendMax: useSendMax,
-    });
-    promise.catch(() => {
-      //Do nothing);
-    });
-    promise.finally(() => {
+    try {
+      const validation = await wallet.rpc("validateaddress", [to]) as ValidateAddressResponse;
+      if (!validation.isvalid) {
+        betterAlert("Error", to + " does not seem to be a valid address");
+        return;
+      }
+      await send({
+        wallet, to, asset: assetToSend, amount, clearForm,
+        sendMax: useSendMax,
+        selectedUtxos: coinControl ? selectedUtxos : undefined,
+      });
+    } catch (error) {
+      betterAlert("Error", error instanceof Error ? error.message : "Unable to prepare transaction.");
+    } finally {
       setIsBusy(false);
-    });
+    }
   }
   const allAssets = getAssetBalanceIncludingMempool(wallet, assets, mempool);
   const options = (
@@ -152,12 +186,12 @@ export function Send({
   // happens at send time, when we already have the destination address.
   function maxButtonEventHandler(event: React.MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
-    if (!hasSelectedAsset || isBusy) return;
+    if (!hasSelectedAsset || isBusy || (coinControl && (loadingUtxos || !!utxoError))) return;
 
     const isBase = isBaseAssetName(asset, baseCurrencyLabel);
-    const newAmount = isBase ? balance : allAssets[asset];
+    const newAmount = coinControl ? selectedAmount : isBase ? balance : allAssets[asset];
     setAmount(formatAmountForInput(newAmount));
-    setIsMaxIntent(isBase);
+    setIsMaxIntent(true);
   }
   function MaxButton() {
     return (
@@ -171,24 +205,55 @@ export function Send({
     );
   }
   return (
-    <div className="neurai-card neurai-stack">
+    <div className={coinControl ? "grid grid-cols-1 lg:grid-cols-2 gap-5 items-start" : ""}>
+      {coinControl && <CoinControl
+        utxos={utxos} selected={selected} asset={fundingAsset} baseCurrency={walletBaseCurrency}
+        loading={loadingUtxos} error={utxoError} disabled={isBusy}
+        onRefresh={() => setRefreshUtxos(n => n + 1)}
+        onClear={() => setSelected(new Set())}
+        onSelectAll={() => setSelected(new Set(utxos.map(utxoId)))}
+        onToggle={id => setSelected(current => {
+          const next = new Set(current);
+          if (next.has(id)) next.delete(id); else next.add(id);
+          return next;
+        })}
+      />}
+    <div className="neurai-card neurai-stack min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
       <h5 className="neurai-card__title">Send / transfer / pay</h5>
+      <button type="button"
+        className={coinControl ? "neurai-btn--secondary border-primary" : "neurai-btn--secondary"}
+        disabled={isBusy} aria-pressed={coinControl}
+        aria-expanded={coinControl} aria-controls="coin-control-panel"
+        onClick={() => {
+          setCoinControl(open => !open);
+          setSelected(new Set());
+          setIsMaxIntent(false);
+          if (!hasSelectedAsset) setAsset(baseCurrencyLabel);
+        }}>Coin Control</button>
+      </div>
+      {coinControl && <p className="neurai-hint m-0" role="status">
+        Selected: {formatNumberWith8Decimals(selectedAmount)} {fundingAsset} · before fees. Max uses this selection.
+      </p>}
       {qr}
       {showQRCode === false && (
         <button
           type="button"
           className="neurai-btn--secondary self-start"
+          disabled={isBusy}
           onClick={() => setShowQRCode(true)}
         >
           Scan QR code
         </button>
       )}
-      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+      <form onSubmit={onSubmit}>
+        <fieldset disabled={isBusy} className="flex flex-col gap-3 min-w-0">
         <div>
-          <label className="neurai-label">Asset</label>
+          <label htmlFor="send-asset" className="neurai-label">Asset</label>
           <select
+            id="send-asset"
             className="neurai-select"
-            onChange={(event) => setAsset(event.target.value || defaultValueAssets)}
+            onChange={(event) => { setAsset(event.target.value || defaultValueAssets); setSelected(new Set()); setIsMaxIntent(false); }}
             value={asset}
           >
             <option value={defaultValueAssets}>{defaultValueAssets}</option>
@@ -199,10 +264,11 @@ export function Send({
           </select>
         </div>
         <div>
-          <label className="neurai-label">
+          <label htmlFor="send-amount" className="neurai-label">
             Amount <MaxButton />
           </label>
           <input
+            id="send-amount"
             className="neurai-input"
             onChange={(event) => {
               setAmount(event.target.value);
@@ -213,8 +279,9 @@ export function Send({
           />
         </div>
         <div>
-          <label className="neurai-label">To</label>
+          <label htmlFor="send-to" className="neurai-label">To</label>
           <input
+            id="send-to"
             name="to"
             className="neurai-input"
             onChange={(event) => setTo(event.target.value)}
@@ -231,9 +298,17 @@ export function Send({
         >
           Send
         </button>
+        </fieldset>
       </form>
     </div>
+    </div>
   );
+}
+
+/** Keep the draft and Coin Control selection mounted when navigating between panels. */
+export function SendPanel({ active, ...props }: React.ComponentProps<typeof Send> & { active: boolean }) {
+  const walletKey = `${props.wallet.network}:${props.wallet.getAddresses()[0]}`;
+  return <div hidden={!active}><Send key={walletKey} {...props} active={active} /></div>;
 }
 
 interface IAssetOptionsProps {
@@ -328,6 +403,7 @@ export async function send({
   amount,
   clearForm,
   sendMax,
+  selectedUtxos,
 }: {
   wallet: Wallet;
   to: string;
@@ -335,6 +411,7 @@ export async function send({
   amount: string;
   clearForm: () => void;
   sendMax?: boolean;
+  selectedUtxos?: CoinUtxo[];
 }) {
   // For `sendMax` mode the wallet computes the amount itself
   // (balance − fee in satoshis, no float drift) so we don't pass `amount`.
@@ -347,7 +424,9 @@ export async function send({
     ? { toAddress: to, assetName: asset, sendMax: true }
     : { toAddress: to, assetName: asset, amount: amountFromInput(amount) };
 
-  const promise = wallet.createTransaction(txOptions);
+  const promise = selectedUtxos
+    ? createCoinControlledTransaction(wallet, txOptions, selectedUtxos)
+    : wallet.createTransaction(txOptions);
 
   try {
     await promise;
@@ -378,24 +457,8 @@ Transaction fee: ${String(sendResult.debug.fee)} ${wallet.baseCurrency}${dustLin
     try {
       const raw = sendResult.debug.signedTransaction;
       if (raw) {
-        const promise = wallet.sendRawTransaction(raw);
-        console.log("Send raw transaction promise", promise);
-        promise
-          .then(() => {
-            clearForm();
-          })
-          .catch((e) => {
-            const isTxSize = JSON.stringify(e).indexOf("64: tx-size") > -1;
-            if (isTxSize) {
-              betterAlert(
-                "Error",
-                "Oops the transaction was too big, try sending a smaller amount"
-              );
-            } else {
-              console.log("Error when broadcasting transaction", e + "", e);
-              betterAlert("Error", e instanceof Error ? e.message : JSON.stringify(e));
-            }
-          });
+        await wallet.sendRawTransaction(raw);
+        clearForm();
       }
     } catch (e) {
       console.error(e);

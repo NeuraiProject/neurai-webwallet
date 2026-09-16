@@ -31,7 +31,7 @@ import { Footer } from "./Footer";
 import { History } from "./history/History";
 import { ReceiveAddress } from "./ReceiveAddress";
 import { Balance } from "./Balance";
-import { Send } from "./Send";
+import { SendPanel } from "./Send";
 import { Sweep } from "./Sweep";
 import { Asset } from "./Asset";
 import { Sign } from "./sign/Sign";
@@ -587,14 +587,13 @@ function App() {
             <ReceiveAddress receiveAddress={receiveAddress} wallet={wallet} />
           )}
 
-          {currentRoute === Routes.SEND && (
-            <Send
-              assets={assets}
-              balance={balance}
-              mempool={mempool}
-              wallet={wallet}
-            />
-          )}
+          <SendPanel
+            active={currentRoute === Routes.SEND}
+            assets={assets}
+            balance={balance}
+            mempool={mempool}
+            wallet={wallet}
+          />
 
           {currentRoute === Routes.ASSET && <Asset wallet={wallet} />}
 

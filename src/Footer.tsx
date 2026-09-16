@@ -52,7 +52,7 @@ export function Footer() {
     <footer className="mt-auto pt-8 border-t border-base-300/60">
       <div className="text-center max-w-7xl mx-auto">
         <p className="m-0 text-sm font-semibold uppercase tracking-widest text-base-content/70">
-          Neurai Webwallet &copy; 2025
+          Neurai Webwallet &copy; 2026
         </p>
 
         <nav className="mt-5 flex items-center justify-center gap-5 flex-wrap sm:flex-nowrap" aria-label="Neurai social links">
