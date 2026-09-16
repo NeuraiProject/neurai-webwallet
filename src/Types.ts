@@ -1,4 +1,4 @@
 export interface IAsset{
     assetName: string;
-    balance: number;
+    balance: number | string | bigint;
 }

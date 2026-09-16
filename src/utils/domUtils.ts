@@ -11,7 +11,6 @@ import { betterToast, betterAlert } from '../betterDialog';
 interface Message {
   id: number;
   deliveryKey?: string;
-  [key: string]: unknown;
 }
 
 /**

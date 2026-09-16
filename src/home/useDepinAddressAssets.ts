@@ -1,7 +1,8 @@
+import { compareAmounts, decimalToSatoshis } from "../exactAmounts";
 import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 
-import { normalizeAssetAmountMaybe } from "../utils/formatting";
+import { normalizeAssetAmount } from "../utils/formatting";
 
 /**
  * Tokens held at the DePIN chat address.
@@ -16,7 +17,7 @@ import { normalizeAssetAmountMaybe } from "../utils/formatting";
  * than not showing them.
  */
 export function useDepinAddressAssets(wallet: Wallet, address: string | null, blockCount: number) {
-  const [assets, setAssets] = React.useState<Record<string, number>>({});
+  const [assets, setAssets] = React.useState<Record<string, number | string>>({});
 
   React.useEffect(() => {
     if (!address) {
@@ -29,10 +30,10 @@ export function useDepinAddressAssets(wallet: Wallet, address: string | null, bl
       try {
         const balances = (await wallet.rpc("listassetbalancesbyaddress", [address])) as Record<string, unknown> | null;
         if (cancelled) return;
-        const out: Record<string, number> = {};
+        const out: Record<string, number | string> = {};
         for (const [name, raw] of Object.entries(balances ?? {})) {
-          const amount = normalizeAssetAmountMaybe(raw);
-          if (amount > 0) out[name] = amount;
+          const amount = normalizeAssetAmount(raw);
+          if (compareAmounts(amount, 0) > 0) out[name] = amount;
         }
         setAssets(out);
       } catch {

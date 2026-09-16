@@ -1,3 +1,4 @@
+import {compareAmounts, type Amount} from "../exactAmounts";
 /**
  * Which of the wallet's assets can actually open a DePIN chat.
  *
@@ -40,7 +41,7 @@ export type EligibilityReason =
 
 export interface AssetEligibility {
   assetName: string;
-  amount: number;
+  amount: Amount;
   selectable: boolean;
   reason: EligibilityReason;
   /** Ready to show next to the asset. Empty when it is selectable. */
@@ -50,7 +51,7 @@ export interface AssetEligibility {
 /** What `checkdepinvalidity` reports for one holder. */
 export interface HolderValidity {
   has_asset?: boolean;
-  amount?: number;
+  amount?: Amount;
   valid?: number;
   blocked?: boolean;
 }
@@ -77,7 +78,7 @@ const MESSAGES: Record<Exclude<EligibilityReason, 'eligible'>, string> = {
   'checking-holding': 'Checking this holding on chain…',
 };
 
-function refuse(assetName: string, amount: number, reason: Exclude<EligibilityReason, 'eligible'>): AssetEligibility {
+function refuse(assetName: string, amount: Amount, reason: Exclude<EligibilityReason, 'eligible'>): AssetEligibility {
   return { assetName, amount, selectable: false, reason, message: MESSAGES[reason] };
 }
 
@@ -91,7 +92,7 @@ function refuse(assetName: string, amount: number, reason: Exclude<EligibilityRe
  */
 export function assetEligibility(
   assetName: string,
-  amount: number,
+  amount: Amount,
   context: EligibilityContext,
   validity: HolderValidity | null,
 ): AssetEligibility {
@@ -108,7 +109,7 @@ export function assetEligibility(
     return refuse(assetName, amount, 'invalid-depin-token');
   }
 
-  if (!(amount > 0)) {
+  if (compareAmounts(amount, 0) <= 0) {
     return refuse(assetName, amount, 'no-balance');
   }
 

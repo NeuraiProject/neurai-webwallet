@@ -1,3 +1,4 @@
+import { addAmounts, compareAmounts, type Amount } from "./exactAmounts";
 import React from "react";
 
 import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
@@ -6,16 +7,16 @@ import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
 export interface PreparedAssetTx {
   transactionId: string | null;
   signedTransaction: string;
-  fee: number;
-  burnAmount: number;
-  changeAmount: number | null;
+  fee: Amount;
+  burnAmount: Amount;
+  changeAmount: Amount | null;
   changeAddress: string | null;
   outputs: Array<Record<string, unknown>>;
 }
 
 export interface OutputLine {
   address: string;
-  amount: number;
+  amount: Amount;
   assetName?: string;
 }
 
@@ -32,19 +33,43 @@ export function describeOutputs(outputs: Array<Record<string, unknown>>): Output
     const address =
       (typeof output.address === "string" && output.address) ||
       (Array.isArray(output.addresses) && typeof output.addresses[0] === "string" ? output.addresses[0] : "");
-    if (!address) continue;
+    if (!address) {
+      // neurai-assets returns RPC outputs keyed by destination address.
+      for (const [destination, value] of Object.entries(output)) {
+        if (typeof value === "number" || typeof value === "string") {
+          lines.push({ address: destination, amount: value });
+        } else if (value && typeof value === "object") {
+          const operation = value as Record<string, unknown>;
+          if (operation.transfer && typeof operation.transfer === "object") {
+            for (const [assetName, amount] of Object.entries(operation.transfer)) {
+              if (typeof amount === "number" || typeof amount === "string") {
+                lines.push({ address: destination, assetName, amount });
+              }
+            }
+          }
+          for (const name of ["issue", "reissue", "issue_restricted", "reissue_restricted", "issue_qualifier"]) {
+            const params = operation[name] as { asset_name?: unknown; asset_quantity?: unknown } | undefined;
+            if (params && typeof params.asset_name === "string" &&
+                (typeof params.asset_quantity === "number" || typeof params.asset_quantity === "string")) {
+              lines.push({ address: destination, assetName: params.asset_name, amount: params.asset_quantity });
+            }
+          }
+        }
+      }
+      continue;
+    }
 
     const asset = output.asset as { name?: unknown; amount?: unknown } | undefined;
     if (asset && typeof asset.name === "string") {
       lines.push({
         address,
         assetName: asset.name,
-        amount: typeof asset.amount === "number" ? asset.amount : 0,
+        amount: (typeof asset.amount === "number" || typeof asset.amount === "string") ? asset.amount : 0,
       });
       continue;
     }
 
-    const value = typeof output.value === "number" ? output.value : typeof output.amount === "number" ? output.amount : null;
+    const value = (typeof output.value === "number" || typeof output.value === "string") ? output.value : (typeof output.amount === "number" || typeof output.amount === "string") ? output.amount : null;
     if (value === null) continue;
     lines.push({ address, amount: value });
   }
@@ -79,7 +104,7 @@ export function AssetTxConfirm({
 }) {
   const [showRaw, setShowRaw] = React.useState(false);
   const outputs = React.useMemo(() => describeOutputs(prepared.outputs), [prepared.outputs]);
-  const total = prepared.fee + prepared.burnAmount;
+  const total = addAmounts(prepared.fee, prepared.burnAmount);
 
   return (
     <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="asset-tx-title">
@@ -95,7 +120,7 @@ export function AssetTxConfirm({
         <dl className="m-0 mb-4 rounded-field border border-base-300 overflow-hidden">
           <Row label="Asset" value={assetName} />
           <Row label="Network fee" value={`${formatNumberWith8Decimals(prepared.fee)} XNA`} />
-          {prepared.burnAmount > 0 && (
+          {compareAmounts(prepared.burnAmount, 0) > 0 && (
             <Row label="Burned" value={`${formatNumberWith8Decimals(prepared.burnAmount)} XNA`} emphasis />
           )}
           <Row label="Total cost" value={`${formatNumberWith8Decimals(total)} XNA`} emphasis />

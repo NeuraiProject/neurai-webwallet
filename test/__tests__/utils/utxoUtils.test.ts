@@ -8,7 +8,7 @@ describe("pickForcedUtxosForAmount", () => {
       { value: 0.1 }
     ];
     const result = pickForcedUtxosForAmount(utxos, 120000000);
-    expect(result.sumSats).toBeGreaterThanOrEqual(120000000);
+    expect(result.sumSats).toBeGreaterThanOrEqual(120000000n);
     expect(result.picked.length).toBeGreaterThan(0);
   });
 
@@ -20,7 +20,7 @@ describe("pickForcedUtxosForAmount", () => {
       { satoshis: 1000 }
     ];
     const result = pickForcedUtxosForAmount(utxos as any[], 500);
-    expect(result.sumSats).toBe(1000);
+    expect(result.sumSats).toBe(1000n);
     expect(result.picked.length).toBe(1);
   });
 });

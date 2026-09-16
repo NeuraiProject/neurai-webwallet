@@ -1,3 +1,4 @@
+import { addAmounts, amountFromInput } from "./exactAmounts";
 import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "./Types";
@@ -19,9 +20,9 @@ type ValidateAddressResponse = {
 
 type CreateTransactionResult = {
   debug: {
-    amount: number;
+    amount: number | string;
     assetName: string;
-    fee: number;
+    fee: number | string;
     signedTransaction?: string;
     sentMax?: boolean;
     dustAbsorbedSats?: number;
@@ -35,7 +36,7 @@ export function Send({
   wallet,
 }: {
   assets: IAsset[];
-  balance: number;
+  balance: number | string;
   mempool: MempoolAsset[] | null;
   wallet: Wallet;
 }) {
@@ -67,7 +68,9 @@ export function Send({
 
   async function onSubmit(event: React.SyntheticEvent) {
     event.preventDefault();
-    if (isNaN(parseFloat(amount)) === true) {
+    try {
+      amountFromInput(amount);
+    } catch {
       betterAlert(
         "Not a valid number",
         amount + " does not seem like a valid number"
@@ -134,9 +137,10 @@ export function Send({
     <AssetOptions wallet={wallet} allAssets={allAssets}></AssetOptions>
   );
   const displayBalance =
-    balance + getAssetBalanceFromMempool(baseCurrencyLabel, mempool);
+    addAmounts(balance, getAssetBalanceFromMempool(baseCurrencyLabel, mempool));
 
-  function formatAmountForInput(n: number): string {
+  function formatAmountForInput(n: number | string): string {
+    if (typeof n === "string") return n;
     if (typeof n !== "number" || Number.isNaN(n)) return "";
     const safe = Math.max(0, n);
     const str = "" + safe;
@@ -234,7 +238,7 @@ export function Send({
 
 interface IAssetOptionsProps {
   wallet: Wallet;
-  allAssets: { [key: string]: number };
+  allAssets: { [key: string]: number | string };
 }
 function AssetOptions({ wallet, allAssets }: IAssetOptionsProps) {
   const options = Object.keys(allAssets).map((assetName: string) => {
@@ -317,7 +321,7 @@ function useQRReader(showQRCode: boolean, onResult: (value: string | null) => vo
  *
  * @returns
  */
-async function send({
+export async function send({
   wallet,
   to,
   asset,
@@ -337,13 +341,13 @@ async function send({
   const txOptions: {
     toAddress: string;
     assetName: string;
-    amount?: number;
+    amount?: number | string;
     sendMax?: boolean;
   } = sendMax
     ? { toAddress: to, assetName: asset, sendMax: true }
-    : { toAddress: to, assetName: asset, amount: parseFloat(amount) };
+    : { toAddress: to, assetName: asset, amount: amountFromInput(amount) };
 
-  const promise = wallet.createTransaction(txOptions as any);
+  const promise = wallet.createTransaction(txOptions);
 
   try {
     await promise;
@@ -367,7 +371,7 @@ async function send({
   const confirmText = `Do you want to send ${displayedAmount} ${asset} to
 ${to}?
 
-Transaction fee: ${sendResult.debug.fee.toFixed(4)} ${wallet.baseCurrency}${dustLine}`;
+Transaction fee: ${String(sendResult.debug.fee)} ${wallet.baseCurrency}${dustLine}`;
   // const c = confirm(confirmText);
   const c = await betterConfirm("About to send", confirmText);
   if (c === true) {
@@ -389,14 +393,14 @@ Transaction fee: ${sendResult.debug.fee.toFixed(4)} ${wallet.baseCurrency}${dust
               );
             } else {
               console.log("Error when broadcasting transaction", e + "", e);
-              betterAlert("Error", "" + e && JSON.stringify(e.error, null, 4));
+              betterAlert("Error", e instanceof Error ? e.message : JSON.stringify(e));
             }
           });
       }
     } catch (e) {
       console.error(e);
 
-      betterAlert("Error", "" + e && JSON.stringify(e.error, null, 4));
+      betterAlert("Error", e instanceof Error ? e.message : JSON.stringify(e));
     }
   }
 

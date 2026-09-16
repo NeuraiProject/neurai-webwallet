@@ -65,7 +65,7 @@ export function parsePubkeyMaybe(pubkeyResult: PubkeyResult): string | null {
  * parsePubkeyRevealedMaybe({ revealed: 0 }) // Returns false
  * parsePubkeyRevealedMaybe({ pubkey: "0318c0cd..." }) // Returns null (no revealed field)
  */
-export function parsePubkeyRevealedMaybe(pubkeyResult: PubkeyResponse | null | undefined): boolean | null {
+export function parsePubkeyRevealedMaybe(pubkeyResult: PubkeyResult): boolean | null {
   if (!pubkeyResult || typeof pubkeyResult !== "object") return null;
   if (!("revealed" in pubkeyResult)) return null;
 

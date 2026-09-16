@@ -1,12 +1,12 @@
 /**
- * `@neuraiproject/neurai-history-list` ships no type declarations, so every
+ * `@neuraiproject/neurai-history-list` does not expose its declarations through the legacy exports map, so every
  * import of it was an implicit `any`. This states the shape the wallet actually
  * relies on: deltas in, transactions out, each with the assets that moved.
  */
 declare module "@neuraiproject/neurai-history-list" {
   export interface IDelta {
-    satoshis?: number;
-    value?: number;
+    satoshis?: number | string | bigint;
+    value?: number | string;
     txid?: string;
     assetName?: string;
     address?: string;
@@ -17,9 +17,9 @@ declare module "@neuraiproject/neurai-history-list" {
   export interface IHistoryAsset {
     assetName: string;
     /** Signed amount in whole units. */
-    value: number;
+    value: number | string;
     /** Signed amount in satoshis, as the deltas carried it. */
-    satoshis: number;
+    satoshis: number | string;
   }
 
   export interface IHistoryTransaction {
@@ -35,5 +35,5 @@ declare module "@neuraiproject/neurai-history-list" {
     fee?: number;
   }
 
-  export function getHistory(deltas: IDelta[]): IHistoryTransaction[];
+  export function getHistory(deltas: IDelta[], baseCurrency?: string): IHistoryTransaction[];
 }

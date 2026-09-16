@@ -1,33 +1,9 @@
-/**
- * Formatting utilities for the Neurai WebWallet
- * Pure formatting functions with no side effects
- */
+import {decimalToSatoshis, displayRaw, type Amount} from "../exactAmounts";
 
-/**
- * Normalizes asset amounts from various formats
- *
- * Many RPC methods return asset amounts in satoshis (1e8). This function
- * applies a heuristic to convert satoshi amounts to decimal amounts when appropriate.
- *
- * @param raw - The raw amount value (string or number)
- * @returns The normalized amount as a decimal number
- *
- * @example
- * normalizeAssetAmountMaybe(1000000) // Returns 0.01 (assumes satoshis)
- * normalizeAssetAmountMaybe(5.5) // Returns 5.5 (assumes decimal)
- * normalizeAssetAmountMaybe("invalid") // Returns 0
- */
-export function normalizeAssetAmountMaybe(raw: unknown): number {
-  const n = typeof raw === "string" ? Number(raw) : (raw as number);
-  if (!Number.isFinite(n)) return 0;
-
-  // Heuristic: many RPCs return asset amounts in satoshis (1e8). If it looks like an integer
-  // larger than typical human-scale amounts, treat it as satoshis.
-  if (Number.isInteger(n) && Math.abs(n) > 100_000) {
-    return n / 1e8;
-  }
-
-  return n;
+/** listassetbalancesbyaddress returns decimal token quantities, including large ones. */
+export function normalizeAssetAmount(raw: unknown): Amount {
+  if (typeof raw !== "number" && typeof raw !== "string") return 0;
+  try { return displayRaw(decimalToSatoshis(raw)); } catch { return 0; }
 }
 
 /**

@@ -2,7 +2,7 @@ import React from "react";
 import * as NeuraiMessage from "@neuraiproject/neurai-message";
 import { IAddressObject } from "./IAddressObject";
 
-export function useSignature(addressObject: IAddressObject | null, text: string) {
+export function useSignature(addressObject: Pick<IAddressObject, "privateKey"> | null, text: string) {
   const [signature, setSignature] = React.useState("");
 
   React.useEffect(() => {

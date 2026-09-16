@@ -7,7 +7,7 @@ import networkInfo from "./networkInfo";
 import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
 import { AssetPlaceholder } from "./components/AssetPlaceholder";
 
-export function Assets({ wallet, assets, mempool }) {
+export function Assets({ wallet, assets, mempool }: { wallet: Wallet; assets: import("./Types").IAsset[]; mempool: import("./utils").MempoolAsset[] | null }) {
   const allAssets = getAssetBalanceIncludingMempool(wallet, assets, mempool);
 
   return (

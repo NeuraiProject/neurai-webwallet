@@ -1,3 +1,5 @@
+import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
+import {addAmounts, absAmount} from "./exactAmounts";
 import React from "react";
 
 import { Wallet } from "@neuraiproject/neurai-jswallet";
@@ -14,23 +16,20 @@ export function Balance({
   wallet,
 }: {
   wallet: Wallet;
-  balance: number;
+  balance: number | string;
   mempool: MempoolAsset[] | null;
 }) {
   let pending = getAssetBalanceFromMempool(wallet.baseCurrency, mempool);
   const hasPending = pending !== 0;
   const onTestnet = isTestnet(wallet);
   const price = useUSDPrice(wallet, onTestnet);
-  const _balance = balance + pending;
+  const _balance = addAmounts(balance, pending);
 
-  const dollarValue = (price * _balance).toLocaleString("en-US", {
+  const dollarValue = (price * Number(_balance)).toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
   });
-  const balanceText = _balance.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const balanceText = formatNumberWith8Decimals(_balance);
   const unitPriceText = price?.toLocaleString("en-US", {
     style: "currency",
     currency: "USD",

@@ -1,3 +1,4 @@
+import { toRawInteger } from "../exactAmounts";
 import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "../Types";
@@ -12,7 +13,7 @@ export function useUniqueAssets(wallet: Wallet, assets: IAsset[]) {
     for (let asset of assets) {
       //If asset balance is not exactly one it is obviously not an unique asset
       //Note asset.balance is in satoshis so 100 million is one, so multiply by 1e8
-      if (asset.balance !== 1 * 100000000) {
+      if (toRawInteger(asset.balance) !== 100000000n) {
         continue;
       }
       const promise = wallet.rpc("getassetdata", [asset.assetName]) as Promise<{ amount?: number; reissuable?: number } | null>;

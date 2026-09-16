@@ -1,3 +1,4 @@
+import { compareAmounts, decimalToSatoshis, satoshisToDecimal } from "./exactAmounts";
 import React from "react";
 import { IconSend } from "./icons";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
@@ -7,7 +8,7 @@ import DOMPurify from "dompurify";
 import { FaBomb, FaFireFlameCurved, FaQrcode, FaRegClock, FaRegCircleCheck, FaRegCopy, FaRobot, FaUserGroup, FaBars, FaXmark, FaArrowDown, FaArrowUp } from "react-icons/fa6";
 import { betterAlert, betterToast } from "./betterDialog";
 import type { DepinChatIdentity } from "./utils/depinChatIdentity";
-import { normalizeAssetAmountMaybe, shortenAddress, formatUnixTimestampNoSeconds, formatUnixTimestampNoSecondsShortYear } from './utils/formatting';
+import { normalizeAssetAmount, shortenAddress, formatUnixTimestampNoSeconds, formatUnixTimestampNoSecondsShortYear } from './utils/formatting';
 import { parsePubkeyMaybe, parsePubkeyRevealedMaybe } from './utils/cryptoUtils';
 import { getAssetType, getAssetIcon, getAssetTypeLabel } from './utils/assetUtils';
 import { assetEligibility, isEligible, type AssetEligibility } from './depin/eligibility';
@@ -47,7 +48,7 @@ interface DePINMessage {
 
 type AssetValidityStatus = {
   has_asset: boolean;
-  amount?: number;
+  amount?: number | string;
   valid?: 0 | 1;
   blocked?: boolean;
 };
@@ -66,20 +67,7 @@ type TransactionDebug = {
   signedTransaction?: unknown;
 };
 
-type ForcedUtxo = {
-  utxo: UTXOResponse;
-  address: string;
-  privateKey: string;
-};
-
-type CreateTransactionParams = {
-  toAddress: string;
-  assetName: string;
-  amount: number;
-  forcedUTXOs: ForcedUtxo[];
-  forcedChangeAddressBaseCurrency: string;
-  forcedChangeAddressAssets: string;
-};
+type ForcedUtxo = NonNullable<Parameters<Wallet["createTransaction"]>[0]["forcedUTXOs"]>[number];
 
 interface ChatProps {
   wallet: Wallet;
@@ -108,7 +96,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
   const [inputText, setInputText] = React.useState("");
   const [showAssets, setShowAssets] = React.useState(false);
   const [assetAddresses, setAssetAddresses] = React.useState<Record<string, string>>({});
-  const [chatAssets, setChatAssets] = React.useState<Record<string, number>>({});
+  const [chatAssets, setChatAssets] = React.useState<Record<string, number | string>>({});
   const [selectedAsset, setSelectedAsset] = React.useState<string | null>(null);
   const [selectedAddress, setSelectedAddress] = React.useState<string | null>(null);
   const [isConnected, setIsConnected] = React.useState(false);
@@ -249,7 +237,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
     const burnAmountXna = 0.1;
     const feeBufferXna = 0.01;
     const requiredXna = burnAmountXna + feeBufferXna;
-    const requiredSats = Math.round(requiredXna * 1e8);
+    const requiredSats = decimalToSatoshis("0.11");
 
     setIsBurningDepinPubkey(true);
     try {
@@ -275,11 +263,19 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
         return;
       }
 
-      const forcedUTXOs: ForcedUtxo[] = picked.map((utxo) => ({
-        utxo,
-        address: chatAddress,
-        privateKey: depinChatIdentity.wif,
-      }));
+      const forcedUTXOs: ForcedUtxo[] = picked.map((utxo) => {
+        const outputIndex = utxo.outputIndex ?? utxo.vout;
+        const script = utxo.script ?? utxo.scriptPubKey;
+        if (!utxo.txid || outputIndex === undefined || !Number.isInteger(outputIndex) || outputIndex < 0 || !script) {
+          throw new Error("Incomplete UTXO returned for the DePIN address");
+        }
+        return {
+          utxo: { ...utxo, txid: utxo.txid, outputIndex,
+            script, value: satoshisToDecimal(utxo.satoshis), address: chatAddress, assetName: wallet.baseCurrency },
+          address: chatAddress,
+          privateKey: depinChatIdentity.wif,
+        };
+      });
 
       const tx = await wallet.createTransaction({
         toAddress: burnDepinPubkeyAddress,
@@ -288,7 +284,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
         forcedUTXOs,
         forcedChangeAddressBaseCurrency: chatAddress,
         forcedChangeAddressAssets: chatAddress,
-      } as CreateTransactionParams);
+      });
 
       // Safety: do not allow the wallet to add inputs from other addresses.
       // If it does, abort before broadcasting.
@@ -471,7 +467,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
           deliveryKey: `${selectedAsset}|${msg.sender}|${unixTimestamp}|${msg.message}`,
           senderAddress: msg.sender,
           sendDate: formatUnixTimestampNoSeconds(unixTimestamp),
-          expiresDate: computeExpiresDate(unixTimestamp) ?? '',
+          expiresDate: computeExpiresDateLocal(unixTimestamp) ?? '',
           isDePIN: true,
           delivery: "confirmed" as const,
         };
@@ -683,7 +679,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
     // Optimistic UI: add message immediately as pending to the specific tab
     if (deliveryKey) {
       const sendDate = formatUnixTimestampNoSeconds(unixTimestamp);
-      const expiresDate = computeExpiresDate(unixTimestamp);
+      const expiresDate = computeExpiresDateLocal(unixTimestamp);
       const targetTab = activeTab; // The current tab where message is being sent
 
 
@@ -786,12 +782,12 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
         return;
       }
 
-      const nextChatAssets: Record<string, number> = {};
+      const nextChatAssets: Record<string, number | string> = {};
       if (balance && typeof balance === 'object') {
         for (const assetName of Object.keys(balance)) {
           if (isBaseAssetName(assetName, wallet.baseCurrency)) continue;
-          const amount = normalizeAssetAmountMaybe(balance[assetName]);
-          if (amount <= 0) continue;
+          const amount = normalizeAssetAmount(balance[assetName]);
+          if (compareAmounts(amount, 0) <= 0) continue;
           nextChatAssets[assetName] = amount;
           addresses[assetName] = chatAddress;
         }
@@ -1476,7 +1472,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
                 <IconSend
                   onClick={handleSend}
                   className="rebel-chat__send-icon rebel-chat__icon--block"
-                  title={!isConnected ? "Select an asset first" : "Send message"}
+                  aria-label={!isConnected ? "Select an asset first" : "Send message"}
                 />
               </div>
               {/* Private command indicator */}

@@ -1,3 +1,4 @@
+import { addAmounts, absAmount, displayRaw, toRawInteger } from "../exactAmounts";
 import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 
@@ -42,7 +43,7 @@ export function Home({
   wallet: Wallet;
   assets: unknown[];
   mempool: MempoolAsset[] | null;
-  balance: number;
+  balance: number | string;
   blockCount: number;
   /** DePIN chat address (BIP44 account 100), outside the normal address range. */
   depinChatAddress?: string | null;
@@ -53,12 +54,12 @@ export function Home({
   const baseCurrency = wallet.baseCurrency ?? "XNA";
 
   const pending = getAssetBalanceFromMempool(baseCurrency, mempool);
-  const total = balance + pending;
+  const total = addAmounts(balance, pending);
 
   const { balanceSeries, activity, loading } = useWalletHistory(wallet, blockCount, baseCurrency);
 
   const held = React.useMemo(() => {
-    const all = getAssetBalanceIncludingMempool(wallet, assets as never, mempool) as Record<string, number>;
+    const all = getAssetBalanceIncludingMempool(wallet, assets as never, mempool) as Record<string, number | string>;
     return Object.entries(all)
       .filter(([name, amount]) => !isBaseAssetName(name, baseCurrency) && amount !== 0)
       .sort((a, b) => a[0].localeCompare(b[0]));
@@ -115,7 +116,7 @@ export function Home({
           {!onTestnet && price > 0 && (
             <p className="opacity-70 text-sm m-0">
               <span className="tabular-nums">
-                {(price * total).toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                {(price * Number(total)).toLocaleString("en-US", { style: "currency", currency: "USD" })}
               </span>
               {change !== null && (
                 <>
@@ -171,8 +172,8 @@ export function Home({
             <React.Fragment key={`${entry.assetName}-${i}`}>
               <span className="opacity-40">·</span>
               <span className="tabular-nums">
-                {entry.satoshis > 0 ? "+" : "−"}
-                {formatNumberWith8Decimals(Math.abs(entry.satoshis) / 1e8)} {entry.assetName}
+                {toRawInteger(entry.satoshis) > 0n ? "+" : "−"}
+                {formatNumberWith8Decimals(absAmount(displayRaw(toRawInteger(entry.satoshis))))} {entry.assetName}
               </span>
             </React.Fragment>
           ))}
@@ -195,7 +196,7 @@ export function Home({
             name={baseCurrency}
             subtitle="Network currency"
             amount={formatNumberWith8Decimals(total)}
-            sub={!onTestnet && price > 0 ? (price * total).toLocaleString("en-US", { style: "currency", currency: "USD" }) : undefined}
+            sub={!onTestnet && price > 0 ? (price * Number(total)).toLocaleString("en-US", { style: "currency", currency: "USD" }) : undefined}
           />
 
           {rows.map((row) => (
@@ -253,7 +254,7 @@ export function Home({
                   </div>
                   <div className={`text-right text-[13px] font-semibold tabular-nums ${incoming ? "text-success" : ""}`}>
                     {incoming ? "+" : "−"}
-                    {formatNumberWith8Decimals(Math.abs(item.value))}
+                    {formatNumberWith8Decimals(absAmount(item.value))}
                   </div>
                 </div>
               );
@@ -280,7 +281,7 @@ export function Home({
  * big enough to see: a few pixels off 42 is arithmetically smaller and visually
  * identical, so this uses the two-thirds ratio price displays settle on.
  */
-function BalanceAmount({ value }: { value: number }) {
+function BalanceAmount({ value }: { value: number | string }) {
   const formatted = formatNumberWith8Decimals(value);
   const { whole, separator, fraction } = splitAmount(
     formatted,

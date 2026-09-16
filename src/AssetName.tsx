@@ -1,6 +1,6 @@
 import React from "react";
 
-export function AssetName({ name }) {
+export function AssetName({ name }: { name: string }) {
   if (name.indexOf("/") === -1) {
     return <span key={"assetName_" + name}>{name}</span>;
   }

@@ -1,3 +1,4 @@
+import { type Amount, type RawAmount, toRawInteger, displayRaw, decimalToSatoshis, satoshisToDecimal, absAmount, compareAmounts } from "../exactAmounts";
 import React from "react";
 import { getHistory } from "@neuraiproject/neurai-history-list";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
@@ -6,19 +7,18 @@ import { useTransaction } from "../useTransaction";
 import networkInfo from "../networkInfo";
 
 type RawHistoryItem = {
-  satoshis?: number;
-  value?: number;
+  satoshis?: RawAmount;
+  value?: Amount;
   txid?: string;
   assetName?: string;
   address?: string;
   height?: number;
-  [key: string]: unknown;
 };
 
 type HistoryListItem = {
   transactionId: string;
   blockHeight?: number;
-  assets: Array<{ assetName: string; value: number }>;
+  assets: Array<{ assetName: string; value: Amount }>;
 };
 
 // Loose shape for the verbose getrawtransaction response. Kept exported so
@@ -36,17 +36,17 @@ type RawTxVin = {
   txid?: string;
   vout?: number;
   address?: string;
-  value?: number;
+  value?: Amount;
   coinbase?: string;
 };
 
 type RawTxVout = {
-  value?: number;
+  value?: Amount;
   n?: number;
   scriptPubKey?: {
     addresses?: string[];
     type?: string;
-    asset?: { name?: string; amount?: number };
+    asset?: { name?: string; amount?: Amount };
   };
 };
 
@@ -54,14 +54,14 @@ type ParsedInput = {
   parentTxid: string;
   parentVout: number;
   address: string | null;
-  value: number;
+  value: Amount;
   assetName: string;
 };
 
 type ParsedOutput = {
   index: number;
   address: string | null;
-  value: number;
+  value: Amount;
   assetName: string;
 };
 
@@ -83,12 +83,12 @@ export function History({ blockCount, wallet }: IProps) {
   const items = React.useMemo<HistoryListItem[]>(() => {
     const normalized = history.map((h) => ({
       ...h,
-      value: typeof h.satoshis === "number" ? h.satoshis / 1e8 : h.value,
+      value: h.satoshis !== undefined ? displayRaw(toRawInteger(h.satoshis)) : h.value,
     }));
-    const list = getHistory(normalized) as HistoryListItem[];
+    const list = getHistory(normalized, wallet.baseCurrency) as HistoryListItem[];
     list.sort((a, b) => (b.blockHeight ?? 0) - (a.blockHeight ?? 0));
     return list;
-  }, [history]);
+  }, [history, wallet.baseCurrency]);
 
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
@@ -147,23 +147,23 @@ export function History({ blockCount, wallet }: IProps) {
  * own addresses. We re-scan the raw deltas to detect that case and report
  * the smallest positive delta as the actual moved amount.
  */
-function summarizeAsset(
+export function summarizeAsset(
   rawDeltas: RawHistoryItem[],
   txid: string,
   assetName: string,
-  aggregatedValue: number
-): { amount: number; isSelfSend: boolean; direction: "in" | "out" | "none" } {
+  aggregatedValue: Amount
+): { amount: Amount; isSelfSend: boolean; direction: "in" | "out" | "none" } {
   const txDeltas = rawDeltas.filter(
     (d) => d.txid === txid && d.assetName === assetName
   );
-  let grossOut = 0;
-  let grossIn = 0;
-  let smallestPositive: number | null = null;
+  let grossOut = 0n;
+  let grossIn = 0n;
+  let smallestPositive: bigint | null = null;
 
   for (const d of txDeltas) {
-    const s = typeof d.satoshis === "number" ? d.satoshis : 0;
-    if (s < 0) grossOut += -s;
-    if (s > 0) {
+    const s = d.satoshis !== undefined ? toRawInteger(d.satoshis) : 0n;
+    if (s < 0n) grossOut += -s;
+    if (s > 0n) {
       grossIn += s;
       if (smallestPositive === null || s < smallestPositive) {
         smallestPositive = s;
@@ -171,14 +171,14 @@ function summarizeAsset(
     }
   }
 
-  const isSelfSend = grossOut > 0 && grossIn === grossOut;
+  const isSelfSend = grossOut > 0n && grossIn === grossOut;
   if (isSelfSend && smallestPositive !== null) {
-    return { amount: smallestPositive / 1e8, isSelfSend: true, direction: "out" };
+    return { amount: displayRaw(smallestPositive), isSelfSend: true, direction: "out" };
   }
-  if (aggregatedValue < 0) {
-    return { amount: -aggregatedValue, isSelfSend: false, direction: "out" };
+  if (compareAmounts(aggregatedValue, 0) < 0) {
+    return { amount: absAmount(aggregatedValue), isSelfSend: false, direction: "out" };
   }
-  if (aggregatedValue > 0) {
+  if (compareAmounts(aggregatedValue, 0) > 0) {
     return { amount: aggregatedValue, isSelfSend: false, direction: "in" };
   }
   return { amount: 0, isSelfSend: false, direction: "none" };
@@ -195,7 +195,7 @@ function TransactionCard({
   wallet: Wallet;
   transactionId: string;
   blockHeight?: number;
-  assets: Array<{ assetName: string; value: number }>;
+  assets: Array<{ assetName: string; value: Amount }>;
   rawDeltas: RawHistoryItem[];
   getTransactionURL: (id: string) => string;
 }) {
@@ -223,11 +223,11 @@ function TransactionCard({
   const xnaIn =
     inputs
       ?.filter((i) => i.assetName === "XNA")
-      .reduce((acc, i) => acc + i.value, 0) ?? 0;
+      .reduce((acc, i) => acc + decimalToSatoshis(i.value), 0n) ?? 0n;
   const xnaOut = outputs
     .filter((o) => o.assetName === "XNA")
-    .reduce((acc, o) => acc + o.value, 0);
-  const fee = detailReady ? Math.max(0, xnaIn - xnaOut) : null;
+    .reduce((acc, o) => acc + decimalToSatoshis(o.value), 0n);
+  const fee = detailReady ? displayRaw(xnaIn > xnaOut ? xnaIn - xnaOut : 0n) : null;
 
   const time = transaction?.time
     ? new Date(transaction.time * 1000).toLocaleString()
@@ -370,7 +370,7 @@ function SummaryLine({
   summary,
   assetName,
 }: {
-  summary: { amount: number; isSelfSend: boolean; direction: "in" | "out" | "none" };
+  summary: { amount: Amount; isSelfSend: boolean; direction: "in" | "out" | "none" };
   assetName: string;
 }) {
   const verb =
@@ -494,9 +494,6 @@ function shortenTxid(txid: string | null | undefined, chars = 8): string {
   return `${txid.slice(0, chars)}…${txid.slice(-chars)}`;
 }
 
-function formatAmount(value: number): string {
-  if (!Number.isFinite(value)) return "0";
-  if (value === 0) return "0";
-  const fixed = value.toFixed(8);
-  return fixed.replace(/\.?0+$/, "");
+export function formatAmount(value: Amount): string {
+  return satoshisToDecimal(decimalToSatoshis(value));
 }

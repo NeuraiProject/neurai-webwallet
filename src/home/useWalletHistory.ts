@@ -1,3 +1,4 @@
+import { absAmount, toRawInteger, displayRaw, compareAmounts } from "../exactAmounts";
 import React from "react";
 import { getHistory } from "@neuraiproject/neurai-history-list";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
@@ -5,8 +6,8 @@ import { Wallet } from "@neuraiproject/neurai-jswallet";
 import type { BalancePoint } from "./BalanceChart";
 
 type RawDelta = {
-  satoshis?: number;
-  value?: number;
+  satoshis?: number | string | bigint;
+  value?: number | string;
   assetName?: string;
   height?: number;
   [key: string]: unknown;
@@ -16,7 +17,7 @@ export interface ActivityItem {
   transactionId: string;
   blockHeight?: number;
   /** Net movement of the headline asset for this transaction. */
-  value: number;
+  value: number | string;
   assetName: string;
   /** True when this left the wallet. Taken from the library, not from a sign. */
   outgoing: boolean;
@@ -83,10 +84,10 @@ export function deriveWalletHistory(
 
     const normalized = raw.map((h) => ({
       ...h,
-      value: typeof h.satoshis === "number" ? h.satoshis / 1e8 : h.value,
+      value: h.satoshis !== undefined ? displayRaw(toRawInteger(h.satoshis)) : h.value,
     }));
 
-    const grouped = getHistory(normalized);
+    const grouped = getHistory(normalized, baseCurrency);
 
     const activity: ActivityItem[] = grouped
       .slice()
@@ -96,14 +97,14 @@ export function deriveWalletHistory(
         // The library has usually decided this already — it folds a currency
         // delta that is only the fee of an asset operation into `fee` — so this
         // matters mainly when a transaction really did move several assets.
-        const headline = tx.assets.slice().sort((a, b) => Math.abs(b.value) - Math.abs(a.value))[0];
+        const headline = tx.assets.slice().sort((a, b) => compareAmounts(absAmount(b.value), absAmount(a.value)))[0];
         return {
           transactionId: tx.transactionId,
           blockHeight: tx.blockHeight,
           value: headline?.value ?? 0,
           assetName: headline?.assetName ?? baseCurrency,
           // Prefer the library's reading; fall back to the sign when absent.
-          outgoing: typeof tx.isSent === "boolean" ? tx.isSent : (headline?.value ?? 0) < 0,
+          outgoing: typeof tx.isSent === "boolean" ? tx.isSent : compareAmounts(headline?.value ?? 0, 0) < 0,
           extraAssets: Math.max(0, tx.assets.length - 1),
         };
       });
@@ -115,15 +116,15 @@ export function deriveWalletHistory(
       .slice()
       .sort((a, b) => (a.blockHeight ?? 0) - (b.blockHeight ?? 0));
 
-    let running = 0;
+    let running = 0n;
     const balanceSeries: BalancePoint[] = [];
     for (const tx of byHeight) {
       const delta = tx.assets
         .filter((a) => a.assetName === baseCurrency)
-        .reduce((sum, a) => sum + a.value, 0);
-      if (delta === 0) continue;
+        .reduce((sum, a) => sum + toRawInteger(a.satoshis), 0n);
+      if (delta === 0n) continue;
       running += delta;
-      balanceSeries.push({ blockHeight: tx.blockHeight ?? 0, balance: running });
+      balanceSeries.push({ blockHeight: tx.blockHeight ?? 0, balance: Number(displayRaw(running)) });
     }
 
     return { activity, balanceSeries };

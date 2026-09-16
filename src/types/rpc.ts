@@ -1,11 +1,15 @@
+import type {Amount, RawAmount} from "../exactAmounts";
 export interface UTXOResponse {
+  assetName?: string;
+  outputIndex?: number;
+  script?: string;
   txid?: string;
   vout?: number;
   address?: string;
   scriptPubKey?: string;
-  amount?: number;
-  satoshis?: number;
-  value?: number;
+  amount?: Amount;
+  satoshis?: RawAmount;
+  value?: Amount;
   height?: number;
   confirmations?: number;
   [key: string]: unknown;

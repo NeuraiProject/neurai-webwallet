@@ -1,3 +1,4 @@
+import { displayRaw, toRawInteger } from "./exactAmounts";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { IAsset } from "./Types";
 
@@ -37,7 +38,7 @@ export type StoredSecretLocation = "local" | "session";
 
 export type MempoolAsset = {
   assetName?: string;
-  satoshis?: number;
+  satoshis?: number | string | bigint;
 };
 
 export function normalizeAssetName(value?: string | null): string {
@@ -60,16 +61,16 @@ export function isBaseAssetName(assetName?: string | null, baseCurrency?: string
 }
 
 export function getStoredMnemonicRaw(
-  network: string
+  network?: string
 ): { location: StoredSecretLocation; value: string } | null {
   // Prefer network-specific keys; fall back to legacy unsuffixed keys so
   // existing users don't lose access until they re-save under the new scheme.
-  const networkSession = sessionStorage.getItem(sessionKeyFor(network));
+  const networkSession = network ? sessionStorage.getItem(sessionKeyFor(network)) : null;
   if (networkSession && networkSession.length > 0) {
     return { location: "session", value: networkSession };
   }
 
-  const networkLocal = localStorage.getItem(storageKeyFor(network));
+  const networkLocal = network ? localStorage.getItem(storageKeyFor(network)) : null;
   if (networkLocal && networkLocal.length > 0) {
     return { location: "local", value: networkLocal };
   }
@@ -112,7 +113,7 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(parts.join(""));
 }
 
-function base64ToBytes(base64: string): Uint8Array {
+function base64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
   // Accept base64url as well.
   const normalized = base64
     .replace(/-/g, "+")
@@ -142,7 +143,7 @@ async function deriveAesKeyFromPin(pin: string, salt: Uint8Array, iterations: nu
   return subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt,
+      salt: new Uint8Array(salt),
       iterations,
       hash: "SHA-256",
     },
@@ -337,49 +338,31 @@ export function getAssetBalanceIncludingMempool(
   assets: IAsset[],
   mempool: MempoolAsset[] | null
 ) {
-  const allAssets: { [key: string]: number } = {}; //Object with assets from blockchain and from mempool
-  //Add assets from blockchain
-  assets.forEach((asset: IAsset) => {
-    if (!asset?.assetName || isBaseAssetName(asset.assetName, wallet.baseCurrency)) {
-      return;
+  const raw: Record<string, bigint> = Object.create(null);
+  for (const asset of assets) {
+    if (asset?.assetName && !isBaseAssetName(asset.assetName, wallet.baseCurrency)) {
+      raw[asset.assetName] = toRawInteger(asset.balance);
     }
-    allAssets[asset.assetName] = asset.balance / 1e8;
-  });
-
-  //Add assets from mempool
-  if (Array.isArray(mempool) && mempool.length > 0) {
-    mempool.forEach((m) => {
-      //Ignore base currency such as XNA
-      if (!m.assetName || isBaseAssetName(m.assetName, wallet.baseCurrency)) {
-        return;
-      }
-      const hasAsset = allAssets.hasOwnProperty(m.assetName);
-
-      if (hasAsset === false) {
-        allAssets[m.assetName] = 0;
-      }
-      const pending = getAssetBalanceFromMempool(m.assetName, mempool);
-      allAssets[m.assetName] += pending;
-    });
   }
-
-  return allAssets;
+  for (const item of mempool ?? []) {
+    if (item.assetName && !isBaseAssetName(item.assetName, wallet.baseCurrency) &&
+        item.satoshis !== undefined) {
+      raw[item.assetName] = (raw[item.assetName] ?? 0n) + toRawInteger(item.satoshis);
+    }
+  }
+  return Object.fromEntries(
+    Object.entries(raw).map(([name, value]) => [name, displayRaw(value)])
+  );
 }
-export function getAssetBalanceFromMempool(assetName: string, mempool: MempoolAsset[] | null) {
-  if (!Array.isArray(mempool)) {
-    return 0;
-  }
-  if (mempool.length === 0) {
-    return 0;
-  }
 
-  let pending = 0;
-  mempool.forEach((item) => {
-    if (item.assetName === assetName && typeof item.satoshis === "number") {
-      pending = pending + item.satoshis / 1e8;
+export function getAssetBalanceFromMempool(assetName: string, mempool: MempoolAsset[] | null) {
+  let pending = 0n;
+  for (const item of mempool ?? []) {
+    if (item.assetName === assetName && item.satoshis !== undefined) {
+      pending += toRawInteger(item.satoshis);
     }
-  });
-  return pending;
+  }
+  return displayRaw(pending);
 }
 
 export const WALLET_ADDRESS = "- Wallet address (first address in wallet)";

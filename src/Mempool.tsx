@@ -1,3 +1,4 @@
+import { absAmount, toRawInteger } from "./exactAmounts";
 import React from "react";
 import { getHistory, IDelta } from "@neuraiproject/neurai-history-list";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
@@ -11,7 +12,7 @@ export interface IMempoolProps {
 }
 
 export function Mempool({ mempool, wallet }: IMempoolProps) {
-  const history = getHistory(mempool);
+  const history = getHistory(mempool, wallet.baseCurrency);
 
   if (history.length > 0) {
     return (
@@ -28,12 +29,12 @@ export function Mempool({ mempool, wallet }: IMempoolProps) {
             // and returned in the same tx, so its net delta is 0 and would
             // show as "receiving 0 MYTOKEN!" if we only looked at assets[0].
             // Drop net-zero entries and render every remaining asset.
-            const meaningful = item.assets.filter((asset) => asset.satoshis !== 0);
+            const meaningful = item.assets.filter((asset) => toRawInteger(asset.satoshis) !== 0n);
             if (meaningful.length === 0) return [];
             return meaningful.map((asset, assetIndex) => {
               const name = asset.assetName;
-              const amount = Math.abs(asset.satoshis) / 1e8;
-              const isReceiving = asset.satoshis > 0;
+              const amount = absAmount(asset.value);
+              const isReceiving = toRawInteger(asset.satoshis) > 0n;
               return (
                 <li key={`${itemIndex}-${assetIndex}`}>
                   <div className="flex items-center justify-between gap-3">

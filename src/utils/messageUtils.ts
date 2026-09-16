@@ -8,7 +8,6 @@
  */
 interface Message {
   deliveryKey?: string;
-  [key: string]: unknown;
 }
 
 /**

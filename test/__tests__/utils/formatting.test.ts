@@ -1,21 +1,21 @@
 import {
-  normalizeAssetAmountMaybe,
+  normalizeAssetAmount,
   shortenAddress
 } from "@/utils/formatting";
 
-describe("normalizeAssetAmountMaybe", () => {
-  it("converts large integers from satoshis to decimal", () => {
-    expect(normalizeAssetAmountMaybe(100000000)).toBe(1);
+describe("normalizeAssetAmount", () => {
+  it("keeps RPC decimal quantities in their documented units", () => {
+    expect(normalizeAssetAmount(100000000)).toBe(100000000);
   });
 
   it("keeps small decimals unchanged", () => {
-    expect(normalizeAssetAmountMaybe(0.5)).toBe(0.5);
+    expect(normalizeAssetAmount(0.5)).toBe(0.5);
   });
 
   it("handles invalid inputs", () => {
-    expect(normalizeAssetAmountMaybe(NaN)).toBe(0);
-    expect(normalizeAssetAmountMaybe(undefined)).toBe(0);
-    expect(normalizeAssetAmountMaybe("invalid")).toBe(0);
+    expect(normalizeAssetAmount(NaN)).toBe(0);
+    expect(normalizeAssetAmount(undefined)).toBe(0);
+    expect(normalizeAssetAmount("invalid")).toBe(0);
   });
 });
 

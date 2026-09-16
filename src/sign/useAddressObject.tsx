@@ -2,12 +2,7 @@ import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { WALLET_ADDRESS } from "../utils";
 
-type AddressObject = {
-  address: string;
-  privateKey?: string;
-  publicKey?: string;
-  [key: string]: unknown;
-};
+type AddressObject = ReturnType<Wallet["getAddressObjects"]>[number];
 
 export function useAddressObject(wallet: Wallet, assetName: string) {
   const [addressObject, setAddressObject] = React.useState<AddressObject | null>(null);
@@ -20,7 +15,7 @@ export function useAddressObject(wallet: Wallet, assetName: string) {
 
     if (assetName === WALLET_ADDRESS) {
       const firstAddress = wallet.getAddressObjects()[0];
-      setAddressObject(firstAddress);
+      setAddressObject(firstAddress ?? null);
       return;
     }
     //Find the address for the asset, listaddressesbyasset "asset_name"
@@ -35,7 +30,7 @@ export function useAddressObject(wallet: Wallet, assetName: string) {
       const addressObject = wallet
         .getAddressObjects()
         .find((obj) => obj.address === addy);
-      setAddressObject(addressObject);
+      setAddressObject(addressObject ?? null);
     });
   }, [assetName]);
 

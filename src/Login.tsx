@@ -22,26 +22,15 @@ import {
   IconSweep,
 } from "./icons";
 import { autoResizeTextarea } from "./utils/domUtils";
-import { isNetworkSelectable } from "./buildTarget";
+import { NETWORK_OPTIONS, selectLoginNetwork, type NetworkOption } from "./networkOptions";
 
 const neuraiLogo = new URL("../public/neurai-xna-logo.png", import.meta.url);
 
 type Mode = "recover" | "create";
 
-type NetworkOption = "xna-legacy" | "xna-pq" | "xna-legacy-test" | "xna-pq-test";
-
-const ALL_NETWORK_OPTIONS: { value: NetworkOption; label: string }[] = [
-  { value: "xna-legacy", label: "Mainnet Legacy" },
-  { value: "xna-pq", label: "Mainnet PQ" },
-  { value: "xna-legacy-test", label: "Testnet Legacy" },
-  { value: "xna-pq-test", label: "Testnet PQ" },
-];
-
-const NETWORK_OPTIONS = ALL_NETWORK_OPTIONS.filter((opt) => isNetworkSelectable(opt.value));
-
 const NETWORK_STORAGE_KEY = "wallet_network";
 
-const NAV_PREVIEW_ITEMS: { key: string; title: string; icon: JSX.Element }[] = [
+const NAV_PREVIEW_ITEMS: { key: string; title: string; icon: React.JSX.Element }[] = [
   { key: "home", title: "Home", icon: <IconHome /> },
   { key: "send", title: "Send", icon: <IconSend /> },
   { key: "receive", title: "Receive", icon: <IconReceive /> },
@@ -55,11 +44,7 @@ const NAV_PREVIEW_ITEMS: { key: string; title: string; icon: JSX.Element }[] = [
 ];
 
 function readStoredNetwork(): NetworkOption {
-  const saved = localStorage.getItem(NETWORK_STORAGE_KEY);
-  if (saved && NETWORK_OPTIONS.some((o) => o.value === saved)) {
-    return saved as NetworkOption;
-  }
-  return NETWORK_OPTIONS[0].value;
+  return selectLoginNetwork(localStorage.getItem(NETWORK_STORAGE_KEY));
 }
 
 export function Login({

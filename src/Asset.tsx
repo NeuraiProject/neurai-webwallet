@@ -1,3 +1,4 @@
+import { amountFromInput, toRawInteger } from "./exactAmounts";
 import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { betterAlert, betterToast } from "./betterDialog";
@@ -20,9 +21,9 @@ type Mode =
 type AssetOpResult = {
   transactionId: string | null;
   signedTransaction: string;
-  fee: number;
-  burnAmount: number;
-  changeAmount: number | null;
+  fee: number | string;
+  burnAmount: number | string;
+  changeAmount: number | string | null;
   changeAddress: string | null;
   outputs: Array<Record<string, unknown>>;
 };
@@ -174,7 +175,7 @@ export function Asset({ wallet }: { wallet: Wallet }) {
       const restricted: string[] = [];
       const ownerBases: string[] = [];
       for (const a of list) {
-        if (!a || typeof a.assetName !== "string" || a.balance <= 0) continue;
+        if (!a || typeof a.assetName !== "string" || toRawInteger(a.balance) <= 0n) continue;
         const name = a.assetName;
         if (name.startsWith("#") && !name.endsWith("!")) {
           qualifiers.push(name);
@@ -257,7 +258,7 @@ export function Asset({ wallet }: { wallet: Wallet }) {
         case "root":
           result = (await wallet.issueRoot({
             assetName: trimmedAssetName,
-            quantity: parseFloat(quantity),
+            quantity: amountFromInput(quantity, true),
             units: parseInt(units, 10),
             reissuable: reissuableFlag,
             ipfsHash: ipfs || undefined,
@@ -271,7 +272,7 @@ export function Asset({ wallet }: { wallet: Wallet }) {
             : `${parentName.trim().toUpperCase()}/${trimmedAssetName}`;
           result = (await wallet.issueSub({
             assetName: sub,
-            quantity: parseFloat(quantity),
+            quantity: amountFromInput(quantity, true),
             units: parseInt(units, 10),
             reissuable: reissuableFlag,
             ipfsHash: ipfs || undefined,
@@ -286,7 +287,7 @@ export function Asset({ wallet }: { wallet: Wallet }) {
             : `&${trimmedAssetName}`;
           result = (await wallet.issueDepin({
             assetName: depinName,
-            quantity: parseFloat(quantity),
+            quantity: amountFromInput(quantity, true),
             reissuable: reissuableFlag,
             ipfsHash: ipfs || undefined,
             ...opts,
@@ -322,7 +323,7 @@ export function Asset({ wallet }: { wallet: Wallet }) {
             : `#${trimmedAssetName}`;
           result = (await wallet.issueQualifier({
             assetName: qualName,
-            quantity: parseFloat(quantity || "1"),
+            quantity: amountFromInput(quantity || "1"),
             ipfsHash: ipfs || undefined,
             ...opts,
           })) as AssetOpResult;
@@ -340,7 +341,7 @@ export function Asset({ wallet }: { wallet: Wallet }) {
           }
           result = (await wallet.issueRestricted({
             assetName: restName,
-            quantity: parseFloat(quantity),
+            quantity: amountFromInput(quantity, true),
             verifierString: verifierString.trim(),
             units: parseInt(units, 10),
             reissuable: reissuableFlag,
@@ -357,7 +358,7 @@ export function Asset({ wallet }: { wallet: Wallet }) {
           // so we cast through `unknown` to bypass the stale type.
           const reissueParams = {
             assetName: trimmedAssetName,
-            quantity: parseFloat(quantity),
+            quantity: amountFromInput(quantity, true),
             reissuable: reissuableFlag,
             newIpfs: ipfs || undefined,
             ...opts,
@@ -443,15 +444,7 @@ export function Asset({ wallet }: { wallet: Wallet }) {
         }
 
         case "reissueRestricted": {
-          const qty = parseFloat(cfQuantity);
-          if (!qty || qty <= 0) {
-            betterAlert(
-              "Invalid quantity",
-              "Additional quantity must be greater than 0."
-            );
-            setIsBusy(false);
-            return;
-          }
+          const qty = amountFromInput(cfQuantity);
           result = (await wallet.reissueRestricted({
             broadcast: false,
             assetName: tokenName,

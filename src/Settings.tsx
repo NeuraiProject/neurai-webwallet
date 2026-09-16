@@ -1,4 +1,5 @@
 import React from "react";
+import { networkLabel as getNetworkLabel } from "./networkOptions";
 
 interface RPCConfig {
   url: string;
@@ -94,17 +95,7 @@ export function Settings({
   const isTestnetNetwork =
     network === "xna-test" || network === "xna-legacy-test" || network === "xna-pq-test";
 
-  const networkLabel = (() => {
-    switch (network) {
-      case "xna-legacy": return "Mainnet Legacy";
-      case "xna-pq": return "Mainnet PQ";
-      case "xna-legacy-test": return "Testnet Legacy";
-      case "xna-pq-test": return "Testnet PQ";
-      case "xna-test": return "Testnet";
-      case "xna": return "Mainnet";
-      default: return network;
-    }
-  })();
+  const networkLabel = getNetworkLabel(network);
 
   const safeMnemonic = mnemonic ?? "";
   const mnemonicOnly = safeMnemonic.includes("|||") ? safeMnemonic.split("|||")[0] : safeMnemonic;

@@ -3,7 +3,7 @@ import React from "react";
 import { Events, addEventListener, removeEventListener } from "../Events";
 
 export function useBalance(wallet: Wallet | null, blockCount: number) {
-  const [balance, setBalance] = React.useState(0);
+  const [balance, setBalance] = React.useState<number | string>(0);
 
   const work = () => {
     if (wallet) {
