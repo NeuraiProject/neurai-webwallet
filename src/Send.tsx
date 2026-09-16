@@ -451,8 +451,14 @@ export async function send({
 ${to}?
 
 Transaction fee: ${String(sendResult.debug.fee)} ${wallet.baseCurrency}${dustLine}`;
-  // const c = confirm(confirmText);
-  const c = await betterConfirm("About to send", confirmText);
+  const onMainnet = ["xna", "xna-legacy", "xna-pq"].includes(wallet.network);
+  const c = await betterConfirm("About to send", confirmText, onMainnet ? {
+    warning: {
+      title: "MAINNET - REAL FUNDS",
+      text: "You are sending real funds on Mainnet. Check the recipient before confirming.",
+    },
+    confirmLabel: "Send",
+  } : { confirmLabel: "Send" });
   if (c === true) {
     try {
       const raw = sendResult.debug.signedTransaction;

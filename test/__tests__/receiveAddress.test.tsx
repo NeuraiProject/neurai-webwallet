@@ -29,6 +29,10 @@ test('receive card copies the actual address and keeps the QR open across same-a
     expect(writeText).toHaveBeenCalledWith(address);expect(c.querySelector('[role=status]')?.textContent).toBe('Copied');
     await act(async()=>c.querySelector<HTMLButtonElement>('[aria-label="Show larger QR"]')!.click());
     const dialog=c.querySelector('dialog');
+    writeText.mockClear();
+    await act(async()=>dialog!.querySelector<HTMLButtonElement>('[aria-label="Copy receive address"]')!.click());
+    expect(writeText).toHaveBeenCalledWith(address);
+    expect(dialog!.querySelector('[role=status]')?.textContent).toBe('Copied');
     expect(c.querySelectorAll('svg[role=img] circle').length).toBeGreaterThan(100);
     expect(c.querySelector('img')).toBeNull();
     await act(async()=>root.render(<ReceiveAddress wallet={wallet} receiveAddress={address} compact/>));

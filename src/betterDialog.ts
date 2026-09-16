@@ -28,9 +28,14 @@ export function betterToast(text: string) {
   }, 1500);
 }
 
-export async function betterConfirm(headline: string, text: string): Promise<boolean> {
+type ConfirmOptions = {
+  warning?: { title: string; text: string };
+  confirmLabel?: string;
+};
+
+export async function betterConfirm(headline: string, text: string, options?: ConfirmOptions): Promise<boolean> {
   return new Promise<boolean>((resolve, reject) => {
-    createDialog(DialogType.CONFIRM, headline, text, resolve, reject);
+    createDialog(DialogType.CONFIRM, headline, text, resolve, reject, options);
   });
 }
 
@@ -40,11 +45,11 @@ export async function betterAlert(headline: string, text: string): Promise<boole
   });
 }
 
-function getButtons(dialogType: DialogType): string {
+function getButtons(dialogType: DialogType, confirmLabel = "OK"): string {
   if (dialogType === DialogType.CONFIRM) {
     return `
       <button type="button" data-action="cancel" class="neurai-btn--secondary">Cancel</button>
-      <button type="button" data-action="ok" class="neurai-btn--primary">OK</button>
+      <button type="button" data-action="ok" class="neurai-btn--primary">${escapeHtml(confirmLabel)}</button>
     `;
   }
   if (dialogType === DialogType.ALERT) {
@@ -60,16 +65,21 @@ function createDialog(
   headline: string,
   text: string,
   resolve: (value: boolean) => void,
-  reject: (reason?: unknown) => void
+  reject: (reason?: unknown) => void,
+  options?: ConfirmOptions
 ) {
   const dom = document.createElement("div");
   dom.innerHTML = `
     <dialog open class="modal modal-open">
-      <div class="modal-box max-w-lg overflow-hidden">
+      <div class="modal-box neurai-card max-w-lg overflow-hidden">
         <h3 class="font-bold text-lg m-0 mb-2">${escapeHtml(headline)}</h3>
+        ${options?.warning ? `<div role="alert" class="rounded-xl border border-warning/60 bg-warning/15 px-4 py-3 mb-4 text-sm text-base-content">
+          <p class="font-bold m-0 mb-1">${escapeHtml(options.warning.title)}</p>
+          <p class="m-0">${escapeHtml(options.warning.text)}</p>
+        </div>` : ""}
         <p class="whitespace-pre-line break-all text-sm text-base-content/85 m-0">${escapeHtml(text)}</p>
         <div class="modal-action mt-4 flex flex-wrap gap-2 justify-end">
-          ${getButtons(dialogType)}
+          ${getButtons(dialogType, options?.confirmLabel)}
         </div>
       </div>
       <form method="dialog" class="modal-backdrop">

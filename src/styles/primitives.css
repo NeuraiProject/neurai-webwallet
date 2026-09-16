@@ -48,6 +48,11 @@
       0 8px 24px -4px rgba(0, 0, 0, 0.55);
   }
 
+  /* Shared dialog frame: a subtle light edge on dark surfaces. */
+  [data-theme="dark"] .modal-box.neurai-card {
+    border-color: rgba(255, 255, 255, 0.22);
+  }
+
   /* Compact card — used by the navigator / login menu strip. */
   .neurai-card--compact {
     @apply px-4 py-3;

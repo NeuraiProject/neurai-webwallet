@@ -77,12 +77,12 @@ function ReceiveCard({receiveAddress, wallet, compact = false, hidden, onToggleH
           {hidden ? <IconEyeOff/> : <IconEye/>}
         </button>
       {error && <p role="alert" className="text-sm text-error mt-3 mb-0">{error}</p>}
-      {showQR && !hidden && <ReceiveQRDialog address={receiveAddress} derivation={derivation} onClose={() => setShowQR(false)} />}
+      {showQR && !hidden && <ReceiveQRDialog address={receiveAddress} derivation={derivation} onCopy={copy} copied={copied} error={error} onClose={() => setShowQR(false)} />}
     </> : <p role="status" className="text-sm opacity-60 m-0">Loading receive address…</p>}
   </section>;
 }
 
-function ReceiveQRDialog({address, derivation, onClose}: {address: string; derivation: string | null; onClose: () => void}) {
+function ReceiveQRDialog({address, derivation, onClose, onCopy, copied, error}: {address: string; derivation: string | null; onClose: () => void; onCopy: () => Promise<void>; copied: boolean; error: string}) {
   const dialog = React.useRef<HTMLDialogElement>(null);
   const titleId = React.useId();
   React.useEffect(() => { dialog.current?.showModal(); }, []);
@@ -90,7 +90,12 @@ function ReceiveQRDialog({address, derivation, onClose}: {address: string; deriv
     <div className="modal-box neurai-card w-full max-w-md flex flex-col gap-4">
       <h2 id={titleId} className="neurai-card__title">Receive address</h2>
       <div className="w-full max-w-[320px] mx-auto"><AddressQR address={address}/></div>
-      <p className="font-mono text-xs break-all text-center select-all m-0">{address}</p>
+      <div className="relative">
+        <button type="button" onClick={onCopy} aria-label="Copy receive address" title="Copy address"
+          className="w-full font-mono text-xs break-all text-center cursor-pointer hover:text-primary rounded focus-visible:outline-2 focus-visible:outline-primary">{address}</button>
+        <span role="status" aria-live="polite" className="absolute -bottom-4 left-0 right-0 text-center text-xs text-success pointer-events-none">{copied ? 'Copied' : ''}</span>
+      </div>
+      {error && <p role="alert" className="text-sm text-error m-0">{error}</p>}
       {derivation && <p className="font-mono text-xs text-base-content/60 text-center break-all m-0">{derivation}</p>}
       <button type="button" className="neurai-btn--secondary" autoFocus onClick={onClose}>Close</button>
     </div>
