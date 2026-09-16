@@ -40,7 +40,7 @@ import { Settings } from "./Settings";
 import { IconEye, IconEyeOff, IconShield } from "./icons";
 import { isNetworkSelectable, WALLET_BUILD } from "./buildTarget";
 
-const DEFAULT_RPC_MAINNET = "https://rpc-depin.neurai.org/rpc";
+const DEFAULT_RPC_MAINNET = "https://rpc-main.neurai.org/rpc";
 const DEFAULT_RPC_TESTNET = "https://rpc-testnet.neurai.org/rpc";
 import { Chat } from "./Chat";
 import { IoT } from "./IoT";
