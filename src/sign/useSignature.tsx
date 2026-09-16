@@ -1,5 +1,5 @@
 import React from "react";
-import * as RavencoinMessage from "@neuraiproject/neurai-message/dist/browser.mjs";
+import * as NeuraiMessage from "@neuraiproject/neurai-message";
 import { IAddressObject } from "./IAddressObject";
 
 export function useSignature(addressObject: IAddressObject | null, text: string) {
@@ -11,7 +11,7 @@ export function useSignature(addressObject: IAddressObject | null, text: string)
       if (!privateKey || !text) {
         setSignature("");
       } else {
-        const s = RavencoinMessage.sign(text, privateKey);
+        const s = NeuraiMessage.sign(text, privateKey);
         setSignature(s);
       }
     }

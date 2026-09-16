@@ -31,21 +31,24 @@
   "alias": {
     "@neuraiproject/neurai-depin-msg": "@neuraiproject/neurai-depin-msg/dist/neurai-depin-msg.mjs"
   },
-  "//resolutions": "Advisory fixes that are patch bumps inside ranges the dependencies already allow; the lockfile was simply pinning older builds. valibot ships in the browser bundle (via ecpair inside neurai-sign-transaction); the rest are build and test tooling only. Remove each entry once the chain publishes it.",
+  "//resolutions": "Security floors for Yarn; npm equivalents are in overrides. Keep major-specific dependencies on their compatible release lines.",
   "resolutions": {
     "valibot": "^1.4.2",
     "postcss": "^8.5.23",
     "nanoid": "^3.3.18",
-    "js-yaml": "^3.15.1",
-    "brace-expansion": "^1.1.18",
+    "js-yaml": "^3.15.2",
     "ws": "^8.21.0",
-    "@babel/core": "^7.29.6"
+    "@babel/core": "^7.29.6",
+    "browserslist": "^4.28.8",
+    "baseline-browser-mapping": "^2.11.0",
+    "**/test-exclude/**/brace-expansion": "^1.1.18",
+    "**/glob/**/brace-expansion": "^2.1.4"
   },
   "dependencies": {
     "@neuraiproject/neurai-depin-msg": "^3.1.0",
     "@neuraiproject/neurai-history-list": "^1.2.5",
     "@neuraiproject/neurai-jswallet": "^0.15.2",
-    "@neuraiproject/neurai-message": "^0.9.1",
+    "@neuraiproject/neurai-message": "^0.10.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@yudiel/react-qr-scanner": "^2.5.1",
@@ -78,5 +81,17 @@
     "ts-jest": "^29.4.9",
     "typescript": "^5.9.3",
     "vm-browserify": "^1.1.2"
+  },
+  "overrides": {
+    "valibot": "^1.4.2",
+    "postcss": "$postcss",
+    "nanoid": "^3.3.18",
+    "js-yaml": "^3.15.2",
+    "ws": "^8.21.0",
+    "@babel/core": "^7.29.6",
+    "browserslist": "^4.28.8",
+    "baseline-browser-mapping": "^2.11.0",
+    "brace-expansion@1.x": "^1.1.18",
+    "brace-expansion@2.x": "^2.1.4"
   }
 }
