@@ -1,4 +1,7 @@
 import React from "react";
+import type { Wallet } from "@neuraiproject/neurai-jswallet";
+import { ChainDetails } from "./ChainDetails";
+import { RecoveryDialog } from "./RecoveryDialog";
 import { networkLabel as getNetworkLabel } from "./networkOptions";
 
 interface RPCConfig {
@@ -13,16 +16,22 @@ const DEFAULT_RPC_TESTNET = "https://rpc-testnet.neurai.org/rpc";
 export function Settings({
   signOut,
   mnemonic,
+  network: activeNetwork,
+  passphrase = "",
+  wallet = null,
 }: {
   signOut?: () => void;
   mnemonic?: string;
+  network?: string;
+  passphrase?: string;
+  wallet?: Wallet | null;
 }) {
   const [rpcUrl, setRpcUrl] = React.useState("");
   const [rpcUsername, setRpcUsername] = React.useState("");
   const [rpcPassword, setRpcPassword] = React.useState("");
   const [useCustomRPC, setUseCustomRPC] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
-  const [copied, setCopied] = React.useState(false);
+  const [recoveryOpen, setRecoveryOpen] = React.useState(false);
 
   React.useEffect(() => {
     const savedConfig = localStorage.getItem("rpc_config");
@@ -91,7 +100,7 @@ export function Settings({
     return useLegacy ? "xna-legacy" : "xna";
   };
 
-  const network = resolveNetwork();
+  const network = activeNetwork ?? resolveNetwork();
   const isTestnetNetwork =
     network === "xna-test" || network === "xna-legacy-test" || network === "xna-pq-test";
 
@@ -99,150 +108,86 @@ export function Settings({
 
   const safeMnemonic = mnemonic ?? "";
   const mnemonicOnly = safeMnemonic.includes("|||") ? safeMnemonic.split("|||")[0] : safeMnemonic;
-  const hasPassphrase = safeMnemonic.includes("|||");
-  const wordCount = mnemonicOnly
-    ? mnemonicOnly.trim().split(/\s+/).filter((w: string) => w.length > 0).length
-    : 0;
-  const wordsText = wordCount === 24 ? "24 words" : "12 words";
-
+  const walletPassphrase = passphrase || (safeMnemonic.includes("|||") ? safeMnemonic.split("|||")[1] : "");
+  const hasPassphrase = !!walletPassphrase;
   const canSignOut = typeof signOut === "function";
-  const canCopyMnemonic = !!safeMnemonic;
-  const showWalletSection = canSignOut || canCopyMnemonic;
+  const canViewMnemonic = !!safeMnemonic;
+  const showWalletSection = canSignOut || canViewMnemonic;
 
   return (
-    <div className="neurai-card neurai-stack">
-      <h3 className="text-xl font-bold m-0">Network</h3>
-      <div className="rounded-md bg-base-100 border border-base-300 p-3">
-        <p className="m-0">
-          <strong>Current network:</strong> {networkLabel}{" "}
-          <small className="text-base-content/60">({network})</small>
-        </p>
-        <small className="block mt-2 text-base-content/70">
-          To switch networks, sign out and pick a different one on the login screen.
-          Each network keeps its own seed file in this browser.
-        </small>
+    <div className="neurai-stack min-w-0">
+      <div>
+        <h2 className="text-xl font-bold m-0">Settings</h2>
+        <p className="neurai-hint mt-1 mb-0">Manage your connection and wallet recovery.</p>
       </div>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-5 items-stretch">
+          <section className="neurai-card neurai-stack min-w-0 h-full" aria-labelledby="settings-network-title">
+            <h3 id="settings-network-title" className="neurai-card__title">Network</h3>
+            <div className="rounded-xl border border-base-300 bg-base-100 p-4">
+              <p className="neurai-eyebrow mb-2">Current network</p>
+              <p className="font-semibold m-0">{networkLabel}</p>
+            </div>
+            <ChainDetails wallet={wallet} network={network} />
+            <p className="text-sm text-base-content/70 mt-auto mb-0">To switch networks, sign out and choose another on the login screen. Each network keeps its own protected recovery words in this browser.</p>
+          </section>
 
-      <hr className="neurai-divider" />
 
-      <h3 className="text-xl font-bold m-0">RPC Server Configuration</h3>
-
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={useCustomRPC}
-          onChange={(e) => setUseCustomRPC(e.target.checked)}
-          className="checkbox checkbox-sm checkbox-primary"
-        />
-        <span>Use custom RPC server</span>
-      </label>
-
-      {useCustomRPC ? (
-        <>
+        <div className="neurai-stack min-w-0">
+        <section className="neurai-card neurai-stack min-w-0" aria-labelledby="settings-rpc-title">
           <div>
-            <label htmlFor="rpcUrl" className="neurai-label">RPC URL</label>
-            <input
-              type="text"
-              id="rpcUrl"
-              className="neurai-input"
-              placeholder="https://your-rpc-server.com/rpc"
-              value={rpcUrl}
-              onChange={(e) => setRpcUrl(e.target.value)}
-              required
-            />
-            <p className="neurai-hint">Enter the full URL of your custom RPC server (including /rpc path)</p>
+            <h3 id="settings-rpc-title" className="neurai-card__title">RPC connection</h3>
+            <p className="neurai-hint mb-0">Choose the server used to connect to Neurai.</p>
           </div>
-
-          <div>
-            <label htmlFor="rpcUsername" className="neurai-label">RPC Username (optional)</label>
-            <input
-              type="text"
-              id="rpcUsername"
-              className="neurai-input"
-              placeholder="username"
-              value={rpcUsername}
-              onChange={(e) => setRpcUsername(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="rpcPassword" className="neurai-label">RPC Password (optional)</label>
-            <input
-              type="password"
-              id="rpcPassword"
-              className="neurai-input"
-              placeholder="password"
-              value={rpcPassword}
-              onChange={(e) => setRpcPassword(e.target.value)}
-            />
-          </div>
-        </>
-      ) : (
-        <div className="rounded-md bg-base-100 border border-base-300 p-3">
-          <p className="m-0">
-            <strong>Default RPC for {networkLabel}:</strong>{" "}
-            {isTestnetNetwork ? DEFAULT_RPC_TESTNET : DEFAULT_RPC_MAINNET}
-          </p>
-        </div>
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className="neurai-btn--primary" onClick={handleSave}>
-          Save Configuration
-        </button>
-        <button type="button" className="neurai-btn--secondary" onClick={handleReset}>
-          Reset to Default
-        </button>
-      </div>
-
-      {saveSuccess && (
-        <div className="rounded-md bg-success/15 text-success px-3 py-2 text-sm">
-          Configuration saved successfully!
-        </div>
-      )}
-
-      {showWalletSection && (
-        <>
-          <hr className="neurai-divider" />
-          <h3 className="text-xl font-bold m-0">Wallet</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {canSignOut && (
-              <button type="button" className="neurai-btn--primary" onClick={signOut}>
-                Sign out
+          <form onSubmit={event => { event.preventDefault(); handleSave(); }} className="neurai-stack">
+            <label className="flex items-center justify-between gap-4 rounded-xl border border-base-300 p-4 cursor-pointer">
+              <span className="text-sm font-medium">Use custom RPC server</span>
+              <input type="checkbox" checked={useCustomRPC} onChange={event => setUseCustomRPC(event.target.checked)} className="toggle toggle-primary toggle-sm shrink-0" />
+            </label>
+            {useCustomRPC ? <>
+              <div>
+                <label htmlFor="rpcUrl" className="neurai-label">RPC URL</label>
+                <input id="rpcUrl" type="url" className="neurai-input" placeholder="https://your-rpc-server.com/rpc" value={rpcUrl} onChange={event => setRpcUrl(event.target.value)} required />
+                <p className="neurai-hint mb-0">Include the full endpoint path, for example /rpc.</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="rpcUsername" className="neurai-label">Username <span className="font-normal opacity-60">(optional)</span></label>
+                  <input id="rpcUsername" className="neurai-input" autoComplete="off" value={rpcUsername} onChange={event => setRpcUsername(event.target.value)} />
+                </div>
+                <div>
+                  <label htmlFor="rpcPassword" className="neurai-label">Password <span className="font-normal opacity-60">(optional)</span></label>
+                  <input id="rpcPassword" type="password" className="neurai-input" autoComplete="off" value={rpcPassword} onChange={event => setRpcPassword(event.target.value)} />
+                </div>
+              </div>
+            </> : <div className="rounded-xl border border-base-300 bg-base-100 p-4 min-w-0">
+              <p className="neurai-eyebrow mb-2">Default server</p>
+              <p className="font-mono text-sm break-all m-0">{isTestnetNetwork ? DEFAULT_RPC_TESTNET : DEFAULT_RPC_MAINNET}</p>
+            </div>}
+            <p className="text-sm text-base-content/70 m-0">Use a Neurai-compatible HTTPS server. HTTP is supported for local nodes. Changing the connection requires reloading the wallet.</p>
+            <div className="flex flex-col sm:flex-row gap-2 border-t border-base-300 pt-4">
+              <button type="submit" className="neurai-btn--primary">Save connection</button>
+              <button type="button" className="neurai-btn--secondary" onClick={handleReset}>Restore defaults</button>
+            </div>
+            {saveSuccess && <p role="status" className="rounded-xl bg-success/10 text-success px-3 py-2 text-sm m-0">Connection settings saved.</p>}
+          </form>
+        </section>
+          {showWalletSection && <section className="neurai-card neurai-stack min-w-0 flex-1" aria-labelledby="settings-wallet-title">
+            <h3 id="settings-wallet-title" className="neurai-card__title">Wallet & recovery</h3>
+            {canViewMnemonic && <>
+              <p className="text-sm text-base-content/70 m-0">Your wallet PIN is required each time you view your recovery words.</p>
+              {hasPassphrase && <p className="neurai-hint m-0">This wallet also uses an additional passphrase. It is required together with your recovery words to restore this wallet. It will not be shown here.</p>}
+              <button type="button" className="neurai-btn--secondary w-full" onClick={() => setRecoveryOpen(true)}>
+                View recovery words
               </button>
-            )}
-            {canCopyMnemonic && (
-              <button
-                type="button"
-                className="neurai-btn--secondary"
-                onClick={() => {
-                  navigator.clipboard.writeText(safeMnemonic);
-                  setCopied(true);
-                  window.setTimeout(() => setCopied(false), 2000);
-                }}
-                disabled={copied}
-              >
-                {copied
-                  ? "Copied!"
-                  : `Copy your secret ${wordsText}${hasPassphrase ? " + passphrase" : ""} to memory`}
-              </button>
-            )}
-          </div>
-        </>
-      )}
-
-      <div className="text-sm text-base-content/80 mt-2">
-        <h4 className="font-semibold mb-1">Important Notes:</h4>
-        <ul className="list-disc pl-6 space-y-1">
-          <li>Make sure your custom RPC server is compatible with Neurai</li>
-          <li>The wallet will need to reload after changing RPC settings</li>
-          <li>If you cannot connect, reset to default settings</li>
-          <li>
-            <strong>Security:</strong> Your custom RPC server must use HTTPS (not HTTP).
-            For localhost/local nodes, HTTP is allowed (http://localhost:* or http://127.0.0.1:*).
-          </li>
-        </ul>
+            </>}
+            {canSignOut && <div className={canViewMnemonic ? "border-t border-base-300 pt-4" : ""}>
+              <button type="button" className="neurai-btn--secondary w-full" onClick={signOut}>Sign out</button>
+            </div>}
+          </section>}
+        </div>
       </div>
+      {recoveryOpen && <RecoveryDialog key={network} network={network} mnemonic={mnemonicOnly} passphrase={walletPassphrase}
+        onClose={() => setRecoveryOpen(false)} />}
     </div>
   );
 }

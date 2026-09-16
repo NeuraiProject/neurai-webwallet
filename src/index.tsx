@@ -537,8 +537,11 @@ function App() {
         <div className="rebel-content-container">
           <div className="rebel-content-container__content">
             <Settings
+              wallet={dataWallet}
               signOut={signOut}
               mnemonic={mnemonic}
+              network={network}
+              passphrase={passphrase}
             />
           </div>
         </div>
@@ -629,8 +632,11 @@ function App() {
 
           {currentRoute === Routes.SETTINGS && (
             <Settings
+              wallet={dataWallet}
               signOut={signOut}
               mnemonic={mnemonic}
+              network={network}
+              passphrase={passphrase}
             />
           )}
         </div>

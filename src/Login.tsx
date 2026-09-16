@@ -198,7 +198,7 @@ export function Login({
           </button>
           <LightModeToggle />
         </div>
-        <Settings />
+        <Settings network={network} />
       </div>
     );
   }
