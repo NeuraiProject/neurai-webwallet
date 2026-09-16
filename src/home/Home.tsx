@@ -1,4 +1,4 @@
-import { addAmounts, absAmount, displayRaw, toRawInteger } from "../exactAmounts";
+import { addAmounts, absAmount } from "../exactAmounts";
 import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 
@@ -95,9 +95,7 @@ export function Home({
     return ((last - first) / Math.abs(first)) * 100;
   }, [balanceSeries]);
 
-  const pendingEntries = (mempool ?? [])
-    .map((entry) => ({ assetName: entry.assetName ?? baseCurrency, satoshis: entry.satoshis ?? 0 }))
-    .filter((entry) => entry.satoshis !== 0);
+
 
   return (
     <div className="flex flex-col gap-4">
@@ -161,24 +159,6 @@ export function Home({
         </div>
       </section>
 
-      {/* Pending ------------------------------------------------------- */}
-      {pendingEntries.length > 0 && (
-        <div className="rounded-field border border-warning/40 bg-warning/10 px-4 py-3 flex items-center gap-2.5 flex-wrap text-sm">
-          <span className="w-[7px] h-[7px] rounded-full bg-warning shrink-0" />
-          <b>
-            {pendingEntries.length} pending {pendingEntries.length === 1 ? "transaction" : "transactions"}
-          </b>
-          {pendingEntries.slice(0, 3).map((entry, i) => (
-            <React.Fragment key={`${entry.assetName}-${i}`}>
-              <span className="opacity-40">·</span>
-              <span className="tabular-nums">
-                {toRawInteger(entry.satoshis) > 0n ? "+" : "−"}
-                {formatNumberWith8Decimals(absAmount(displayRaw(toRawInteger(entry.satoshis))))} {entry.assetName}
-              </span>
-            </React.Fragment>
-          ))}
-        </div>
-      )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] items-start">
         {/* Assets ------------------------------------------------------ */}

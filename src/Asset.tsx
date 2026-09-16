@@ -1,3 +1,4 @@
+import { Events, triggerEvent } from "./Events";
 import { amountFromInput, toRawInteger } from "./exactAmounts";
 import React from "react";
 import { Wallet } from "@neuraiproject/neurai-jswallet";
@@ -524,6 +525,7 @@ export function Asset({ wallet }: { wallet: Wallet }) {
     setBroadcastError(null);
     try {
       const txid = await wallet.sendRawTransaction(prepared.result.signedTransaction);
+      triggerEvent(Events.INFO__TRANSFER_IN_PROCESS);
       prepared.onDone();
       setPrepared(null);
       betterToast(`✓ Broadcast\n${txid}`);

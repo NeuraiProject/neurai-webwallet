@@ -22,6 +22,7 @@ import "./App.css";
 
 import { chatAvailability } from "./depin/network";
 import { Home } from "./home/Home";
+import { PendingTransactions } from "./PendingTransactions";
 import { formatRpcError } from "./utils/rpcError";
 import { Loader } from "./Loader";
 import { Login } from "./Login";
@@ -567,10 +568,9 @@ function App() {
         network={network}
       />
 
+      <PendingTransactions mempool={mempool} baseCurrency={wallet.baseCurrency} />
+
       <div className="rebel-content-container">
-        {/* The side card that used to list pending transactions is gone: the
-            home page shows the same thing in context, next to the balance it
-            affects, and two places saying it at once was noise. */}
         <div className="rebel-content-container__content">
           {currentRoute === Routes.HOME && (
             <Home

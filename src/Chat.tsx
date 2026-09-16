@@ -1,3 +1,4 @@
+import { Events, triggerEvent } from "./Events";
 import { compareAmounts, decimalToSatoshis, satoshisToDecimal } from "./exactAmounts";
 import React from "react";
 import { IconSend } from "./icons";
@@ -315,6 +316,7 @@ export function Chat({ wallet, assets, mempool, depinChatIdentity, chain, rpcUrl
       }
 
       await wallet.sendRawTransaction(raw);
+      triggerEvent(Events.INFO__TRANSFER_IN_PROCESS);
       betterToast("✓ Burn transaction sent");
     } catch (error) {
       console.error("Burn pubkey error", error);
