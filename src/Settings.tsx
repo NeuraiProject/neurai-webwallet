@@ -2,7 +2,8 @@ import React from "react";
 import type { Wallet } from "@neuraiproject/neurai-jswallet";
 import { ChainDetails } from "./ChainDetails";
 import { RecoveryDialog } from "./RecoveryDialog";
-import { networkLabel as getNetworkLabel } from "./networkOptions";
+import { isTestnetChain } from "./buildTarget";
+import { networkLabel as getNetworkLabel, isWalletNetwork } from "./networkOptions";
 
 interface RPCConfig {
   url: string;
@@ -91,8 +92,7 @@ export function Settings({
 
   const resolveNetwork = (): string => {
     const stored = localStorage.getItem("wallet_network");
-    const valid = ["xna", "xna-test", "xna-legacy", "xna-legacy-test", "xna-pq", "xna-pq-test"];
-    if (stored && valid.includes(stored)) return stored;
+    if (isWalletNetwork(stored)) return stored;
     const params = new URLSearchParams(window.location.search);
     const isTestnetParam = params.get("network") === "xna-test";
     const useLegacy = localStorage.getItem("derivation_type") === "legacy";
@@ -101,8 +101,7 @@ export function Settings({
   };
 
   const network = activeNetwork ?? resolveNetwork();
-  const isTestnetNetwork =
-    network === "xna-test" || network === "xna-legacy-test" || network === "xna-pq-test";
+  const isTestnetNetwork = isTestnetChain(network);
 
   const networkLabel = getNetworkLabel(network);
 

@@ -35,6 +35,10 @@ export interface INetworks {
   "xna-legacy-test": INetworkInfo;
   "xna-pq": INetworkInfo;
   "xna-pq-test": INetworkInfo;
+  "xna-pq-strict": INetworkInfo;
+  "xna-pq-strict-test": INetworkInfo;
+  "xna-ecdsa": INetworkInfo;
+  "xna-ecdsa-test": INetworkInfo;
 }
 
 const networks: INetworks = {
@@ -44,6 +48,10 @@ const networks: INetworks = {
   "xna-legacy-test": neuraiTestnet,
   "xna-pq": neuraiMainnet,
   "xna-pq-test": neuraiTestnet,
+  "xna-pq-strict": neuraiMainnet,
+  "xna-pq-strict-test": neuraiTestnet,
+  "xna-ecdsa": neuraiMainnet,
+  "xna-ecdsa-test": neuraiTestnet,
 };
 
 export default networks;

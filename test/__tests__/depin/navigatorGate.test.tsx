@@ -49,7 +49,7 @@ describe("Chat entry point", () => {
   });
 
   it("is closed on post-quantum wallets, for a different stated reason", () => {
-    const html = renderChatEntry("xna-pq-test");
+    const html = renderChatEntry("xna-pq-strict-test");
 
     expect(html).toContain("post-quantum");
     expect(html).not.toContain("mainnet");

@@ -1,19 +1,23 @@
 import { key as NeuraiKey } from '@neuraiproject/neurai-jswallet';
+import { legacyKeyNetworkFor } from './keyNetwork';
 
-export type DepinChatNetwork = 'xna' | 'xna-test' | 'xna-legacy' | 'xna-legacy-test';
+export type DepinChatNetwork =
+  | 'xna'
+  | 'xna-test'
+  | 'xna-legacy'
+  | 'xna-legacy-test'
+  | 'xna-ecdsa'
+  | 'xna-ecdsa-test';
 
 /**
- * DePIN chat identity is derived via BIP44 (`m/44'/coinType'/...`). PQ
- * networks (xna-pq / xna-pq-test) use NIP-022 PQ-HD derivation and have no
- * BIP44 path, so chat identity is not available there.
+ * DePIN chat identity is a Legacy P2PKH address derived via BIP44
+ * (`m/44'/coinType'/...`), whatever address type the wallet itself uses: DePIN
+ * only serves P2PKH holders. PQ networks (AuthScript and strict) use NIP-022
+ * PQ-HD derivation and have no BIP44 path, so chat identity is not available
+ * there.
  */
 export function isDepinChatSupportedNetwork(network: string): network is DepinChatNetwork {
-  return (
-    network === 'xna' ||
-    network === 'xna-test' ||
-    network === 'xna-legacy' ||
-    network === 'xna-legacy-test'
-  );
+  return legacyKeyNetworkFor(network) !== null;
 }
 
 export type DepinChatIdentity = {
@@ -24,16 +28,6 @@ export type DepinChatIdentity = {
   coinType: number;
   account: number;
   index: number;
-};
-
-type NeuraiKeyApi = {
-  getHDKey: (network: DepinChatNetwork, mnemonic: string, passphrase: string) => unknown;
-  getCoinType: (network: DepinChatNetwork) => number;
-  getAddressByPath: (
-    network: DepinChatNetwork,
-    hdKey: unknown,
-    path: string
-  ) => { WIF?: string; address?: string; publicKey?: string } | null;
 };
 
 function compressPubKeyHex(pubKeyHex: string): string {
@@ -72,12 +66,17 @@ export function deriveDepinChatIdentity(params: {
 
   const passphrase = params.passphrase ?? '';
 
-  const keyApi = NeuraiKey as unknown as NeuraiKeyApi;
-  const hdKey = keyApi.getHDKey(params.network, mnemonic, passphrase);
-  const coinType = keyApi.getCoinType(params.network);
+  // Never the wallet network itself: neurai-key 5 reads `xna` / `xna-test` as
+  // ECDSA witness v3 and `xna-legacy` as coin type 1900.
+  const keyNetwork = legacyKeyNetworkFor(params.network);
+  if (!keyNetwork) {
+    throw new Error(`No DePIN chat identity on network '${String(params.network)}'`);
+  }
+  const hdKey = NeuraiKey.getHDKey(keyNetwork, mnemonic, passphrase);
+  const coinType = NeuraiKey.getCoinType(keyNetwork);
 
   const path = `m/44'/${coinType}'/${account}'/0/${index}`;
-  const addrObj = keyApi.getAddressByPath(params.network, hdKey, path);
+  const addrObj = NeuraiKey.getAddressByPath(keyNetwork, hdKey, path);
 
   const wif = String(addrObj?.WIF ?? '').trim();
   const address = String(addrObj?.address ?? '').trim();

@@ -38,7 +38,8 @@ import { Asset } from "./Asset";
 import { Sign } from "./sign/Sign";
 import { Settings } from "./Settings";
 import { IconEye, IconEyeOff, IconShield } from "./icons";
-import { isNetworkSelectable, WALLET_BUILD } from "./buildTarget";
+import { isNetworkSelectable, isTestnetChain, WALLET_BUILD } from "./buildTarget";
+import { isWalletNetwork } from "./networkOptions";
 
 const DEFAULT_RPC_MAINNET = "https://rpc-main.neurai.org/rpc";
 const DEFAULT_RPC_TESTNET = "https://rpc-testnet.neurai.org/rpc";
@@ -115,16 +116,8 @@ function App() {
   // existing users that have not picked yet.
   const [network, setNetwork] = React.useState<ChainType>(() => {
     const stored = localStorage.getItem("wallet_network");
-    const validStored: ChainType[] = [
-      "xna",
-      "xna-test",
-      "xna-legacy",
-      "xna-legacy-test",
-      "xna-pq",
-      "xna-pq-test",
-    ];
-    if (stored && (validStored as string[]).includes(stored) && isNetworkSelectable(stored)) {
-      return stored as ChainType;
+    if (isWalletNetwork(stored) && isNetworkSelectable(stored)) {
+      return stored;
     }
 
     const searchParams = new URLSearchParams(window.location.search);
@@ -234,11 +227,7 @@ function App() {
         console.error("Error loading custom RPC config:", error);
       }
       } else {
-        const isTestnetNetwork =
-          network === "xna-test" ||
-          network === "xna-legacy-test" ||
-          network === "xna-pq-test";
-        walletConfig.rpc_url = isTestnetNetwork ? DEFAULT_RPC_TESTNET : DEFAULT_RPC_MAINNET;
+        walletConfig.rpc_url = isTestnetChain(network) ? DEFAULT_RPC_TESTNET : DEFAULT_RPC_MAINNET;
     }
 
     return walletConfig;

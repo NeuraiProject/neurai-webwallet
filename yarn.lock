@@ -645,54 +645,54 @@
   resolved "https://registry.npmjs.org/@msgpackr-extract/msgpackr-extract-linux-x64/-/msgpackr-extract-linux-x64-3.0.3.tgz"
   integrity sha512-cvwNfbP07pKUfq1uH+S6KJ7dT9K8WOE4ZiAcsrSes+UY55E/0jLYc+vq+DO7jlmqRb5zAggExKm0H7O/CBaesg==
 
-"@neuraiproject/neurai-assets@^1.6.1":
-  version "1.6.1"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-assets/-/neurai-assets-1.6.1.tgz"
-  integrity sha512-/05Iust72IlFop53yXv8WhckeDomUe9EvILtNJsD2F4aqlU/PLqSFdy0BLoRpAiQkQevvOZxuWPbDOPpN6j1JQ==
+"@neuraiproject/neurai-assets@^1.8.0", "@neuraiproject/neurai-assets@^1.8.1":
+  version "1.8.1"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-assets/-/neurai-assets-1.8.1.tgz"
+  integrity sha512-v4U7iH/Cg4/b1QFYotQ/59QbgaldGq2F6fwGkHRFfJkEqf6jMVhjzr5NS2B5ZWpHiT2JqGREaZAEw/JBIfmREQ==
   dependencies:
-    "@neuraiproject/neurai-create-transaction" "^0.8.1"
+    "@neuraiproject/neurai-create-transaction" "^0.9.2"
 
-"@neuraiproject/neurai-create-transaction@^0.8.1":
-  version "0.8.1"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-create-transaction/-/neurai-create-transaction-0.8.1.tgz"
-  integrity sha512-EXEtZz6/66l+USZw5MW4YZwCSHnWKqsIKkcE07asfm2N80Mb3Bb5K23TVxWgWlaKkIIpbLsG1v4eCIlUObIsYA==
+"@neuraiproject/neurai-create-transaction@^0.9.2":
+  version "0.9.2"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-create-transaction/-/neurai-create-transaction-0.9.2.tgz"
+  integrity sha512-CuH4cjVtBgiZQcyIH2B6OksXYYVnEEvkYYmhXRbXZ35JbaLV8gcNpv83pXDrzDpq1cXhOByUxxMEIBejtoJFVw==
   dependencies:
-    "@neuraiproject/neurai-key" "^4.0.1"
+    "@neuraiproject/neurai-key" "^5.0.3"
     "@noble/hashes" "^2.2.0"
     bech32 "^2.0.0"
     bs58 "^6.0.0"
     bs58check "^4.0.0"
 
-"@neuraiproject/neurai-depin-msg@^3.1.1":
-  version "3.1.1"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-depin-msg/-/neurai-depin-msg-3.1.1.tgz"
-  integrity sha512-8Md4vQsr+7AHCVb61tEBfDnjhPP9iz0FmQws2Xi2R06gxWlDmycZIspG5QwSKjlQy79NgS0eS9+eiwnR/XT3wA==
+"@neuraiproject/neurai-depin-msg@^3.1.3":
+  version "3.1.3"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-depin-msg/-/neurai-depin-msg-3.1.3.tgz"
+  integrity sha512-0cmz4IQEJdUUhqDIx6Mm7D75Cd2jWEaNXpbb1D8yjRIFznebye1q/sWSBMD6CTop2IRY/8Dyu59e9iNDi64wBQ==
   dependencies:
     "@noble/ciphers" "^1.3.0"
     "@noble/curves" "^1.9.7"
     "@noble/hashes" "^1.8.0"
 
-"@neuraiproject/neurai-history-list@^1.2.6":
-  version "1.2.6"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-history-list/-/neurai-history-list-1.2.6.tgz"
-  integrity sha512-54bGF4NXnLBoK8VrTIl2NhQSH2LvZ/e9C7tlI3lQRLqbRpT0cP9Hikw23qziRoMqnb9hTrh5eEhtdA/Dtb3cpg==
+"@neuraiproject/neurai-history-list@^1.2.8":
+  version "1.2.8"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-history-list/-/neurai-history-list-1.2.8.tgz"
+  integrity sha512-7zrA9tzxSbrxOWXCc8FX/ITuaZXtfAT/53h4vHsODsUgerqzaJgd3zsgjlODkkvyHLmroPXstuMUmqNLGYqAjQ==
 
-"@neuraiproject/neurai-jswallet@^0.15.3":
-  version "0.15.3"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-jswallet/-/neurai-jswallet-0.15.3.tgz"
-  integrity sha512-hEjNqaYmztXtz4ILruxBUomNnVQz8GRVYxsUYrnrLypEcjZLUcDkzOs9Wq3e1gJw3OYNIq+HBrs3wGPlHbXg/g==
+"@neuraiproject/neurai-jswallet@^0.17.0":
+  version "0.17.0"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-jswallet/-/neurai-jswallet-0.17.0.tgz"
+  integrity sha512-wSteNoT//bjl3u3AaWGOGwvg4zUI+LyG/1F7g1RC9G5p34pdKzckNlfUGl1ZTzo/1yci439kPKvaxxpii5KJGw==
   dependencies:
-    "@neuraiproject/neurai-assets" "^1.6.1"
-    "@neuraiproject/neurai-create-transaction" "^0.8.1"
-    "@neuraiproject/neurai-key" "^4.0.1"
-    "@neuraiproject/neurai-rpc" "^0.6.1"
-    "@neuraiproject/neurai-scripts" "^0.8.2"
-    "@neuraiproject/neurai-sign-transaction" "^2.4.2"
+    "@neuraiproject/neurai-assets" "^1.8.0"
+    "@neuraiproject/neurai-create-transaction" "^0.9.2"
+    "@neuraiproject/neurai-key" "^5.0.3"
+    "@neuraiproject/neurai-rpc" "^0.7.0"
+    "@neuraiproject/neurai-scripts" "^0.9.2"
+    "@neuraiproject/neurai-sign-transaction" "^3.0.3"
 
-"@neuraiproject/neurai-key@^4.0.1":
-  version "4.0.1"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-key/-/neurai-key-4.0.1.tgz"
-  integrity sha512-3KPMvaK3MRsA3uDdqYFULjNlJYA1ZGS1kiJLpWT17QM9DhnNk8O/BkUyqdx+Oyalx7RqWosIZsUvjkP1FHQ9Yw==
+"@neuraiproject/neurai-key@^5.0.3":
+  version "5.0.3"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-key/-/neurai-key-5.0.3.tgz"
+  integrity sha512-BFaGQErLeImhuxO0DcPGS5JHQbP465dYJOHBqyHky0kX2S7IyoqEcbZJ8PQjj+wiBKz5NKmBc+T78ErbY4wROA==
   dependencies:
     "@noble/curves" "^2.0.0"
     "@noble/hashes" "^2.0.0"
@@ -701,38 +701,38 @@
     "@scure/bip39" "^2.0.1"
     bech32 "^2.0.0"
 
-"@neuraiproject/neurai-message@^0.10.2":
-  version "0.10.2"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-message/-/neurai-message-0.10.2.tgz"
-  integrity sha512-tGiWbPK9PggXzsBjyM6tqkwLCLp3V7wRnreVQ8UFpElUf75oL5zy0WDNfJC5cvgbZf6YpbdlVqaCJpkjF1ZW/A==
+"@neuraiproject/neurai-message@^0.11.0":
+  version "0.11.0"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-message/-/neurai-message-0.11.0.tgz"
+  integrity sha512-NMdpPu0GXM5p2jqmpw82E9/w1wVjQbENc1rqJELtMQwWV53yUAcg/eNVc6VM2k7m85bThSVysJfLMSLor+ITzQ==
   dependencies:
     "@noble/hashes" "^2.0.1"
     "@noble/post-quantum" "^0.6.0"
     "@noble/secp256k1" "^3.0.0"
     "@scure/base" "^2.4.0"
 
-"@neuraiproject/neurai-rpc@^0.6.1":
-  version "0.6.1"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-rpc/-/neurai-rpc-0.6.1.tgz"
-  integrity sha512-qNRA+k4cADAhEDBXJmJStVmyF8W5v2ewg5AShBCm+c0MP+pj0kXE+uWvGiE6dDn3xnDHcTFSTIgsRP4uvRtxAA==
+"@neuraiproject/neurai-rpc@^0.7.0":
+  version "0.7.0"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-rpc/-/neurai-rpc-0.7.0.tgz"
+  integrity sha512-Sbc4lsrKeLR0RrpgMk+u1Kn4c4MNQ/EObHoDFt1S8RmjDFHqgf9HO65wwEMcVjXuBVWZSMWnJyLZ+C93f5k1pA==
   dependencies:
     lossless-json "^4.3.0"
 
-"@neuraiproject/neurai-scripts@^0.8.2":
-  version "0.8.2"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-scripts/-/neurai-scripts-0.8.2.tgz"
-  integrity sha512-2u8o9YrjHN+O8Ugkr65W/ki6GQNJqwo9eyJysEmIhap+b0ltNtoYPn7eKILDwQbaJgR4FT6SdjdxVAzageBdqg==
+"@neuraiproject/neurai-scripts@^0.9.2":
+  version "0.9.2"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-scripts/-/neurai-scripts-0.9.2.tgz"
+  integrity sha512-DOgiDQeEDaIvH8UfHJe95Q1YOnjZ6JK96EntY2zMxh3qcgAf4j1iAwg2UIAsUTrL1x7v2iZU4epPOLFfJWNxCA==
   dependencies:
-    "@neuraiproject/neurai-create-transaction" "^0.8.1"
+    "@neuraiproject/neurai-create-transaction" "^0.9.2"
 
-"@neuraiproject/neurai-sign-transaction@^2.4.2":
-  version "2.4.2"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-sign-transaction/-/neurai-sign-transaction-2.4.2.tgz"
-  integrity sha512-32/oIYL4YvSh+DUzMBYOiK8Bn2JGgtjtiEcyNKOIg9H9EIm0rqAp1EVAI1gG8YrE4fAgaTguaGSw+NntFAYDCQ==
+"@neuraiproject/neurai-sign-transaction@^3.0.3":
+  version "3.0.3"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-sign-transaction/-/neurai-sign-transaction-3.0.3.tgz"
+  integrity sha512-hnByR6pDPY2OH5FV4qjzn6QbbReImJfHSZ+QV3ESfHbqfECz1fwDlFdmC3KMaYXOhFsJ8oXhekY/85zjkWC6uQ==
   dependencies:
     "@bitcoinerlab/secp256k1" "1.2.0"
-    "@neuraiproject/neurai-create-transaction" "^0.8.1"
-    "@neuraiproject/neurai-scripts" "^0.8.2"
+    "@neuraiproject/neurai-create-transaction" "^0.9.2"
+    "@neuraiproject/neurai-scripts" "^0.9.2"
     "@noble/post-quantum" "^0.6.0"
     bitcoinjs-lib "7.0.1"
     buffer "^6.0.3"

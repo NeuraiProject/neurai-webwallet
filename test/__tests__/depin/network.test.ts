@@ -3,14 +3,15 @@ import { chatAvailability, depinNetworkFor, isChatAvailable } from "@/depin/netw
 // The table is the product policy. These tests are what makes "when mainnet
 // gets DePIN, change one entry" true rather than aspirational.
 describe("chat availability by chain", () => {
-  it("offers the chat on both testnet derivations", () => {
-    for (const chain of ["xna-test", "xna-legacy-test"]) {
+  it("offers the chat on the testnet chains with a secp256k1 tree", () => {
+    // ECDSA witness wallets derive the same P2PKH identity as Legacy ones.
+    for (const chain of ["xna-test", "xna-legacy-test", "xna-ecdsa-test"]) {
       expect(chatAvailability(chain)).toEqual({ available: true, network: "test" });
     }
   });
 
   it("refuses mainnet because DePIN is not there yet, not because of the node", () => {
-    for (const chain of ["xna", "xna-legacy"]) {
+    for (const chain of ["xna", "xna-legacy", "xna-ecdsa"]) {
       const availability = chatAvailability(chain);
       expect(availability.available).toBe(false);
       if (availability.available) throw new Error("unreachable");
@@ -20,7 +21,7 @@ describe("chat availability by chain", () => {
   });
 
   it("refuses PQ chains for a different reason: no BIP44 path", () => {
-    for (const chain of ["xna-pq", "xna-pq-test"]) {
+    for (const chain of ["xna-pq", "xna-pq-test", "xna-pq-strict", "xna-pq-strict-test"]) {
       const availability = chatAvailability(chain);
       expect(availability.available).toBe(false);
       if (availability.available) throw new Error("unreachable");
@@ -41,6 +42,7 @@ describe("depinNetworkFor", () => {
   it("maps the supported chains to the library's names", () => {
     expect(depinNetworkFor("xna-test")).toBe("test");
     expect(depinNetworkFor("xna-legacy-test")).toBe("test");
+    expect(depinNetworkFor("xna-ecdsa-test")).toBe("test");
   });
 
   it("throws where the chat is not offered", () => {
@@ -49,6 +51,7 @@ describe("depinNetworkFor", () => {
     // the user is not on.
     expect(() => depinNetworkFor("xna")).toThrow(/mainnet/i);
     expect(() => depinNetworkFor("xna-pq")).toThrow(/post-quantum/i);
+    expect(() => depinNetworkFor("xna-pq-strict-test")).toThrow(/post-quantum/i);
     expect(() => depinNetworkFor("nonsense")).toThrow();
   });
 });

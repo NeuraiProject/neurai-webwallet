@@ -39,7 +39,10 @@ test("sendMax uses the exact amount computed by the published wallet", async () 
   expect(confirm.mock.calls[0][1]).toContain("105552176.16498301");
 });
 
-test.each(['xna', 'xna-legacy', 'xna-pq', 'xna-test', 'xna-legacy-test', 'xna-pq-test'])("confirmation identifies real funds from wallet network %s", async network => {
+test.each([
+  'xna', 'xna-legacy', 'xna-pq', 'xna-pq-strict', 'xna-ecdsa',
+  'xna-test', 'xna-legacy-test', 'xna-pq-test', 'xna-pq-strict-test', 'xna-ecdsa-test',
+])("confirmation identifies real funds from wallet network %s", async network => {
   const wallet = {
     network, baseCurrency: 'XNA',
     createTransaction: jest.fn().mockResolvedValue({debug:{amount:'1500',fee:'0.00362323',signedTransaction:'signed'}}),

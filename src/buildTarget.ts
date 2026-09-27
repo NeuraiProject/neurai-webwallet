@@ -23,14 +23,22 @@ export function isAllowedNetwork(network: string): boolean {
  * Networks that exist in the code but are not ready to be used.
  *
  * Separate from the build target on purpose: that decides which networks a
- * given build is *for*, this decides which ones work at all. Post-quantum
- * mainnet is derivable and selectable but not enabled, so offering it hands
- * someone a wallet that cannot do anything.
+ * given build is *for*, this decides which ones work at all. The strict witness
+ * families (PQ v2 and ECDSA witness v3) are derivable on mainnet, but the node
+ * does not protect them there until they activate, so offering them hands
+ * someone a wallet that cannot do anything safely.
  */
-const NOT_YET_ENABLED: readonly string[] = ["xna-pq"];
+const NOT_YET_ENABLED: readonly string[] = ["xna-pq-strict", "xna-ecdsa"];
+
+/**
+ * Networks that are not coin wallets on any chain. Generic AuthScript v1
+ * (`nc1p…` / `tnc1p…`) is the address family for contracts, not for holding
+ * coins; the post-quantum coin address is strict PQ v2 (`pq1z…` / `tpq1z…`).
+ */
+const NOT_A_WALLET: readonly string[] = ["xna-pq", "xna-pq-test"];
 
 export function isNetworkEnabled(network: string): boolean {
-  return !NOT_YET_ENABLED.includes(network);
+  return !NOT_YET_ENABLED.includes(network) && !NOT_A_WALLET.includes(network);
 }
 
 /** Both gates: the build is for this network, and the network works. */

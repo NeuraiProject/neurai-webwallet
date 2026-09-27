@@ -3,8 +3,11 @@
  *
  * Two different questions live here and they must not be conflated:
  *
- *   *Can* an identity be derived? BIP44 account 100, so any legacy chain. The
- *   PQ chains use NIP-022 derivation and have no BIP44 path at all.
+ *   *Can* an identity be derived? BIP44 account 100, a Legacy P2PKH address,
+ *   so any chain whose wallet is a secp256k1 tree: Legacy and ECDSA witness.
+ *   The identity is P2PKH whatever the wallet's own addresses are, because
+ *   DePIN only serves P2PKH holders. The PQ chains (AuthScript and strict) use
+ *   NIP-022 derivation and have no BIP44 path at all.
  *
  *   *Should* the chat be offered? A product decision. DePIN tokens exist on
  *   testnet and not on mainnet, and a chat with no possible token is not a
@@ -39,8 +42,14 @@ const UNAVAILABLE_MESSAGE: Record<ChatUnavailableReason, string> = {
 const CHAT_BY_CHAIN: Record<ChainType, ChatAvailability> = {
   'xna-test': { available: true, network: 'test' },
   'xna-legacy-test': { available: true, network: 'test' },
+  'xna-ecdsa-test': { available: true, network: 'test' },
   xna: { available: false, reason: 'no-depin-on-chain', message: UNAVAILABLE_MESSAGE['no-depin-on-chain'] },
   'xna-legacy': {
+    available: false,
+    reason: 'no-depin-on-chain',
+    message: UNAVAILABLE_MESSAGE['no-depin-on-chain'],
+  },
+  'xna-ecdsa': {
     available: false,
     reason: 'no-depin-on-chain',
     message: UNAVAILABLE_MESSAGE['no-depin-on-chain'],
@@ -51,6 +60,16 @@ const CHAT_BY_CHAIN: Record<ChainType, ChatAvailability> = {
     message: UNAVAILABLE_MESSAGE['no-bip44-derivation'],
   },
   'xna-pq-test': {
+    available: false,
+    reason: 'no-bip44-derivation',
+    message: UNAVAILABLE_MESSAGE['no-bip44-derivation'],
+  },
+  'xna-pq-strict': {
+    available: false,
+    reason: 'no-bip44-derivation',
+    message: UNAVAILABLE_MESSAGE['no-bip44-derivation'],
+  },
+  'xna-pq-strict-test': {
     available: false,
     reason: 'no-bip44-derivation',
     message: UNAVAILABLE_MESSAGE['no-bip44-derivation'],

@@ -324,7 +324,8 @@ export function Asset({ wallet }: { wallet: Wallet }) {
             : `#${trimmedAssetName}`;
           result = (await wallet.issueQualifier({
             assetName: qualName,
-            quantity: amountFromInput(quantity || "1"),
+            // neurai-assets validates qualifier quantities (1 to 10) as numbers.
+            quantity: Number(amountFromInput(quantity || "1")),
             ipfsHash: ipfs || undefined,
             ...opts,
           })) as AssetOpResult;
@@ -839,7 +840,7 @@ export function Asset({ wallet }: { wallet: Wallet }) {
                           <input
                             type="text"
                             className="neurai-input"
-                            placeholder="tnq1..."
+                            placeholder="Neurai address"
                             value={toAddress}
                             onChange={(e) => setToAddress(e.target.value)}
                           />

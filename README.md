@@ -14,7 +14,7 @@ The current application version is **1.1.0**, defined in [package.json](package.
 - Handle XNA amounts using exact decimal strings and integer satoshis, including amounts beyond JavaScript's safe integer range.
 - Configure a custom RPC server and inspect its reported chain, block height, headers, difficulty, verification progress and best block hash in Settings.
 - View recovery words in a PIN-protected dialog. Closing it requires a new PIN verification on the next opening.
-- DePIN chat on supported legacy testnet wallets, subject to token eligibility and pool availability.
+- DePIN chat on Legacy and ECDSA witness testnet wallets, subject to token eligibility and pool availability.
 
 ## Networks and recovery
 
@@ -25,9 +25,14 @@ Choose the network in the **Network** selector on the login screen. The availabl
 | Mainnet Legacy | `xna` | BIP44 coin type **1900**; first receiving path `m/44'/1900'/0'/0/0` |
 | Mainnet Old webwallet | `xna-legacy` | BIP44 coin type **0**; first receiving path `m/44'/0'/0'/0/0`, for wallets created with the old derivation |
 | Testnet Legacy | `xna-legacy-test` | Legacy testnet derivation, coin type **1** |
-| Testnet PQ | `xna-pq-test` | Post-quantum testnet derivation |
+| Testnet PQ | `xna-pq-strict-test` | Post-quantum strict witness v2, `tpq1z…` addresses; PQ-HD path `m_pq/100'/1'/0'/0'/i'` |
+| Testnet ECDSA witness | `xna-ecdsa-test` | Strict ECDSA witness v3, `tnq1r…` addresses; path `m/84'/1'/0'/{0,1}/i` |
 
-**Mainnet PQ is disabled in this application.** DePIN chat is disabled for PQ wallets and mainnet in the current implementation.
+**The strict witness families (PQ and ECDSA witness) are disabled on mainnet in this application**: the node does not protect them there until they activate. On the reset testnet they are active from block 10. DePIN chat is disabled for PQ wallets and on mainnet in the current implementation.
+
+Generic AuthScript v1 (`nc1p…` / `tnc1p…`) is the address family for contracts, not a coin wallet, so the selector does not offer it on any chain. Earlier releases did: their **Testnet PQ** wallet (`xna-pq-test`) used that family and wrote its addresses `tnq1p…`. The node now uses the `tnq` prefix for ECDSA witness v3 and rejects those strings; the same scriptPubKey is written `tnc1p…`. **Testnet PQ** now derives strict PQ v2 addresses, so the same recovery words give different addresses there. Send refuses an old `nq1p…` / `tnq1p…` recipient with an explanation instead of rewriting it.
+
+The DePIN chat identity is always the Legacy P2PKH address at BIP44 account 100 (`m/44'/1'/100'/0/0` on testnet), for ECDSA witness wallets too, because DePIN only serves P2PKH holders. Message signing follows the address type of the signing address, as the node's `signmessage` does.
 
 When restoring an older mainnet wallet, choose **Mainnet Old webwallet** if it used coin type 0. The same recovery words produce different addresses with different derivations or passphrases.
 
@@ -70,7 +75,7 @@ Some npm configurations block dependency installation scripts and report `allowS
 | Mainnet only | `npm run start:mainnet` | `npm run build:mainnet` |
 | Testnet only | `npm run start:testnet` | `npm run build:testnet` |
 
-These target-specific scripts set `WALLET_BUILD` at build time. Their environment-variable syntax assumes a POSIX shell, such as Bash or WSL. Restricting a build to mainnet does not enable Mainnet PQ.
+These target-specific scripts set `WALLET_BUILD` at build time. Their environment-variable syntax assumes a POSIX shell, such as Bash or WSL. Restricting a build to mainnet does not enable the mainnet witness families.
 
 Production output is written to `dist/`. Serve its contents from a static web server over HTTPS. The build target is compiled into the JavaScript; changing it requires rebuilding. The `prestart` and `prebuild` scripts update `src/buildDate.ts`.
 
@@ -85,7 +90,7 @@ Default endpoints configured by the application:
 
 In **Settings → RPC connection**, enable a custom server and enter its full URL, plus optional username and password. Save and reload to apply the change. **Restore defaults** removes the custom configuration.
 
-The custom RPC override is shared across networks in this browser, so check its chain when switching wallets. RPC credentials are saved in browser local storage. Use an endpoint intended for browser access, with the necessary CORS and RPC permissions. Browser mixed-content rules can restrict HTTP connections from an HTTPS wallet.
+The custom RPC override is shared across networks in this browser, so check its chain when switching wallets. A testnet wallet verifies the node's genesis block (`0000008b384aeffecdab182575dc4e86c9f07f90318c65088532660ed9a8a021`, the testnet reset of 2026-09-26) before scanning addresses and refuses a node of the previous testnet chain. RPC credentials are saved in browser local storage. Use an endpoint intended for browser access, with the necessary CORS and RPC permissions. Browser mixed-content rules can restrict HTTP connections from an HTTPS wallet.
 
 Network details are fetched from the active wallet's RPC using `getblockchaininfo` every 30 seconds while Settings is mounted. Missing, blocked or failed responses are shown as unavailable rather than as a confirmed sync state.
 
@@ -108,9 +113,9 @@ The Jest suites in [test/__tests__](test/__tests__) cover exact amounts, network
 
 ### Optional regtest integration
 
-[test/regtest/published-large-amounts.cjs](test/regtest/published-large-amounts.cjs) exercises legacy and PQ transactions with large XNA amounts against a real regtest node. It is separate from `npm test`.
+[test/regtest/published-large-amounts.cjs](test/regtest/published-large-amounts.cjs) exercises Legacy, PQ AuthScript, PQ strict and ECDSA witness transactions with large XNA amounts against a real regtest node. It is separate from `npm test`.
 
-It requires an existing, running Docker container containing `/usr/local/bin/neuraid-regtest`, `/usr/local/bin/neurai-cli-regtest` and `/opt/NEURAI_SOURCE_REVISION`. It starts an isolated node data directory, mines test blocks and broadcasts regtest transactions:
+It requires an existing, running Docker container containing `/usr/local/bin/neuraid-regtest`, `/usr/local/bin/neurai-cli-regtest` and `/opt/NEURAI_SOURCE_REVISION`, built from a node that knows the `nc` / `pq` / `nq` address prefixes (Neurai-DePIN `0fe5a74` or later). It starts an isolated node data directory, mines test blocks and broadcasts regtest transactions:
 
 ```sh
 NEURAI_REGTEST_CONTAINER=your-regtest-container node test/regtest/published-large-amounts.cjs

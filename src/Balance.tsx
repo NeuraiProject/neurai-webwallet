@@ -3,11 +3,11 @@ import {addAmounts, absAmount} from "./exactAmounts";
 import React from "react";
 
 import { Wallet } from "@neuraiproject/neurai-jswallet";
+import { isTestnetChain } from "./buildTarget";
 import { getAssetBalanceFromMempool, type MempoolAsset } from "./utils";
 
 export function isTestnet(wallet: Wallet | null | undefined): boolean {
-  const net = wallet?.network;
-  return net === "xna-test" || net === "xna-legacy-test" || net === "xna-pq-test";
+  return !!wallet?.network && isTestnetChain(wallet.network);
 }
 
 export function Balance({

@@ -14,7 +14,10 @@ import {
 } from "./utils";
 import { Events, triggerEvent } from "./Events";
 import { betterAlert, betterConfirm, betterToast } from "./betterDialog";
+import { isTestnetChain } from "./buildTarget";
 import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
+import { isWalletNetwork } from "./networkOptions";
+import { invalidAddressMessage } from "./utils/addressFormat";
 
 type ValidateAddressResponse = {
   isvalid: boolean;
@@ -152,7 +155,7 @@ export function Send({
     try {
       const validation = await wallet.rpc("validateaddress", [to]) as ValidateAddressResponse;
       if (!validation.isvalid) {
-        betterAlert("Error", to + " does not seem to be a valid address");
+        betterAlert("Error", invalidAddressMessage(to));
         return;
       }
       await send({
@@ -451,7 +454,7 @@ export async function send({
 ${to}?
 
 Transaction fee: ${String(sendResult.debug.fee)} ${wallet.baseCurrency}${dustLine}`;
-  const onMainnet = ["xna", "xna-legacy", "xna-pq"].includes(wallet.network);
+  const onMainnet = isWalletNetwork(wallet.network) && !isTestnetChain(wallet.network);
   const c = await betterConfirm("About to send", confirmText, onMainnet ? {
     warning: {
       title: "MAINNET - REAL FUNDS",

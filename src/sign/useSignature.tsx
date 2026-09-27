@@ -1,18 +1,20 @@
 import React from "react";
-import * as NeuraiMessage from "@neuraiproject/neurai-message";
-import { IAddressObject } from "./IAddressObject";
+import { signMessage, type SigningAddress } from "./signMessage";
 
-export function useSignature(addressObject: Pick<IAddressObject, "privateKey"> | null, text: string) {
+export function useSignature(addressObject: SigningAddress | null, text: string) {
   const [signature, setSignature] = React.useState("");
 
   React.useEffect(() => {
     if (addressObject) {
-      const privateKey = Buffer.from(addressObject.privateKey, "hex");
-      if (!privateKey || !text) {
+      if (!addressObject.privateKey || !text) {
         setSignature("");
       } else {
-        const s = NeuraiMessage.sign(text, privateKey);
-        setSignature(s);
+        try {
+          setSignature(signMessage(text, addressObject));
+        } catch (error) {
+          console.error("Failed to sign message", error);
+          setSignature("");
+        }
       }
     }
   }, [addressObject, text]);

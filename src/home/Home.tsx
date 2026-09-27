@@ -15,7 +15,7 @@ import {
 } from "../icons/assetIcons";
 import { formatNumberWith8Decimals } from "../formatNumberWith8Decimals";
 import { getAssetBalanceIncludingMempool, getAssetBalanceFromMempool, isBaseAssetName, type MempoolAsset } from "../utils";
-import { ReceiveAddress } from "../ReceiveAddress";
+import { ReceiveAddress, type ReceiveAddressHandle } from "../ReceiveAddress";
 import { decimalSeparator, splitAmount } from "./splitAmount";
 import { subtitleFor } from "./assetSubtitle";
 import { useAssetMeta } from "./useAssetMeta";
@@ -78,10 +78,15 @@ export function Home({
     React.useMemo(() => rows.map((row) => row.name), [rows]),
   );
 
+  // Receive opens the card's larger QR instead of a separate screen.
+  const receiveCard = React.useRef<ReceiveAddressHandle>(null);
+  // Witness addresses (PQ and ECDSA) are twice as long as Legacy ones.
+  const longAddresses = wallet.network.includes("pq") || wallet.network.includes("ecdsa");
+
   return (
     <div className="flex flex-col gap-4">
       {/* Balance ------------------------------------------------------- */}
-      <section className={`neurai-card grid gap-7 items-center ${wallet.network.includes("pq") ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]"}`}>
+      <section className={`neurai-card grid gap-7 items-center ${longAddresses ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]"}`}>
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.09em] opacity-50 m-0">Total balance</p>
           <div className="flex items-baseline gap-2.5 mt-2 mb-0.5 flex-wrap">
@@ -105,7 +110,7 @@ export function Home({
             <button type="button" className="neurai-btn--primary" onClick={() => setRoute(Routes.SEND)}>
               Send
             </button>
-            <button type="button" className="neurai-btn--secondary" onClick={() => setRoute(Routes.RECEIVE)}>
+            <button type="button" className="neurai-btn--secondary" disabled={!receiveAddress} onClick={() => receiveCard.current?.openQR()}>
               Receive
             </button>
             <button type="button" className="neurai-btn--secondary" onClick={() => setRoute(Routes.ASSET)}>
@@ -114,7 +119,7 @@ export function Home({
           </div>
         </div>
 
-        <ReceiveAddress wallet={wallet} receiveAddress={receiveAddress} compact />
+        <ReceiveAddress ref={receiveCard} wallet={wallet} receiveAddress={receiveAddress} compact />
       </section>
 
 

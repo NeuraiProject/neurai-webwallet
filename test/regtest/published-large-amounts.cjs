@@ -7,7 +7,8 @@ const req=createRequire(resolve(__dirname,'../../package.json'));
 const Wallet=req('@neuraiproject/neurai-jswallet');
 const {parseRpcJson,stringifyRpcJson}=req('@neuraiproject/neurai-rpc');
 const {parseTransaction,decimalToSatoshis,satoshisToDecimal}=req('@neuraiproject/neurai-create-transaction');
-const container=process.env.NEURAI_REGTEST_CONTAINER || 'neurai-libraries-regtest-20260916';
+// The node must know the nc/pq/nq address prefixes (Neurai-DePIN 0fe5a74 or later).
+const container=process.env.NEURAI_REGTEST_CONTAINER || 'neurai-reset-testnet-h10-20260927';
 const datadir='/tmp/webwallet-published-'+Date.now();
 const args=['-regtest','-datadir='+datadir,'-rpcuser=regtest','-rpcpassword=regtest','-rpcport=19443'];
 function docker(...cmd){return execFileSync('docker',['exec',container,...cmd],{encoding:'utf8',maxBuffer:64*1024*1024}).trim();}
@@ -50,8 +51,12 @@ async function sendAndCheck(wallet,options,label){
   assert.equal(cli('getblockchaininfo').chain,'regtest');
   const legacy=await Wallet.createInstance({mnemonic,network:'xna-test',offlineMode:true});legacy.rpc=rpc;
   const pq=await Wallet.createInstance({mnemonic,network:'xna-pq-test',offlineMode:true});pq.rpc=rpc;
+  const pqStrict=await Wallet.createInstance({mnemonic,network:'xna-pq-strict-test',offlineMode:true});pqStrict.rpc=rpc;
+  const ecdsa=await Wallet.createInstance({mnemonic,network:'xna-ecdsa-test',offlineMode:true});ecdsa.rpc=rpc;
   const legacyAddress=legacy.getAddresses()[0];
   const pqAddress=pq.getAddresses()[0];
+  const pqStrictAddress=pqStrict.getAddresses()[0];
+  const ecdsaAddress=ecdsa.getAddresses()[0];
   console.log('Mining 2501 regtest blocks for >100 million mature XNA');
   cli('generate',2501);
   const coins=cli('listunspent',100,9999999).filter(u=>decimalToSatoshis(u.amount)===5000000000000n);
@@ -67,6 +72,9 @@ async function sendAndCheck(wallet,options,label){
   assert.equal(decimalToSatoshis(await legacy.getBalance()),11999994000000000n);
   await sendAndCheck(legacy,{toAddress:pqAddress,amount:'105552176.16498300'},'legacy original error amount');
   await sendAndCheck(pq,{toAddress:legacyAddress,amount:'100000000.00000001'},'PQ large fractional amount');
+  await sendAndCheck(legacy,{toAddress:pqStrictAddress,amount:'60000000.12345678'},'legacy to strict PQ');
+  await sendAndCheck(pqStrict,{toAddress:ecdsaAddress,amount:'50000000.00000001'},'strict PQ large fractional amount');
+  await sendAndCheck(ecdsa,{toAddress:legacyAddress,amount:'40000000.87654321'},'ECDSA witness large fractional amount');
   await sendAndCheck(legacy,{toAddress:cli('getnewaddress'),sendMax:true},'legacy large sendMax');
   console.log(JSON.stringify({source:docker('cat','/opt/NEURAI_SOURCE_REVISION'),outcomes},null,2));
  }finally{if(started)cli('stop');}

@@ -85,7 +85,7 @@ test('login settings expose no recovery action and show the explicit selected ne
   localStorage.setItem('wallet_network','xna');
   const container=document.createElement('div');const root=createRoot(container);
   try {
-    await act(async()=>root.render(<Settings network="xna-pq-test"/>));
+    await act(async()=>root.render(<Settings network="xna-pq-strict-test"/>));
     expect(container.textContent).toContain('Testnet PQ');
     expect(button(container,'View recovery words')).toBeUndefined();
   } finally {await act(async()=>root.unmount());}
@@ -95,7 +95,7 @@ test('network details come from the active wallet RPC and recovery follows RPC',
   const wallet={rpc:jest.fn().mockResolvedValue({chain:'regtest',blocks:123,headers:124,difficulty:0.5,bestblockhash:'abc123',verificationprogress:0.9,initialblockdownload:true})};
   const container=document.createElement('div');const root=createRoot(container);
   try {
-    await act(async()=>root.render(<Settings wallet={wallet as any} network="xna-pq-test" mnemonic={words}/>));
+    await act(async()=>root.render(<Settings wallet={wallet as any} network="xna-pq-strict-test" mnemonic={words}/>));
     expect(wallet.rpc).toHaveBeenCalledWith('getblockchaininfo',[]);
     expect(container.textContent).toContain('regtest');
     expect(container.textContent).toContain('abc123');

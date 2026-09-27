@@ -1,6 +1,7 @@
 import React from "react";
 import { key as NeuraiKey } from "@neuraiproject/neurai-jswallet";
 import { Settings } from "../Settings";
+import { legacyKeyNetworkFor } from "../utils/keyNetwork";
 
 type ChainType = "xna" | "xna-test" | "xna-legacy" | "xna-legacy-test";
 type AddressPair = {
@@ -26,11 +27,14 @@ export function Offline({
 
   const addresses = React.useMemo(() => {
     const out: Array<{ index: number; address: string }> = [];
+    // neurai-key 5 gives these labels other meanings (see keyNetwork.ts).
+    const keyNetwork = legacyKeyNetworkFor(network);
+    if (!keyNetwork) return out;
     for (let i = 0; i < addressCount; i++) {
       try {
         const pair = passphrase
-          ? (NeuraiKey.getAddressPair(network, mnemonic, 0, i, passphrase) as AddressPair | null)
-          : (NeuraiKey.getAddressPair(network, mnemonic, 0, i) as AddressPair | null);
+          ? (NeuraiKey.getAddressPair(keyNetwork, mnemonic, 0, i, passphrase) as AddressPair | null)
+          : (NeuraiKey.getAddressPair(keyNetwork, mnemonic, 0, i) as AddressPair | null);
         const address = String(pair?.external?.address || "");
         if (address) out.push({ index: i, address });
       } catch {

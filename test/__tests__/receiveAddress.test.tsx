@@ -1,7 +1,8 @@
 /** @jest-environment jsdom */
 import React, {act} from 'react';
 import {createRoot} from 'react-dom/client';
-import {ReceiveAddress} from '@/ReceiveAddress';
+import {ReceiveAddress, type ReceiveAddressHandle} from '@/ReceiveAddress';
+import {Home} from '@/home/Home';
 import {useReceiveAddress} from '@/hooks/useReceiveAddress';
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
 const address='NfrFWhPKcMQ7BbFGWtsAnaC6G5qEUSsD4f';
@@ -81,7 +82,7 @@ test('copied feedback disappears after a brief delay',async()=>{
 
 test('PQ uses four centered parts and the eye hides both outputs and prevents copying or enlarging',async()=>{
   const c=document.createElement('div');const root=createRoot(c);
-  const pq='tnq1pavsksr40nq495pmyt8unn73828a6ek8h9xf9f6ys0qa3fystrzxqc4883n';
+  const pq='tpq1zxu7utdtg4xxghu793rrpxd0whwfns2kaekgadnvk2l63f789a8ysrcg5fq';
   try {
     await act(async()=>root.render(<ReceiveAddress wallet={wallet} receiveAddress={pq} compact/>));
     const addressButton=c.querySelector<HTMLButtonElement>('[aria-label="Copy receive address"]')!;
@@ -97,5 +98,59 @@ test('PQ uses four centered parts and the eye hides both outputs and prevents co
     expect(c.querySelector<HTMLButtonElement>('[aria-label="Copy receive address"]')!.disabled).toBe(true);
     await act(async()=>c.querySelector<HTMLButtonElement>('[aria-label="Show address and QR"]')!.click());
     expect(c.querySelector<HTMLButtonElement>('[aria-label="Copy receive address"]')!.disabled).toBe(false);
+  } finally {await act(async()=>root.unmount());}
+});
+
+test('home Receive opens the larger QR instead of routing to a separate screen',async()=>{
+  const setRoute=jest.fn();
+  const homeWallet={...wallet,network:'xna-test',baseCurrency:'XNA',rpc:jest.fn(async()=>null),getHistory:jest.fn(async()=>[])} as any;
+  const c=document.createElement('div');const root=createRoot(c);
+  try {
+    const render=(receiveAddress:string)=>root.render(<Home wallet={homeWallet} assets={[]} mempool={[]} balance="0" blockCount={1}
+      setRoute={setRoute} receiveAddress={receiveAddress}/>);
+    await act(async()=>render(''));
+    expect(button(c,'Receive').disabled).toBe(true);
+    await act(async()=>render(address));
+    expect(c.querySelector('dialog')).toBeNull();
+    await act(async()=>button(c,'Receive').click());
+    const dialog=c.querySelector('dialog');
+    expect(dialog?.textContent).toContain(address);
+    expect(dialog?.textContent).toContain("m/44'/1900'/0'/0/0");
+    expect(setRoute).not.toHaveBeenCalled();
+    await act(async()=>button(c,'Close').click());
+    expect(c.querySelector('dialog')).toBeNull();
+  } finally {await act(async()=>root.unmount());}
+});
+
+test('opening the QR on request also works while the card is hidden, and copies',async()=>{
+  const ref=React.createRef<ReceiveAddressHandle>();
+  const c=document.createElement('div');const root=createRoot(c);
+  try {
+    await act(async()=>root.render(<ReceiveAddress ref={ref} wallet={wallet} receiveAddress={address} compact/>));
+    await act(async()=>c.querySelector<HTMLButtonElement>('[aria-label="Hide address and QR"]')!.click());
+    expect(c.querySelector<HTMLButtonElement>('[aria-label="Show larger QR"]')!.disabled).toBe(true);
+    await act(async()=>ref.current!.openQR());
+    const dialog=c.querySelector('dialog')!;
+    expect(dialog.textContent).toContain(address);
+    await act(async()=>dialog.querySelector<HTMLButtonElement>('[aria-label="Copy receive address"]')!.click());
+    expect(writeText).toHaveBeenCalledWith(address);
+    // The card keeps its privacy setting underneath.
+    expect(c.querySelector('[aria-label="Show address and QR"]')).not.toBeNull();
+  } finally {await act(async()=>root.unmount());}
+});
+
+test('witness addresses are split in four lines, Legacy ones in three',async()=>{
+  const c=document.createElement('div');const root=createRoot(c);
+  try {
+    for (const [receiveAddress,lines] of [
+      ['tpq1zxu7utdtg4xxghu793rrpxd0whwfns2kaekgadnvk2l63f789a8ysrcg5fq',4],
+      ['tnq1rpqlhk9qucn28drzp33ugu2unxqf7y7qq887ll2q644739m49ph0sluj0re',4],
+      [address,3],
+    ] as const) {
+      await act(async()=>root.render(<ReceiveAddress wallet={wallet} receiveAddress={receiveAddress} compact/>));
+      const parts=c.querySelector('[aria-label="Copy receive address"]')!.querySelectorAll('span');
+      expect(parts).toHaveLength(lines);
+      expect([...parts].map(p=>p.textContent).join('')).toBe(receiveAddress);
+    }
   } finally {await act(async()=>root.unmount());}
 });
