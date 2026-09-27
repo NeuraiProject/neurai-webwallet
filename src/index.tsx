@@ -34,6 +34,7 @@ import { ReceiveAddress } from "./ReceiveAddress";
 import { Balance } from "./Balance";
 import { SendPanel } from "./Send";
 import { Sweep } from "./Sweep";
+import { PrivacyPool } from "./PrivacyPool";
 import { Asset } from "./Asset";
 import { Sign } from "./sign/Sign";
 import { Settings } from "./Settings";
@@ -576,6 +577,7 @@ function App() {
               receiveAddress={receiveAddress}
             />
           )}
+          {currentRoute === Routes.PRIVACY && <PrivacyPool />}
           {currentRoute === Routes.RECEIVE && (
             <ReceiveAddress receiveAddress={receiveAddress} wallet={wallet} />
           )}
