@@ -1,4 +1,4 @@
-import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
+import { formatSummaryAmount } from "./formatSummaryAmount";
 import {addAmounts, absAmount} from "./exactAmounts";
 import React from "react";
 
@@ -29,7 +29,7 @@ export function Balance({
     style: "currency",
     currency: "USD",
   });
-  const balanceText = formatNumberWith8Decimals(_balance);
+  const balanceText = formatSummaryAmount(_balance);
   const unitPriceText = price?.toLocaleString("en-US", {
     style: "currency",
     currency: "USD",

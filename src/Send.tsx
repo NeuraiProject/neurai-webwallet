@@ -261,7 +261,7 @@ export function Send({
           >
             <option value={defaultValueAssets}>{defaultValueAssets}</option>
             <option value={baseCurrencyLabel}>
-              {baseCurrencyLabel} (base currency) ({displayBalance})
+              {baseCurrencyLabel} (base currency) ({formatNumberWith8Decimals(displayBalance)})
             </option>
             {options}
           </select>

@@ -13,7 +13,7 @@ import {
   IconQualifierAsset,
   IconSubAsset,
 } from "../icons/assetIcons";
-import { formatNumberWith8Decimals } from "../formatNumberWith8Decimals";
+import { formatSummaryAmount } from "../formatSummaryAmount";
 import { getAssetBalanceIncludingMempool, getAssetBalanceFromMempool, isBaseAssetName, type MempoolAsset } from "../utils";
 import { ReceiveAddress, type ReceiveAddressHandle } from "../ReceiveAddress";
 import { decimalSeparator, splitAmount } from "./splitAmount";
@@ -138,7 +138,7 @@ export function Home({
             iconClass="bg-white"
             name={baseCurrency}
             subtitle="Network currency"
-            amount={formatNumberWith8Decimals(total)}
+            amount={formatSummaryAmount(total)}
             sub={!onTestnet && price > 0 ? (price * Number(total)).toLocaleString("en-US", { style: "currency", currency: "USD" }) : undefined}
           />
 
@@ -152,7 +152,7 @@ export function Home({
                   ? "Held at your DePIN chat address"
                   : subtitleFor(row.name, meta[row.name])
               }
-              amount={formatNumberWith8Decimals(row.amount)}
+              amount={formatSummaryAmount(row.amount)}
               sub={row.name.endsWith("!") ? undefined : supplyLabel(meta[row.name])}
             />
           ))}
@@ -197,7 +197,7 @@ export function Home({
                   </div>
                   <div className={`text-right text-[13px] font-semibold tabular-nums ${incoming ? "text-success" : ""}`}>
                     {incoming ? "+" : "−"}
-                    {formatNumberWith8Decimals(absAmount(item.value))}
+                    {formatSummaryAmount(absAmount(item.value))}
                   </div>
                 </div>
               );
@@ -225,7 +225,7 @@ export function Home({
  * identical, so this uses the two-thirds ratio price displays settle on.
  */
 function BalanceAmount({ value }: { value: number | string }) {
-  const formatted = formatNumberWith8Decimals(value);
+  const formatted = formatSummaryAmount(value);
   const { whole, separator, fraction } = splitAmount(
     formatted,
     decimalSeparator(typeof navigator !== "undefined" ? navigator.language : undefined),
@@ -288,5 +288,5 @@ function iconFor(assetName: string): React.ReactNode {
 /** Holding against total issuance, when the issuance is known. */
 function supplyLabel(meta?: { amount?: number }): string | undefined {
   if (typeof meta?.amount !== "number") return undefined;
-  return `of ${meta.amount.toLocaleString()}`;
+  return `of ${formatSummaryAmount(meta.amount)}`;
 }
