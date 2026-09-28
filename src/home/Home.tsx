@@ -22,6 +22,17 @@ import { useAssetMeta } from "./useAssetMeta";
 import { useDepinAddressAssets } from "./useDepinAddressAssets";
 import { useWalletHistory } from "./useWalletHistory";
 
+/**
+ * Keeps the home page mounted while other sections are open, so coming back
+ * shows what it already had instead of loading it again. Its data keeps
+ * refreshing in the background with each new block. Keyed by wallet, like
+ * SendPanel, so another wallet never inherits this one's data.
+ */
+export function HomePanel({ active, ...props }: React.ComponentProps<typeof Home> & { active: boolean }) {
+  const walletKey = `${props.wallet.network}:${props.wallet.getAddresses()[0]}`;
+  return <div hidden={!active}><Home key={walletKey} {...props} /></div>;
+}
+
 /** Home combines balances, the receive address, assets and recent activity. */
 export function Home({
   wallet,

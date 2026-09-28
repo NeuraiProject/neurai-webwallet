@@ -21,7 +21,7 @@ import "./styles/primitives.css";
 import "./App.css";
 
 import { chatAvailability } from "./depin/network";
-import { Home } from "./home/Home";
+import { HomePanel } from "./home/Home";
 import { PendingTransactions } from "./PendingTransactions";
 import { formatRpcError } from "./utils/rpcError";
 import { Loader } from "./Loader";
@@ -565,18 +565,17 @@ function App() {
 
       <div className="rebel-content-container">
         <div className="rebel-content-container__content">
-          {currentRoute === Routes.HOME && (
-            <Home
-              wallet={wallet}
-              assets={assets}
-              mempool={mempool}
-              balance={balance}
-              blockCount={blockCount}
-              depinChatAddress={depinChatIdentity?.address ?? null}
-              setRoute={setCurrentRoute}
-              receiveAddress={receiveAddress}
-            />
-          )}
+          <HomePanel
+            active={currentRoute === Routes.HOME}
+            wallet={wallet}
+            assets={assets}
+            mempool={mempool}
+            balance={balance}
+            blockCount={blockCount}
+            depinChatAddress={depinChatIdentity?.address ?? null}
+            setRoute={setCurrentRoute}
+            receiveAddress={receiveAddress}
+          />
           {currentRoute === Routes.PRIVACY && <PrivacyPool />}
           {currentRoute === Routes.RECEIVE && (
             <ReceiveAddress receiveAddress={receiveAddress} wallet={wallet} />
