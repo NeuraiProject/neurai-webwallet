@@ -177,7 +177,7 @@ export function Home({
             {activity.slice(0, 5).map((item) => {
               const incoming = !item.outgoing;
               return (
-                <div key={item.transactionId} className="grid grid-cols-[32px_minmax(0,1fr)_auto] gap-3 items-center px-[18px] py-2.5 border-t border-base-300">
+                <div key={item.transactionId} className={`${LIST_ROW} grid-cols-[32px_minmax(0,1fr)_auto]`}>
                   <div
                     className={`w-8 h-8 rounded-[9px] grid place-items-center shrink-0 ${
                       incoming ? "bg-success/20 text-success" : "bg-error/15 text-error"
@@ -186,16 +186,16 @@ export function Home({
                     {incoming ? <IconIncoming className="w-[19px] h-[19px]" /> : <IconOutgoing className="w-[19px] h-[19px]" />}
                   </div>
                   <div className="min-w-0">
-                    <b className="text-[13px] font-semibold">
+                    <b className={`${LIST_ROW_TITLE} text-[13px] font-semibold`}>
                       {incoming ? "Received" : "Sent"}
                       {item.assetName !== baseCurrency ? ` ${item.assetName}` : ""}
                     </b>
-                    <div className="text-[11.5px] opacity-50 tabular-nums">
+                    <div className={`${LIST_ROW_DETAIL} tabular-nums`}>
                       {item.blockHeight ? `block ${item.blockHeight.toLocaleString()}` : "unconfirmed"}
                       {item.extraAssets > 0 && ` · +${item.extraAssets} more`}
                     </div>
                   </div>
-                  <div className={`text-right text-[13px] font-semibold tabular-nums ${incoming ? "text-success" : ""}`}>
+                  <div className={`text-right whitespace-nowrap text-[13px] font-semibold tabular-nums ${incoming ? "text-success" : ""}`}>
                     {incoming ? "+" : "−"}
                     {formatSummaryAmount(absAmount(item.value))}
                   </div>
@@ -244,6 +244,16 @@ function BalanceAmount({ value }: { value: number | string }) {
   );
 }
 
+/**
+ * Rows of the Assets and Recent activity lists. On wide screens the two lists
+ * sit side by side, so their rows share one height: the same padding and
+ * minimum height, fixed line heights, and single-line text. Otherwise a row
+ * that wraps or lacks its second line pushes every row below it out of step.
+ */
+const LIST_ROW = "grid gap-3 items-center px-[18px] py-3 min-h-[66px] border-t border-base-300";
+const LIST_ROW_TITLE = "block leading-6 truncate";
+const LIST_ROW_DETAIL = "block text-[11.5px] leading-[17px] opacity-50 truncate";
+
 function AssetRow({
   icon,
   iconClass = "bg-base-100",
@@ -260,17 +270,17 @@ function AssetRow({
   sub?: string;
 }) {
   return (
-    <div className="grid grid-cols-[38px_minmax(0,1fr)_auto] gap-3 items-center px-[18px] py-3 border-t border-base-300">
+    <div className={`${LIST_ROW} grid-cols-[38px_minmax(0,1fr)_auto]`}>
       <div className={`w-[38px] h-[38px] rounded-[10px] grid place-items-center shrink-0 border border-base-300 opacity-90 ${iconClass}`}>
         {icon}
       </div>
       <div className="min-w-0">
-        <div className="font-semibold truncate">{name}</div>
-        {subtitle && <div className="text-[11.5px] opacity-50 truncate">{subtitle}</div>}
+        <div className={`${LIST_ROW_TITLE} font-semibold`}>{name}</div>
+        {subtitle && <div className={LIST_ROW_DETAIL}>{subtitle}</div>}
       </div>
-      <div className="text-right font-semibold text-sm tabular-nums">
+      <div className="text-right whitespace-nowrap font-semibold text-sm tabular-nums">
         {amount}
-        {sub && <span className="block text-[11.5px] font-normal opacity-50">{sub}</span>}
+        {sub && <span className={`${LIST_ROW_DETAIL} font-normal`}>{sub}</span>}
       </div>
     </div>
   );
