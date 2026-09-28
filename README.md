@@ -2,7 +2,7 @@
 
 Open-source, non-custodial web wallet for Neurai (XNA). Key derivation and transaction signing run in the browser; the wallet connects to a Neurai RPC server for blockchain data and transaction broadcasting.
 
-The current application version is **1.2.0**, defined in [package.json](package.json). The header displays this version and the build date.
+The current application version is **1.2.1**, defined in [package.json](package.json). The header displays this version and the build date, and the footer displays the version.
 
 ## Features
 
