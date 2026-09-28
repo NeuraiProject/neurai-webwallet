@@ -154,3 +154,21 @@ test('witness addresses are split in four lines, Legacy ones in three',async()=>
     }
   } finally {await act(async()=>root.unmount());}
 });
+
+test('on narrow screens the home card is hidden, and Receive still opens the QR outside it',async()=>{
+  const homeWallet={...wallet,network:'xna-test',baseCurrency:'XNA',rpc:jest.fn(async()=>null),getHistory:jest.fn(async()=>[])} as any;
+  const c=document.createElement('div');const root=createRoot(c);
+  try {
+    await act(async()=>root.render(<Home wallet={homeWallet} assets={[]} mempool={[]} balance="0" blockCount={1}
+      setRoute={jest.fn()} receiveAddress={address}/>));
+    const card=c.querySelector('[aria-label="Copy receive address"]')!.closest('section')!;
+    // Hidden below lg, where it would otherwise drop under the balance.
+    expect(card.classList.contains('hidden')).toBe(true);
+    expect(card.classList.contains('lg:block')).toBe(true);
+    await act(async()=>button(c,'Receive').click());
+    const dialog=c.querySelector('dialog')!;
+    expect(dialog.textContent).toContain(address);
+    expect(dialog.textContent).toContain("m/44'/1900'/0'/0/0");
+    expect(card.contains(dialog)).toBe(false);
+  } finally {await act(async()=>root.unmount());}
+});

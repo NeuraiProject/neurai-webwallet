@@ -119,7 +119,9 @@ export function Home({
           </div>
         </div>
 
-        <ReceiveAddress ref={receiveCard} wallet={wallet} receiveAddress={receiveAddress} compact />
+        {/* Below lg the card would drop under the balance: it is hidden there,
+            and the Receive button still opens the QR with the address. */}
+        <ReceiveAddress ref={receiveCard} wallet={wallet} receiveAddress={receiveAddress} compact cardClassName="hidden lg:block" />
       </section>
 
 

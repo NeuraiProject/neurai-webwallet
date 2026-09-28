@@ -22,7 +22,12 @@ export function derivationFor(wallet: Wallet | null, address: string): string | 
 /** Lets a parent open the larger QR, as a click on the card's QR does. */
 export type ReceiveAddressHandle = { openQR: () => void };
 
-export function ReceiveAddress({ref, ...props}: { receiveAddress: string; wallet: Wallet | null; compact?: boolean; ref?: React.Ref<ReceiveAddressHandle> }) {
+/**
+ * `cardClassName` styles the card only: the larger QR opens outside it, so a
+ * parent can hide the card (for example on narrow screens) and still open the
+ * QR through the handle.
+ */
+export function ReceiveAddress({ref, ...props}: { receiveAddress: string; wallet: Wallet | null; compact?: boolean; cardClassName?: string; ref?: React.Ref<ReceiveAddressHandle> }) {
   const [hidden, setHidden] = React.useState(false);
   // The address the larger QR was opened for: a new address closes it.
   const [qrAddress, setQrAddress] = React.useState<string | null>(null);
@@ -34,7 +39,7 @@ export function ReceiveAddress({ref, ...props}: { receiveAddress: string; wallet
     showQR={showQR} onShowQR={() => setQrAddress(props.receiveAddress)} onCloseQR={() => setQrAddress(null)} />;
 }
 
-function ReceiveCard({receiveAddress, wallet, compact = false, hidden, onToggleHidden, showQR, onShowQR, onCloseQR}: {receiveAddress: string; wallet: Wallet | null; compact?: boolean; hidden: boolean; onToggleHidden: () => void; showQR: boolean; onShowQR: () => void; onCloseQR: () => void}) {
+function ReceiveCard({receiveAddress, wallet, compact = false, cardClassName = '', hidden, onToggleHidden, showQR, onShowQR, onCloseQR}: {receiveAddress: string; wallet: Wallet | null; compact?: boolean; cardClassName?: string; hidden: boolean; onToggleHidden: () => void; showQR: boolean; onShowQR: () => void; onCloseQR: () => void}) {
   const [copied, setCopied] = React.useState(false);
   const copyTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = React.useRef(true);
@@ -65,7 +70,8 @@ function ReceiveCard({receiveAddress, wallet, compact = false, hidden, onToggleH
       setError('Could not copy. Select the address and copy it manually.');
     }
   }
-  return <section className={compact ? 'relative min-w-0 rounded-xl border border-base-300 bg-base-100 p-[10px]' : 'relative neurai-card min-w-0'}>
+  return <>
+  <section className={`${compact ? 'relative min-w-0 rounded-xl border border-base-300 bg-base-100 p-[10px]' : 'relative neurai-card min-w-0'} ${cardClassName}`}>
     {receiveAddress ? <>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-center">
         <div className="relative min-w-0 flex flex-col gap-3 items-center text-center">
@@ -87,9 +93,11 @@ function ReceiveCard({receiveAddress, wallet, compact = false, hidden, onToggleH
           {hidden ? <IconEyeOff/> : <IconEye/>}
         </button>
       {error && <p role="alert" className="text-sm text-error mt-3 mb-0">{error}</p>}
-      {showQR && <ReceiveQRDialog address={receiveAddress} derivation={derivation} onCopy={copy} copied={copied} error={error} onClose={onCloseQR} />}
     </> : <p role="status" className="text-sm opacity-60 m-0">Loading receive address…</p>}
-  </section>;
+  </section>
+  {/* Outside the card, so hiding the card never hides the QR it opens. */}
+  {receiveAddress && showQR && <ReceiveQRDialog address={receiveAddress} derivation={derivation} onCopy={copy} copied={copied} error={error} onClose={onCloseQR} />}
+  </>;
 }
 
 function ReceiveQRDialog({address, derivation, onClose, onCopy, copied, error}: {address: string; derivation: string | null; onClose: () => void; onCopy: () => Promise<void>; copied: boolean; error: string}) {
