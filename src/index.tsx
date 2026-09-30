@@ -34,7 +34,7 @@ import { ReceiveAddress } from "./ReceiveAddress";
 import { Balance } from "./Balance";
 import { SendPanel } from "./Send";
 import { Sweep } from "./Sweep";
-import { PrivacyPool } from "./PrivacyPool";
+import { PrivacyPanel } from "./PrivacyPool";
 import { Asset } from "./Asset";
 import { Sign } from "./sign/Sign";
 import { Settings } from "./Settings";
@@ -576,7 +576,7 @@ function App() {
             setRoute={setCurrentRoute}
             receiveAddress={receiveAddress}
           />
-          {currentRoute === Routes.PRIVACY && <PrivacyPool />}
+          <PrivacyPanel active={currentRoute === Routes.PRIVACY} wallet={wallet} mnemonic={mnemonic} passphrase={passphrase} />
           {currentRoute === Routes.RECEIVE && (
             <ReceiveAddress receiveAddress={receiveAddress} wallet={wallet} />
           )}

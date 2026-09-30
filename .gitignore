@@ -137,3 +137,6 @@ flash_esp32/
 
 # Ignore future changes to these files
 future-changes
+
+# Public C3 TEST proving artifacts: install locally, do not commit large binaries.
+/public/privacy-c3/

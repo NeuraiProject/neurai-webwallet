@@ -19,7 +19,8 @@
     "start:all": "WALLET_BUILD=all npm start",
     "prestart": "node update-build-date.js",
     "dev": "parcel public/index.html --https",
-    "postinstall": "node generateCommitHash.js"
+    "postinstall": "node generateCommitHash.js",
+    "privacy:install": "node scripts/install-privacy-c3.mjs"
   },
   "keywords": [
     "Neurai",
@@ -52,6 +53,7 @@
     "@neuraiproject/neurai-history-list": "^1.2.8",
     "@neuraiproject/neurai-jswallet": "^0.17.0",
     "@neuraiproject/neurai-message": "^0.11.0",
+    "@neuraiproject/neurai-privacy": "0.1.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@yudiel/react-qr-scanner": "^2.5.1",
@@ -62,7 +64,9 @@
     "qrcode-generator": "^2.0.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-icons": "^5.6.0"
+    "react-icons": "^5.6.0",
+    "snarkjs": "0.7.6",
+    "@neuraiproject/neurai-sign-transaction": "^3.0.3"
   },
   "devDependencies": {
     "@parcel/packager-raw-url": "^2.16.4",
@@ -101,5 +105,9 @@
   },
   "@parcel/resolver-default": {
     "packageExports": true
-  }
+  },
+  "@parcel/bundler-default": {
+    "disableSharedBundles": true
+  },
+  "//privacy-workers": "Keep cryptographic workers self-contained. Shared worker chunks omitted a SHA-256 module in the optimized multi-worker build; the browser integration test covers this regression."
 }

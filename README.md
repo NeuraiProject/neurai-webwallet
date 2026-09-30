@@ -94,6 +94,16 @@ The custom RPC override is shared across networks in this browser, so check its 
 
 Network details are fetched from the active wallet's RPC using `getblockchaininfo` every 30 seconds while Settings is mounted. Missing, blocked or failed responses are shown as unavailable rather than as a confirmed sync state.
 
+## Privacy Pool and browser benchmark
+
+Privacy runs real operations on the experimental **C3 XNA testnet** pool: deposit, private assignment and withdrawal. **Open private wallet** derives the private wallet from the open wallet's recovery words, with an optional ZK passphrase and account number, so it needs no extra backup. It receives payments at `tnzk1…` addresses that rotate after use. An encrypted JSON identity remains available for wallets opened without their words. Proving and funding signatures are local; a separate review precedes broadcast. An elapsed timer and phase indicator stay visible during work.
+
+The pool logic comes from the [`@neuraiproject/neurai-privacy`](https://www.npmjs.com/package/@neuraiproject/neurai-privacy) package, pinned to version 0.1.1. The webwallet provides the interface and signs the transparent funding inputs. Pool operations need a Testnet Legacy wallet, the public proving parameters installed with `npm run privacy:install` (into `dist/privacy-c3` by default) and an RPC node running with `-txindex` and `-spentindex`; a derived wallet keeps its encrypted scan checkpoint in the browser's IndexedDB. [The manual setup guide](PRIVACY-TESTNET.md) explains these steps, the pinned instance and its limits.
+
+**Open benchmark** opens the disposable test lab. The primitive run measures note encryption, Poseidon and vault operations without wallet keys or RPC. **Run C3 benchmark** selects any of the six reduced circuits with pinned public parameters, uses one thread and exports the proof and public signals with its timings. Advanced users can still select matching TEST input, WASM, zkey and VK files manually. The C3 proving keys are approximately 35–111 MiB; the older multi-GB baseline is not used by this route.
+
+A proof benchmark does not measure a complete transaction, synchronization, signing, inclusion in a block or actual process RAM. TEST keys must not secure valuable funds. snarkjs 0.7.6 is GPL-3.0; it is loaded by the optional proving workers, including the real TEST operation worker. Its license is included in `public/snarkjs-GPL-3.0.txt`. Review redistribution obligations for the combined application before publishing it.
+
 ## Validation
 
 ```sh
@@ -127,3 +137,4 @@ Review the script's container requirements before running it; a generic Neurai D
 
 - [ESP32 storage integration](ESP32_README.md)
 - [License](LICENSE)
+
