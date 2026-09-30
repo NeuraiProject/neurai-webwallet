@@ -16,3 +16,12 @@
 - **Proving parameters installer.** `npm run privacy:install` copies and verifies the public proving parameters for a deployment.
 
 The pool runs on the `@neuraiproject/neurai-privacy` package and needs a Testnet Legacy wallet and an RPC node with `-txindex` and `-spentindex`. See [PRIVACY-TESTNET.md](PRIVACY-TESTNET.md).
+
+- **The sign-in page names the Privacy Pool.** Its panel of what the wallet does now lists the pool beside self-custody, assets and DePIN, with the icon the menu uses for it.
+
+### Changed: choosing a network on the sign-in page
+
+- **Network and address type are now two questions.** The single drop-down listed every chain and address type together. The card now asks for the network first — **Mainnet**, the official network with real funds, or **Testnet**, where coins have no value — and then for the address type.
+- **The address type is a list that stays shut.** Only the chosen type is on screen; pressing it opens the other two over the form, and picking one closes it again. Mainnet offers **Legacy** and marks **ECDSA** and **PQ** as *soon*, since the node does not protect them there yet; testnet offers all three and opens on **ECDSA**. Every entry says what it is and shows an example address for the chosen network, its opening characters in bold — `N`, `nq1r` and `pq1z` on mainnet, `t`, `tnq1r` and `tpq1z` on testnet — cut at the end when it does not fit.
+- **The card is in two halves.** A rule separates the network being opened from the wallet being opened on it. **Recover** and **Create new**, and the 12 / 24 word choice, are quieter tabs rather than filled buttons, so **Sign in** is the only thing on the card that looks like an action.
+- **The old web wallet's derivation is a recovery option.** Wallets made in the previous web wallet sit on a different derivation of the same Mainnet Legacy addresses, so it is now a checkbox beside the recovery words under **Recover**, instead of a separate entry in the network list. A new wallet can no longer be created on it.

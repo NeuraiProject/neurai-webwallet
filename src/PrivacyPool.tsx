@@ -6,7 +6,7 @@ import { PrivacyBenchmark } from './privacy-benchmark/PrivacyBenchmark';
 import { createPoolWorker } from './privacy-pool/workerFactory';
 import { scanCheckpointStore } from './privacy-pool/scanCheckpointStore';
 import {
-  C3_TESTNET_MANIFEST as manifest, C3_TEST_DEPOSIT_LIMIT_ATOMIC, parseXna, formatXna, ROTATION_MAX_GAP, PoolWorkerClient, assertPoolChain, recheckInputs,
+  C3_TESTNET_MANIFEST as manifest, C3_TEST_DEPOSIT_LIMIT_ATOMIC, MAX_ATOMIC, parseXna, formatXna, ROTATION_MAX_GAP, PoolWorkerClient, assertPoolChain, recheckInputs,
   confirmedPoolCoins, selectPoolCoins, withdrawalScript, admitTransaction, inspectFundingTransaction, publishTransaction,
   publicationStatus, rotationStorageKey, loadRotation as loadStoredRotation, saveRotation as storeRotation,
   type ReceivingInfo, type PoolCoin, type PoolIdentityMessage, type PoolScanMessage, type PoolAddressesMessage,
@@ -30,23 +30,23 @@ export function elapsedLabel(ms:number) {const s=Math.floor(ms/1000);return `${M
 type StatusTone='idle'|'done'|'error';
 /** Status of the current step. The spinner and live timer appear only while work is running. */
 export function OperationTimer({busy,phase,elapsed,tone='idle',onCancel}:{busy:boolean;phase:string;elapsed:number;tone?:StatusTone;onCancel?:()=>void}) {
-  if(!busy)return <div className={`privacy-operation is-idle is-${tone}`} role="status" aria-live="polite">
+  if(!busy)return <div className={`privacy-operation neurai-card neurai-card--compact is-idle is-${tone}`} role="status" aria-live="polite">
     <span className="privacy-operation__dot" aria-hidden="true"/>
-    <strong>{phase}</strong>
-    {elapsed>0&&<small>Last step took {elapsedLabel(elapsed)}</small>}
+    <strong className="text-sm font-semibold">{phase}</strong>
+    {elapsed>0&&<small className="ml-auto text-xs text-base-content/70">Last step took {elapsedLabel(elapsed)}</small>}
   </div>;
-  return <div className="privacy-operation is-running" role="status" aria-live="polite">
+  return <div className="privacy-operation neurai-card neurai-card--compact is-running" role="status" aria-live="polite">
     <div className="privacy-operation__indicator" aria-hidden="true"/>
-    <div><strong>{phase}</strong><small>Working on this device. You can keep this page open.</small></div>
-    <time aria-label="Elapsed time">{elapsedLabel(elapsed)}</time>
-    {onCancel&&<button className="btn btn-sm btn-outline" onClick={onCancel}>Cancel and lock</button>}
+    <div className="min-w-0"><strong className="block text-sm font-semibold">{phase}</strong><small className="block text-xs text-base-content/70">Working on this device. You can keep this page open.</small></div>
+    <time className="ml-auto font-mono text-2xl font-semibold tabular-nums" aria-label="Elapsed time">{elapsedLabel(elapsed)}</time>
+    {onCancel&&<button className="neurai-btn--secondary btn-sm" onClick={onCancel}>Cancel and lock</button>}
     <div className="privacy-operation__track" aria-hidden="true"><span/></div>
   </div>;
 }
 /** mnemonic and passphrase are the open wallet's words; they are only sent to the dedicated pool worker. */
 export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;mnemonic?:string;passphrase?:string}={}) {
   const [bench,setBench]=React.useState(false),[busy,setBusy]=React.useState(false),[phase,setPhase]=React.useState('Ready');
-  const [elapsed,setElapsed]=React.useState(0),[error,setError]=React.useState(''),[lines,setLines]=React.useState<string[]>(['NEURAI C3 / TESTNET POOL','C:\\NEURAI> READY']);
+  const [elapsed,setElapsed]=React.useState(0),[error,setError]=React.useState(''),[lines,setLines]=React.useState<string[]>(['Privacy pool ready.']);
   const [password,setPassword]=React.useState(''),[backup,setBackup]=React.useState<any>(null),[recipient,setRecipient]=React.useState<any>(null),[backupSaved,setBackupSaved]=React.useState(false);
   const [scan,setScan]=React.useState<Scan|null>(null),[action,setAction]=React.useState<'deposit'|'transfer'|'withdraw'>('deposit');
   const [amount,setAmount]=React.useState('10'),[recipientText,setRecipientText]=React.useState(''),[destination,setDestination]=React.useState(''),[note,setNote]=React.useState('');
@@ -220,7 +220,7 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
     const current=epoch.current;
     try {
       command.current='funding';begin('Preparing an exact deposit coin');setPreview(null);await chainCheck();
-      const atomic=parseXna(amount);if(atomic>C3_TEST_DEPOSIT_LIMIT_ATOMIC)throw new Error('TEST deposit limit: 1,000 XNA');const value=formatXna(atomic);
+      const atomic=parseXna(amount);if(atomic>C3_TEST_DEPOSIT_LIMIT_ATOMIC)throw new Error(`Deposit limit: ${formatXna(C3_TEST_DEPOSIT_LIMIT_ATOMIC)} XNA`);const value=formatXna(atomic);
       const toAddress=wallet!.getAddresses()[0];
       const result=await wallet!.createTransaction({amount:value,toAddress,assetName:wallet!.baseCurrency});
       const raw=result.debug?.signedTransaction;if(!raw)throw new Error('Wallet did not return a signed funding transaction');
@@ -260,98 +260,164 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
   const derived=addresses?.kind==='derived';
   const tone:StatusTone=error?'error':elapsed>0?'done':'idle';
   const cancel=busy&&command.current==='prepare'&&phase!=='Publishing to testnet'?()=>{lock();append('[STOP] Worker terminated; reload your privacy JSON to continue.');}:undefined;
-  const feeField=<label>Public network fee (XNA)<input inputMode="decimal" value={fee} onChange={e=>setFee(e.target.value)} disabled={locked}/></label>;
-  const noteField=<label>Note to spend<select value={note} onChange={e=>setNote(e.target.value)} disabled={locked}><option value="">{scan?'Select a note':'Refresh notes in step 1 first'}</option>{scan?.notes.map(n=><option value={n.cm} key={n.cm}>{formatXna(BigInt(n.amountAtomic))} XNA · {n.cm.slice(0,12)}…</option>)}</select></label>;
-  const buildButton=<button className="btn btn-primary" disabled={locked||(action!=='deposit'&&!note)} onClick={()=>void prepare()}>Build and verify proof</button>;
-  return <section className="privacy-pool" aria-label="Privacy Pool">
-    <header className="privacy-pool__hero"><div><span className="privacy-pool__eyebrow">NEURAI / TESTNET LAB</span><h1>Privacy Pool</h1><p>Deposit XNA, assign a private note, and withdraw to a wallet. Proofs are built on your device.</p></div>
-      <button className="btn btn-outline" disabled={busy} onClick={()=>setBench(x=>!x)} aria-expanded={bench}>{bench?'Back to pool':'Open benchmark'}</button></header>
+  const feeField=<div><label htmlFor="privacy-fee" className="neurai-label">Public network fee (XNA)</label>
+    <input id="privacy-fee" className="neurai-input" inputMode="decimal" value={fee} onChange={e=>setFee(e.target.value)} disabled={locked}/></div>;
+  const noteField=<div><label htmlFor="privacy-note" className="neurai-label">Note to spend</label>
+    <select id="privacy-note" className="neurai-select" value={note} onChange={e=>setNote(e.target.value)} disabled={locked}>
+      <option value="">{scan?'Select a note':'Refresh notes in step 1 first'}</option>
+      {scan?.notes.map(n=><option value={n.cm} key={n.cm}>{formatXna(n.amountAtomic)} XNA · {n.cm.slice(0,12)}…</option>)}
+    </select></div>;
+  const buildButton=<button className="neurai-btn--primary" disabled={locked||(action!=='deposit'&&!note)} onClick={()=>void prepare()}>Build and verify proof</button>;
+  const depositLimited=C3_TEST_DEPOSIT_LIMIT_ATOMIC<MAX_ATOMIC;
+  const box='rounded-xl border border-base-300 bg-base-100 p-4 min-w-0';
+  const notice='rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-base-content m-0';
+  return <section className="privacy-pool neurai-stack min-w-0" aria-label="Privacy Pool">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h2 className="text-xl font-bold m-0">Privacy Pool</h2>
+        <p className="neurai-hint mt-1 mb-0">Deposit XNA, assign private notes and withdraw them to a wallet. Proofs are built on this device.</p>
+      </div>
+      <button className="neurai-btn--secondary" disabled={busy} onClick={()=>setBench(x=>!x)} aria-expanded={bench}>{bench?'Back to pool':'Open benchmark'}</button>
+    </div>
     {bench?<PrivacyBenchmark/>:<>
-      <div className="privacy-pool__notice">C3 TEST keys · XNA only · Legacy funding and withdrawal addresses. This pool does not accept valuable funds.</div>
-      {!testnet&&<p role="alert">Switch to a testnet wallet to use the pool.</p>}
-      <div className="privacy-pool__grid">
-        <section className="privacy-pool__card">
-          <div className="privacy-pool__card-head"><h2>1. Private wallet</h2>{recipient&&<button className="btn btn-sm btn-ghost" disabled={busy} onClick={lock}>Lock</button>}</div>
+      <p className={notice}>C3 TEST keys · XNA only · Legacy funding and withdrawal addresses. This pool does not accept valuable funds.</p>
+      {!testnet&&<p role="alert" className="text-sm text-error m-0">Switch to a testnet wallet to use the pool.</p>}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        <section className="neurai-card neurai-stack min-w-0" aria-labelledby="privacy-wallet-title">
+          <div className="flex items-start justify-between gap-3">
+            <div><p className="neurai-eyebrow mb-1">Step 1</p><h3 id="privacy-wallet-title" className="neurai-card__title">Private wallet</h3></div>
+            {recipient&&<button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={lock}>Lock</button>}
+          </div>
           {!recipient?<>
-            <p className="privacy-pool__lead">Open your private wallet from this wallet’s words. Nothing needs to be saved: the same words, passphrase, ZK passphrase and account always give the same private wallet.</p>
-            {!mnemonic&&<p className="privacy-pool__hint">This wallet was opened without its words. Use an encrypted backup file below.</p>}
-            <label>ZK passphrase (optional)<input type="password" aria-label="ZK passphrase" autoComplete="off" value={zkPassphrase} onChange={e=>setZkPassphrase(e.target.value)} disabled={busy||!mnemonic}/></label>
-            <small>It has no checksum: a typo opens a different, empty private wallet. Spaces count.</small>
-            <label>Account<input inputMode="numeric" aria-label="Account" value={account} onChange={e=>setAccount(e.target.value.trim())} disabled={busy||!mnemonic}/></label>
-            <div className="privacy-pool__actions"><button className="btn btn-primary" disabled={!testnet||busy||!mnemonic} onClick={openFromWords}>Open private wallet</button></div>
-            <details className="privacy-pool__alt"><summary>Use an encrypted backup file instead</summary>
-              <label>Backup password<input type="password" aria-label="Backup password" autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} disabled={busy}/></label>
-              <small>New backup: at least 12 characters. Existing backup: type its password, then choose the file.</small>
-              <div className="privacy-pool__actions"><button className="btn btn-outline" disabled={!testnet||busy||password.length<12} onClick={()=>{setBackupSaved(false);void request({type:'create',password});}}>Create privacy wallet</button>
-                <label className={`btn btn-outline ${busy||!testnet||password.length<1?'btn-disabled':''}`}>Load privacy JSON<input type="file" accept=".json" hidden disabled={busy||!testnet||password.length<1} onChange={e=>void restore(e.target.files?.[0])}/></label></div>
+            <p className="text-sm text-base-content/70 m-0">Open your private wallet from this wallet’s words. Nothing needs to be saved: the same words, passphrase, ZK passphrase and account always give the same private wallet.</p>
+            {!mnemonic&&<p className={notice}>This wallet was opened without its words. Use an encrypted backup file below.</p>}
+            <div><label htmlFor="privacy-zk-passphrase" className="neurai-label">ZK passphrase <span className="font-normal opacity-60">(optional)</span></label>
+              <input id="privacy-zk-passphrase" className="neurai-input" type="password" aria-label="ZK passphrase" autoComplete="off" value={zkPassphrase} onChange={e=>setZkPassphrase(e.target.value)} disabled={busy||!mnemonic}/>
+              <p className="neurai-hint mb-0">It has no checksum: a typo opens a different, empty private wallet. Spaces count.</p></div>
+            <div><label htmlFor="privacy-account" className="neurai-label">Account</label>
+              <input id="privacy-account" className="neurai-input" inputMode="numeric" aria-label="Account" value={account} onChange={e=>setAccount(e.target.value.trim())} disabled={busy||!mnemonic}/></div>
+            <button className="neurai-btn--primary self-start" disabled={!testnet||busy||!mnemonic} onClick={openFromWords}>Open private wallet</button>
+            <details className={box}><summary className="cursor-pointer text-sm font-semibold">Use an encrypted backup file instead</summary>
+              <div className="neurai-stack gap-3 mt-3">
+                <div><label htmlFor="privacy-backup-password" className="neurai-label">Backup password</label>
+                  <input id="privacy-backup-password" className="neurai-input" type="password" aria-label="Backup password" autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} disabled={busy}/>
+                  <p className="neurai-hint mb-0">New backup: at least 12 characters. Existing backup: type its password, then choose the file.</p></div>
+                <div className="flex flex-wrap gap-2">
+                  <button className="neurai-btn--secondary" disabled={!testnet||busy||password.length<12} onClick={()=>{setBackupSaved(false);void request({type:'create',password});}}>Create privacy wallet</button>
+                  <label className={`neurai-btn--secondary ${busy||!testnet||password.length<1?'btn-disabled':''}`}>Load privacy JSON<input type="file" accept=".json" hidden disabled={busy||!testnet||password.length<1} onChange={e=>void restore(e.target.files?.[0])}/></label>
+                </div>
+              </div>
             </details>
           </>:<>
-            <div className="privacy-pool__balance"><small>Confirmed private balance</small><strong>{scan?formatXna(BigInt(scan.balanceAtomic)):'—'} <span>XNA</span></strong>
-              <div className="privacy-pool__sync"><small>{scan?`${scan.notes.length} spendable notes · checked through block ${scan.height}`:'Notes not loaded yet'}</small>
-                <button className="btn btn-sm btn-outline" disabled={busy} onClick={()=>void request({type:'scan'})}>Refresh notes</button></div></div>
-            {derived?<div className="privacy-pool__block is-done">
-              <h3>✓ Recovered from the wallet words</h3>
-              <p>Account {addresses!.account} · check <code>{addresses!.fingerprint}</code>. Opening it again with the same ZK passphrase must show the same check.</p>
-              <details><summary>Recovery settings</summary>
-                <label>Gap limit (1–{MAX_GAP})<input inputMode="numeric" aria-label="Recovery gap limit" value={gapText} onChange={e=>setGapText(e.target.value.trim())} disabled={busy}/></label>
-                <small>Recovery stops after this many unused addresses in a row. Larger values take longer.</small>
-                <button className="btn btn-sm btn-outline" disabled={busy} onClick={applyGap}>Apply and refresh</button>
-              </details>
-            </div>:<div className={`privacy-pool__block ${backupSaved?'is-done':'is-warning'}`}>
-              <h3>{backupSaved?'✓ Encrypted backup saved':'Encrypted backup'}</h3>
-              <p>{backupSaved?'Keep the file and its password. They are the only way to recover these notes.':'Save it before using the pool. Without it these notes cannot be recovered.'}</p>
-              <button className={`btn btn-sm ${backupSaved?'btn-outline':'btn-primary'}`} disabled={busy} onClick={()=>{saveJson('neurai-privacy-test-backup.json',backup);setBackupSaved(true);}}>Save encrypted JSON</button>
-            </div>}
-            <div className="privacy-pool__block">
-              <h3>Receive privately</h3>
-              <p>{derived?'Share this address. After it receives a note a new one appears; earlier addresses keep working.':'Share this address. A backup file has a single address; open from the wallet words to get a new one after each payment.'}</p>
-              {addresses&&<><code className="privacy-pool__nzk" aria-label="Receiving address">{addresses.current.address}</code>{derived&&<small>Address #{addresses.current.index} · account {addresses.account}</small>}</>}
-              <div className="privacy-pool__actions">
-                {addresses&&<button className="btn btn-sm btn-outline" disabled={busy} onClick={()=>void copyText(addresses.current.address,'Receiving address')}>Copy address</button>}
-                {derived&&<button className="btn btn-sm btn-outline" disabled={busy} onClick={newAddress}>New address</button>}
-                <button className="btn btn-sm btn-outline" disabled={busy} onClick={()=>saveJson('neurai-privacy-recipient.json',recipient)}>Save receiving descriptor</button>
+            <div className={box}>
+              <p className="neurai-eyebrow mb-1">Confirmed private balance</p>
+              <p className="m-0 text-3xl font-semibold tabular-nums break-all">{scan?formatXna(scan.balanceAtomic):'—'} <span className="text-base font-normal text-base-content/70">XNA</span></p>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm text-base-content/70">{scan?`${scan.notes.length} spendable notes · checked through block ${scan.height}`:'Notes not loaded yet'}</span>
+                <button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={()=>void request({type:'scan'})}>Refresh notes</button>
               </div>
-              {derived&&addresses!.used.length>0&&<details><summary>Used addresses ({addresses!.used.length})</summary>
-                <ul className="privacy-pool__used">{addresses!.used.map(u=><li key={u.index}><span>#{u.index}</span><code>{u.address.slice(0,18)}…{u.address.slice(-8)}</code><strong>{formatXna(BigInt(u.receivedAtomic))} XNA</strong></li>)}</ul></details>}
-              <details><summary>Show descriptor JSON</summary><textarea readOnly value={JSON.stringify(recipient,null,2)} aria-label="Receiving descriptor"/></details>
+            </div>
+            {derived?<div className={`${box} neurai-stack gap-2`}>
+              <p className="m-0 font-semibold text-success">✓ Recovered from the wallet words</p>
+              <p className="m-0 text-sm text-base-content/70">Account {addresses!.account} · check <code className="font-mono">{addresses!.fingerprint}</code>. Opening it again with the same ZK passphrase must show the same check.</p>
+              <details><summary className="cursor-pointer text-sm font-semibold">Recovery settings</summary>
+                <div className="neurai-stack gap-2 mt-3">
+                  <div><label htmlFor="privacy-gap" className="neurai-label">Gap limit (1–{MAX_GAP})</label>
+                    <input id="privacy-gap" className="neurai-input" inputMode="numeric" aria-label="Recovery gap limit" value={gapText} onChange={e=>setGapText(e.target.value.trim())} disabled={busy}/>
+                    <p className="neurai-hint mb-0">Recovery stops after this many unused addresses in a row. Larger values take longer.</p></div>
+                  <button className="neurai-btn--secondary btn-sm self-start" disabled={busy} onClick={applyGap}>Apply and refresh</button>
+                </div>
+              </details>
+            </div>:<div className={`${box} neurai-stack gap-2`}>
+              <p className={`m-0 font-semibold ${backupSaved?'text-success':'text-warning'}`}>{backupSaved?'✓ Encrypted backup saved':'Encrypted backup'}</p>
+              <p className="m-0 text-sm text-base-content/70">{backupSaved?'Keep the file and its password. They are the only way to recover these notes.':'Save it before using the pool. Without it these notes cannot be recovered.'}</p>
+              <button className={`${backupSaved?'neurai-btn--secondary':'neurai-btn--primary'} btn-sm self-start`} disabled={busy} onClick={()=>{saveJson('neurai-privacy-test-backup.json',backup);setBackupSaved(true);}}>Save encrypted JSON</button>
+            </div>}
+            <div className={`${box} neurai-stack gap-2`}>
+              <p className="neurai-eyebrow mb-0">Receive privately</p>
+              <p className="m-0 text-sm text-base-content/70">{derived?'Share this address. After it receives a note a new one appears; earlier addresses keep working.':'Share this address. A backup file has a single address; open from the wallet words to get a new one after each payment.'}</p>
+              {addresses&&<><code className="block rounded-lg border border-base-300 bg-base-200 px-3 py-2 font-mono text-xs leading-relaxed break-all select-all" aria-label="Receiving address">{addresses.current.address}</code>
+                {derived&&<p className="neurai-hint m-0">Address #{addresses.current.index} · account {addresses.account}</p>}</>}
+              <div className="flex flex-wrap gap-2">
+                {addresses&&<button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={()=>void copyText(addresses.current.address,'Receiving address')}>Copy address</button>}
+                {derived&&<button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={newAddress}>New address</button>}
+                <button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={()=>saveJson('neurai-privacy-recipient.json',recipient)}>Save receiving descriptor</button>
+              </div>
+              {derived&&addresses!.used.length>0&&<details><summary className="cursor-pointer text-sm font-semibold">Used addresses ({addresses!.used.length})</summary>
+                <ul className="list-none m-0 mt-2 p-0 flex flex-col">{addresses!.used.map(u=><li key={u.index} className="flex items-center gap-3 py-2 border-b border-base-300 last:border-b-0 text-sm">
+                  <span className="text-base-content/70">#{u.index}</span><code className="font-mono text-xs min-w-0 flex-1 truncate">{u.address.slice(0,18)}…{u.address.slice(-8)}</code><strong className="tabular-nums">{formatXna(u.receivedAtomic)} XNA</strong></li>)}</ul></details>}
+              <details><summary className="cursor-pointer text-sm font-semibold">Show descriptor JSON</summary>
+                <textarea className="neurai-textarea font-mono text-xs mt-2 min-h-28" readOnly value={JSON.stringify(recipient,null,2)} aria-label="Receiving descriptor"/></details>
             </div>
           </>}
         </section>
-        <section className="privacy-pool__card"><h2>2. Use the pool</h2>
-          <div className="privacy-pool__tabs" role="group" aria-label="Pool operation">{(['deposit','transfer','withdraw'] as const).map(a=><button key={a} aria-pressed={action===a} disabled={busy||!!preview} onClick={()=>setAction(a)}>{a==='transfer'?'Assign':a[0].toUpperCase()+a.slice(1)}</button>)}</div>
-          <p className="privacy-pool__lead">{action==='deposit'?'Move XNA from this wallet into a new private note.':action==='transfer'?'Give part or all of one of your notes to another private wallet. Any remainder comes back to you as a new note.':'Turn one whole note back into XNA at a Legacy testnet address.'}</p>
-          {requirement&&<p className="privacy-pool__hint">{requirement}</p>}
+        <section className="neurai-card neurai-stack min-w-0" aria-labelledby="privacy-use-title">
+          <div><p className="neurai-eyebrow mb-1">Step 2</p><h3 id="privacy-use-title" className="neurai-card__title">Use the pool</h3></div>
+          <div role="tablist" aria-label="Pool operation" className="join w-full">{(['deposit','transfer','withdraw'] as const).map(a=>
+            <button key={a} type="button" role="tab" aria-selected={action===a} disabled={busy||!!preview} onClick={()=>setAction(a)}
+              className={`btn join-item flex-1 ${action===a?'btn-primary':'btn-ghost border border-base-300'}`}>{a==='transfer'?'Assign':a[0].toUpperCase()+a.slice(1)}</button>)}</div>
+          <p className="text-sm text-base-content/70 m-0">{action==='deposit'?'Move XNA from this wallet into a new private note.':action==='transfer'?'Give part or all of one of your notes to another private wallet. Any remainder comes back to you as a new note.':'Turn one whole note back into XNA at a Legacy testnet address.'}</p>
+          {requirement&&<p className={notice}>{requirement}</p>}
           {action==='deposit'&&<>
-            <label>Deposit amount (XNA, up to 1,000)<input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} disabled={locked}/></label>
+            <div><label htmlFor="privacy-amount" className="neurai-label">Deposit amount (XNA{depositLimited?`, up to ${formatXna(C3_TEST_DEPOSIT_LIMIT_ATOMIC)}`:''})</label>
+              <input id="privacy-amount" className="neurai-input" inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} disabled={locked}/></div>
             {feeField}
-            <ol className="privacy-pool__steps">
-              <li><div><strong>Prepare an exact coin</strong><small>Sends the deposit amount to your own address. Publish it and wait for one confirmation.</small></div>
-                <button className="btn btn-outline" disabled={locked} onClick={()=>void prepareFunding()}>Prepare deposit coin</button></li>
-              <li><div><strong>Create the private note</strong><small>Builds and verifies the proof on this device. Nothing is published until you review it.</small></div>{buildButton}</li>
+            <ol className="list-none m-0 p-0 flex flex-col gap-3">
+              {([['Prepare an exact coin','Sends the deposit amount to your own address. Publish it and wait for one confirmation.',
+                <button key="fund" className="neurai-btn--secondary" disabled={locked} onClick={()=>void prepareFunding()}>Prepare deposit coin</button>],
+                ['Create the private note','Builds and verifies the proof on this device. Nothing is published until you review it.',buildButton]] as const).map(([title,text,control],i)=>
+                <li key={title} className={`${box} grid grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3`}>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary" aria-hidden="true">{i+1}</span>
+                  <div className="min-w-0"><p className="m-0 text-sm font-semibold">{title}</p><p className="neurai-hint m-0">{text}</p></div>
+                  <div className="col-span-2 sm:col-span-1 justify-self-start sm:justify-self-end">{control}</div>
+                </li>)}
             </ol>
           </>}
           {action==='transfer'&&<>
             {noteField}
-            <label>Amount to assign (XNA)<input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} disabled={locked}/></label>
-            <label>Recipient address or descriptor<textarea value={recipientText} onChange={e=>setRecipientText(e.target.value)} placeholder="tnzk1… or the recipient’s JSON descriptor" disabled={locked}/></label>
+            <div><label htmlFor="privacy-assign-amount" className="neurai-label">Amount to assign (XNA)</label>
+              <input id="privacy-assign-amount" className="neurai-input" inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} disabled={locked}/></div>
+            <div><label htmlFor="privacy-recipient" className="neurai-label">Recipient address or descriptor</label>
+              <textarea id="privacy-recipient" className="neurai-textarea font-mono text-xs min-h-24" value={recipientText} onChange={e=>setRecipientText(e.target.value)} placeholder="tnzk1… or the recipient’s JSON descriptor" disabled={locked}/></div>
             {feeField}
-            <div className="privacy-pool__actions">{buildButton}</div><small>Nothing is published until you review it.</small>
+            <div className="flex flex-wrap items-center gap-3">{buildButton}<span className="neurai-hint m-0">Nothing is published until you review it.</span></div>
           </>}
           {action==='withdraw'&&<>
             {noteField}
-            <p className="privacy-pool__lead">This withdrawal spends the whole selected note: <strong>{selected?formatXna(BigInt(selected.amountAtomic)):'—'} XNA</strong>. To withdraw less, first assign part of it to your own descriptor.</p>
-            <label>Legacy withdrawal address<input value={destination} onChange={e=>setDestination(e.target.value)} disabled={locked}/></label>
+            <p className="text-sm text-base-content/70 m-0">This withdrawal spends the whole selected note: <strong className="text-base-content">{selected?formatXna(selected.amountAtomic):'—'} XNA</strong>. To withdraw less, first assign part of it to your own address.</p>
+            <div><label htmlFor="privacy-destination" className="neurai-label">Legacy withdrawal address</label>
+              <input id="privacy-destination" className="neurai-input" value={destination} onChange={e=>setDestination(e.target.value)} disabled={locked}/></div>
             {feeField}
-            <div className="privacy-pool__actions">{buildButton}</div><small>Nothing is published until you review it.</small>
+            <div className="flex flex-wrap items-center gap-3">{buildButton}<span className="neurai-hint m-0">Nothing is published until you review it.</span></div>
           </>}
         </section>
       </div>
-      {error&&<p className="privacy-pool__error" role="alert">{error}</p>}
-      {preview&&<section className="privacy-pool__card privacy-pool__review"><h2>3. Review and publish</h2><p>{preview.form} · <strong>{preview.amount} XNA</strong> · network fee <strong>{preview.fee} XNA</strong></p><p>The node accepted the prepared transaction. It has not been broadcast.</p><code>{preview.txid}</code><div className="privacy-pool__actions"><button className="btn btn-primary" disabled={busy||uncertain} onClick={()=>void publish()}>Publish TEST transaction</button><button className="btn btn-outline" disabled={busy||uncertain} onClick={()=>setPreview(null)}>Discard</button></div></section>}
-      {published&&<div className="privacy-pool__card privacy-pool__published"><p>{uncertain?'Publication result is uncertain. Check this transaction before building another one.':'Transaction sent. Refresh notes after it confirms.'}</p><div className="privacy-pool__actions"><a className="btn btn-sm btn-ghost" href={EXPLORER+published} target="_blank" rel="noreferrer">View {published.slice(0,16)}… in the explorer</a><button className="btn btn-sm btn-outline" disabled={busy} onClick={()=>void checkPublication()}>Check transaction status</button></div></div>}
+      {error&&<p className="rounded-xl border border-error/40 bg-error/10 px-4 py-3 text-sm text-error m-0" role="alert">{error}</p>}
+      {preview&&<section className="neurai-card neurai-stack min-w-0 border-primary" aria-labelledby="privacy-review-title">
+        <div><p className="neurai-eyebrow mb-1">Step 3</p><h3 id="privacy-review-title" className="neurai-card__title">Review and publish</h3></div>
+        <p className="m-0">{preview.form} · <strong>{preview.amount} XNA</strong> · network fee <strong>{preview.fee} XNA</strong></p>
+        <p className="m-0 text-sm text-base-content/70">The node accepted the prepared transaction. It has not been broadcast.</p>
+        <code className="block font-mono text-xs break-all text-base-content/70">{preview.txid}</code>
+        <div className="flex flex-wrap gap-2"><button className="neurai-btn--primary" disabled={busy||uncertain} onClick={()=>void publish()}>Publish TEST transaction</button><button className="neurai-btn--secondary" disabled={busy||uncertain} onClick={()=>setPreview(null)}>Discard</button></div>
+      </section>}
+      {published&&<section className="neurai-card neurai-stack min-w-0" aria-label="Published transaction">
+        <p className="m-0">{uncertain?'Publication result is uncertain. Check this transaction before building another one.':'Transaction sent. Refresh notes after it confirms.'}</p>
+        <div className="flex flex-wrap gap-2"><a className="neurai-btn--secondary btn-sm" href={EXPLORER+published} target="_blank" rel="noreferrer">View {published.slice(0,16)}… in the explorer</a><button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={()=>void checkPublication()}>Check transaction status</button></div>
+      </section>}
       <OperationTimer busy={busy} phase={phase} elapsed={elapsed} tone={tone} onCancel={cancel}/>
-      <details className="privacy-pool__card"><summary>Confirmed pool activity</summary><p>Pool instance: <code>{manifest.identity}</code></p><p className="privacy-pool__address">{manifest.address}</p>{scan?.transitions.slice(-12).reverse().map(t=><div key={t.txid}><strong>{t.form}</strong> · block {t.height} · <a href={EXPLORER+t.txid} target="_blank" rel="noreferrer">{t.txid.slice(0,20)}…</a></div>)}</details>
-      <div className="privacy-console"><div className="privacy-console__titlebar">{'C:\\NEURAI\\PRIVACY · OPERATION LOG'}</div><div className="privacy-console__body" role="log" aria-label="Pool operation log">{lines.map((line,i)=><div className="privacy-console__line" key={i}>{line}</div>)}{busy&&<span className="privacy-console__cursor">█</span>}</div></div>
+      <details className="neurai-card min-w-0"><summary className="neurai-card__title cursor-pointer">Confirmed pool activity</summary>
+        <div className="neurai-stack gap-2 mt-4 text-sm">
+          <p className="m-0">Pool instance: <code className="font-mono">{manifest.identity}</code></p>
+          <p className="m-0 font-mono text-xs break-all text-base-content/70">{manifest.address}</p>
+          {scan?.transitions.length?<ul className="list-none m-0 p-0 flex flex-col">{scan.transitions.slice(-12).reverse().map(t=><li key={t.txid} className="flex flex-wrap items-center gap-2 py-2 border-b border-base-300 last:border-b-0">
+            <strong>{t.form}</strong><span className="text-base-content/70">block {t.height}</span><a className="link link-primary font-mono text-xs" href={EXPLORER+t.txid} target="_blank" rel="noreferrer">{t.txid.slice(0,20)}…</a></li>)}</ul>
+            :<p className="neurai-hint m-0">Refresh notes to list the latest pool operations.</p>}
+        </div>
+      </details>
+      <details className="neurai-card min-w-0"><summary className="neurai-card__title cursor-pointer">Operation log</summary>
+        <div className="mt-4 max-h-72 overflow-auto rounded-xl border border-base-300 bg-base-100 p-3 font-mono text-xs leading-relaxed" role="log" aria-label="Pool operation log">
+          {lines.map((line,i)=><div className="whitespace-pre-wrap break-words" key={i}>{line}</div>)}</div>
+      </details>
     </>}
   </section>;
 }

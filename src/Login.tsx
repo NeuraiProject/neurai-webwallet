@@ -14,15 +14,21 @@ import {
   IconHistory,
   IconHome,
   IconIoT,
+  IconKey,
   IconPrivacyPool,
   IconSend,
   IconSettings,
-  IconShield,
   IconSign,
   IconSweep,
 } from "./icons";
 import { autoResizeTextarea } from "./utils/domUtils";
-import { NETWORK_OPTIONS, selectLoginNetwork, type NetworkOption } from "./networkOptions";
+import { NetworkPicker, OldWebwalletToggle } from "./components/NetworkPicker";
+import {
+  networkFor,
+  OLD_WEBWALLET_NETWORK,
+  selectLoginNetwork,
+  type NetworkOption,
+} from "./networkOptions";
 
 const neuraiLogo = new URL("../public/neurai-xna-logo.png", import.meta.url);
 
@@ -72,6 +78,15 @@ export function Login({
     setNetwork(value);
     localStorage.setItem(NETWORK_STORAGE_KEY, value);
     onNetworkChange?.(value);
+  };
+
+  // The old web wallet's derivation is a recovery path: a new wallet must not
+  // be created on it, so leaving Recover moves the pick back to current Legacy.
+  const selectMode = (next: Mode) => {
+    setMode(next);
+    if (next === "create" && network === OLD_WEBWALLET_NETWORK) {
+      handleNetworkChange(networkFor("mainnet", "legacy"));
+    }
   };
 
   const renderMenuItem = (item: typeof NAV_PREVIEW_ITEMS[number]) => {
@@ -264,9 +279,12 @@ export function Login({
 
       {/* Two-column layout on desktop: hero on the left, form on the right.
           Below `lg` the hero is hidden so the mobile layout stays compact. */}
+      {/* `min-w-0` on the children: a grid item's automatic minimum size is its
+          min-content width, so the picker's nowrap sample address would widen the
+          card past the viewport instead of being cut short. */}
       <div className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
         {/* Hero card — desktop only */}
-        <aside className="neurai-card hidden lg:flex flex-col gap-5" aria-label="About Neurai Wallet">
+        <aside className="neurai-card min-w-0 hidden lg:flex flex-col gap-5" aria-label="About Neurai Wallet">
           <div className="flex items-center gap-3">
             <img
               src={neuraiLogo.href}
@@ -293,7 +311,7 @@ export function Login({
 
           <ul className="flex flex-col gap-4 list-none m-0 p-0">
             <FeatureItem
-              icon={<IconShield />}
+              icon={<IconKey />}
               title="Your keys, your device"
               body="Recovery words and the optional BIP39 passphrase never leave this browser. Signing and encryption happen locally."
             />
@@ -307,6 +325,11 @@ export function Login({
               title="DePIN & IoT-ready"
               body="Beyond standard transfers, manage Decentralized Physical Infrastructure devices directly from the wallet."
             />
+            <FeatureItem
+              icon={<IconPrivacyPool />}
+              title="Privacy Pool (testnet)"
+              body="Deposit XNA into the experimental shielded pool, assign private notes, and withdraw to a transparent address. Zero-knowledge proofs are built on your device."
+            />
           </ul>
 
           <p className="mt-auto pt-4 border-t border-base-300 text-xs text-base-content/55 m-0">
@@ -316,51 +339,28 @@ export function Login({
         </aside>
 
         {/* Form card */}
-        <div className="neurai-card">
+        <div className="neurai-card min-w-0">
           <h5 className="neurai-card__title mb-4">Recover or create wallet</h5>
 
-        {NETWORK_OPTIONS.length > 1 && (
-          <div className="mb-4">
-            <label htmlFor="rebel-login-network" className="neurai-label">
-              Network
-            </label>
-            <select
-              id="rebel-login-network"
-              className="neurai-select"
-              value={network}
-              onChange={(e) => handleNetworkChange(e.target.value as NetworkOption)}
-              aria-label="Network"
-            >
-              {NETWORK_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <p className="neurai-hint">Each network stores its seed separately on this device.</p>
-          </div>
-        )}
+        <NetworkPicker network={network} onChange={handleNetworkChange} />
+
+        {/* Which network to open ends here; which wallet to open starts below. */}
+        <hr className="neurai-divider my-5" />
 
         {/* Mode toggle (Recover / Create) */}
-        <div role="tablist" aria-label="Sign in mode" className="join w-full mb-4">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === "recover"}
-            className={`btn join-item flex-1 ${mode === "recover" ? "btn-primary" : "btn-ghost border border-base-300"}`}
-            onClick={() => setMode("recover")}
-          >
-            Recover
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === "create"}
-            className={`btn join-item flex-1 ${mode === "create" ? "btn-primary" : "btn-ghost border border-base-300"}`}
-            onClick={() => setMode("create")}
-          >
-            Create new
-          </button>
+        <div role="tablist" aria-label="Sign in mode" className="neurai-segmented mb-4">
+          {(["recover", "create"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={mode === value}
+              className={`neurai-segmented__item ${mode === value ? "is-active" : ""}`}
+              onClick={() => selectMode(value)}
+            >
+              {value === "recover" ? "Recover" : "Create new"}
+            </button>
+          ))}
         </div>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -396,6 +396,9 @@ export function Login({
                   {showWords ? <IconEyeOff /> : <IconEye />}
                 </button>
               </div>
+              <div className="mt-2">
+                <OldWebwalletToggle network={network} onChange={handleNetworkChange} />
+              </div>
             </div>
           )}
 
@@ -403,21 +406,19 @@ export function Login({
             <>
               <div>
                 <label className="neurai-label">Wallet strength</label>
-                <div role="tablist" className="join w-full">
-                  <button
-                    type="button"
-                    className={`btn btn-sm join-item flex-1 ${wordCount === 12 ? "btn-primary" : "btn-ghost border border-base-300"}`}
-                    onClick={() => setWordCount(12)}
-                  >
-                    12 words
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-sm join-item flex-1 ${wordCount === 24 ? "btn-primary" : "btn-ghost border border-base-300"}`}
-                    onClick={() => setWordCount(24)}
-                  >
-                    24 words
-                  </button>
+                <div role="tablist" aria-label="Wallet strength" className="neurai-segmented neurai-segmented--sm">
+                  {([12, 24] as const).map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      role="tab"
+                      aria-selected={wordCount === count}
+                      className={`neurai-segmented__item ${wordCount === count ? "is-active" : ""}`}
+                      onClick={() => setWordCount(count)}
+                    >
+                      {count} words
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -425,7 +426,7 @@ export function Login({
                 id="newWalletButton"
                 type="button"
                 onClick={newWallet}
-                className="btn btn-outline border-2 border-dashed border-base-content/40 text-primary hover:border-primary"
+                className="btn btn-outline border-2 border-dashed border-primary/50 text-primary hover:border-primary hover:bg-primary/10"
               >
                 Generate new words
               </button>
@@ -485,7 +486,7 @@ export function Login({
 
           <button
             type="submit"
-            className="neurai-btn--primary w-full"
+            className="neurai-btn--primary w-full mt-1"
             disabled={mode === "create" ? !createdMnemonic : !recoverMnemonic.trim()}
           >
             Sign in

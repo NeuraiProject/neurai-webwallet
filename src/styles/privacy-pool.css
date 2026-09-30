@@ -1,68 +1,19 @@
-.privacy-pool { display:grid; gap:1.2rem; max-width:1100px; margin:0 auto; padding:1rem 0; }
-.privacy-pool__hero { display:flex; justify-content:space-between; align-items:center; gap:1.5rem; padding:2rem; border:1px solid #319a7950; border-radius:1.2rem; background:radial-gradient(ellipse at top right,#45d59d25,transparent 65%),var(--color-base-200); }
-.privacy-pool__hero h1 { font-size:clamp(1.8rem,4vw,2.6rem);font-weight:700;letter-spacing:-.04em;margin:.4rem 0; }
-.privacy-pool__hero p { max-width:39rem;opacity:.8; }
-.privacy-pool__eyebrow { font:700 .7rem "Lucida Console",monospace;letter-spacing:.15em;color:#249c76; }
-.privacy-pool__notice { border-left:3px solid #c69d46;padding:.7rem 1rem;background:#c69d4610;font-size:.85rem; }
-.privacy-pool__grid { display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;align-items:start; }
-.privacy-pool__card { min-width:0;border:1px solid color-mix(in srgb,var(--color-base-content) 16%,transparent);background:var(--color-base-200);padding:1.4rem;border-radius:.9rem; }
-.privacy-pool__card h2 { font-size:1.08rem;font-weight:650;margin:0 0 1rem; }
-.privacy-pool__card-head { display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem; }
-.privacy-pool__card-head h2 { margin:0; }
-.privacy-pool__lead { font-size:.86rem;opacity:.8;margin:.8rem 0; }
-.privacy-pool__hint { font-size:.84rem;border-left:3px solid #c69d46;background:#c69d4612;padding:.6rem .8rem;border-radius:.3rem;margin:.6rem 0; }
-.privacy-pool label { display:grid;gap:.35rem;margin:.7rem 0;font-size:.85rem; }
-.privacy-pool input:not([type=file]),.privacy-pool select,.privacy-pool textarea { width:100%;min-width:0;border:1px solid color-mix(in srgb,var(--color-base-content) 22%,transparent);border-radius:.45rem;padding:.65rem;background:var(--color-base-100);color:var(--color-base-content); }
-.privacy-pool textarea { min-height:7rem;resize:vertical;font-family:monospace;font-size:.75rem; }
-.privacy-pool small { display:block;opacity:.72;font-size:.76rem;margin-top:.35rem; }
-.privacy-pool__actions { display:flex;flex-wrap:wrap;gap:.6rem;margin:1rem 0; }
-.privacy-pool__actions label { margin:0; }
-.privacy-pool__balance { padding:.2rem 0 1rem; }.privacy-pool__balance strong { display:block;font:600 2rem/1.4 monospace;overflow-wrap:anywhere; }.privacy-pool__balance strong span { font-size:1rem;color:#269c78; }
-.privacy-pool__sync { display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem; }
-.privacy-pool__sync small { margin:0; }
-.privacy-pool__block { border-top:1px solid color-mix(in srgb,var(--color-base-content) 12%,transparent);padding-top:1rem;margin-top:1rem; }
-.privacy-pool__block h3 { font-size:.95rem;font-weight:620;margin:0 0 .3rem; }
-.privacy-pool__block p { font-size:.82rem;opacity:.8;margin:0 0 .7rem; }
-.privacy-pool__block .privacy-pool__actions { margin:.4rem 0 .6rem; }
-.privacy-pool__block.is-warning { border-left:3px solid #c69d46;padding-left:.8rem; }
-.privacy-pool__block.is-done h3 { color:#1f8f69; }
-.privacy-pool details summary { cursor:pointer;font-size:.85rem; }
-.privacy-pool__nzk { display:block;margin:.4rem 0 .2rem;padding:.6rem .7rem;border:1px solid color-mix(in srgb,var(--color-base-content) 16%,transparent);border-radius:.45rem;background:var(--color-base-100);font:.78rem/1.45 monospace;overflow-wrap:anywhere;user-select:all; }
-.privacy-pool__alt { margin-top:1rem;padding-top:.8rem;border-top:1px solid color-mix(in srgb,var(--color-base-content) 12%,transparent); }
-.privacy-pool__used { list-style:none;padding:0;margin:.5rem 0;display:grid;gap:.35rem;font-size:.8rem; }
-.privacy-pool__used li { display:grid;grid-template-columns:auto 1fr auto;gap:.6rem;align-items:center; }
-.privacy-pool__used code { overflow-wrap:anywhere; }
-.privacy-pool__tabs { display:flex;gap:.35rem;padding:.25rem;background:var(--color-base-100);border-radius:.6rem; }
-.privacy-pool__tabs button { flex:1;padding:.6rem;border-radius:.4rem; }.privacy-pool__tabs [aria-pressed=true] { background:#229c7830;color:#168b64;box-shadow:inset 0 0 0 1px #229c7860; }
-/* Deposit steps are numbered in the order they must happen. */
-.privacy-pool__steps { list-style:none;counter-reset:privacy-step;padding:0;margin:1rem 0 0;display:grid;gap:.7rem; }
-.privacy-pool__steps li { counter-increment:privacy-step;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.8rem;padding:.8rem;border:1px solid color-mix(in srgb,var(--color-base-content) 14%,transparent);border-radius:.6rem;background:var(--color-base-100); }
-.privacy-pool__steps li::before { content:counter(privacy-step);display:grid;place-items:center;width:1.7rem;height:1.7rem;border-radius:50%;background:#229c7825;color:#168b64;font-weight:700;font-size:.85rem; }
-.privacy-pool__steps strong { font-size:.88rem; }
-.privacy-pool__steps small { margin-top:.15rem; }
-.privacy-pool__error { color:#c34444;background:#c3444410;border:1px solid #c3444450;padding:.8rem;border-radius:.5rem; }
-.privacy-pool__review { border-color:#27a77d; }.privacy-pool code,.privacy-pool__address { overflow-wrap:anywhere;font-size:.8rem; }
-.privacy-pool__published p { margin:0; }.privacy-pool__published .privacy-pool__actions { margin-bottom:0; }
-.privacy-operation { display:flex;align-items:center;gap:1rem;padding:1.1rem 1.3rem;border:1px solid #32987555;border-radius:.8rem;position:relative;overflow:hidden; }
-.privacy-operation strong,.privacy-operation small { display:block; }.privacy-operation strong { font-size:.9rem; }.privacy-operation time { margin-left:auto;font:600 1.7rem "Lucida Console",monospace;letter-spacing:.05em; }
-/* Idle status: one compact line with a coloured dot, no spinner and no frozen timer. */
-.privacy-operation.is-idle { gap:.7rem;padding:.65rem 1rem;border-color:color-mix(in srgb,var(--color-base-content) 14%,transparent); }
-.privacy-operation.is-idle small { margin:0 0 0 auto; }
-.privacy-operation__dot { width:.6rem;height:.6rem;flex:none;border-radius:50%;background:color-mix(in srgb,var(--color-base-content) 35%,transparent); }
-.privacy-operation.is-done .privacy-operation__dot { background:#27ac7d; }
-.privacy-operation.is-error { border-color:#c3444450; }.privacy-operation.is-error .privacy-operation__dot { background:#c34444; }
-.privacy-operation__indicator { width:1.3rem;height:1.3rem;flex:none;border:2px solid #36aa7850;border-top-color:#27ac7d;border-radius:50%;animation:privacy-spin 1s linear infinite; }
-.privacy-operation__track { position:absolute;bottom:0;left:0;height:3px;width:100%;background:#279d7815; }.privacy-operation__track span { display:block;width:25%;height:100%;background:#27ac7d;animation:privacy-travel 2s ease-in-out infinite; }
-@keyframes privacy-spin { to { transform:rotate(360deg); } } @keyframes privacy-travel { 0% {transform:translateX(-100%);}100% {transform:translateX(500%);} }
-@media(max-width:760px) {
-  .privacy-pool__grid { grid-template-columns:1fr; }
-  .privacy-pool__hero { flex-direction:column;align-items:flex-start;padding:1.3rem; }
-  .privacy-operation time { font-size:1.2rem; }
-  .privacy-pool__steps li { grid-template-columns:auto 1fr; }
-  .privacy-pool__steps li > .btn { grid-column:1 / -1; }
-  .privacy-operation.is-running { flex-wrap:wrap; }
-}
-@media(prefers-reduced-motion:reduce) { .privacy-operation__indicator,.privacy-operation__track span {animation:none!important;} }
+/* Privacy Pool: only what the shared neurai-* primitives do not cover. */
+.privacy-operation { display: flex; align-items: center; gap: .75rem; position: relative; overflow: hidden; }
+.privacy-operation__dot { width: .6rem; height: .6rem; flex: none; border-radius: 9999px; background: color-mix(in srgb, var(--color-base-content) 35%, transparent); }
+.privacy-operation.is-done .privacy-operation__dot { background: var(--color-success); }
+.privacy-operation.is-error { border-color: color-mix(in srgb, var(--color-error) 45%, transparent); }
+.privacy-operation.is-error .privacy-operation__dot { background: var(--color-error); }
+.privacy-operation__indicator { width: 1.3rem; height: 1.3rem; flex: none; border: 2px solid color-mix(in srgb, var(--color-primary) 30%, transparent); border-top-color: var(--color-primary); border-radius: 9999px; animation: privacy-spin 1s linear infinite; }
+.privacy-operation__track { position: absolute; bottom: 0; left: 0; height: 3px; width: 100%; background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
+.privacy-operation__track span { display: block; width: 25%; height: 100%; background: var(--color-primary); animation: privacy-travel 2s ease-in-out infinite; }
 /* Keep long-running work visible even when the action card extends below a phone viewport. */
-.privacy-operation.is-running { position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);width:calc(100% - 2rem);max-width:1058px;background:var(--color-base-100);z-index:50;box-shadow:0 8px 28px #0003; }
-.privacy-pool:has(.privacy-operation.is-running) { padding-bottom:7rem; }
+.privacy-operation.is-running { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); width: calc(100% - 2rem); max-width: 72rem; z-index: 50; background: var(--color-base-100); }
+.privacy-pool:has(.privacy-operation.is-running) { padding-bottom: 7rem; }
+@keyframes privacy-spin { to { transform: rotate(360deg); } }
+@keyframes privacy-travel { 0% { transform: translateX(-100%); } 100% { transform: translateX(500%); } }
+@media (max-width: 640px) {
+  .privacy-operation.is-running { flex-wrap: wrap; }
+  .privacy-operation time { font-size: 1.25rem; }
+}
+@media (prefers-reduced-motion: reduce) { .privacy-operation__indicator, .privacy-operation__track span { animation: none !important; } }

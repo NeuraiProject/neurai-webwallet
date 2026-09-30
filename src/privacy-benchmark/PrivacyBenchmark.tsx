@@ -31,7 +31,7 @@ function ms(value: number | undefined): string {
 }
 
 function ConsoleLine({ text }: { text: string }) {
-  return <div className="privacy-console__line">{text}</div>;
+  return <div className="whitespace-pre-wrap break-words">{text}</div>;
 }
 
 export function PrivacyBenchmark() {
@@ -253,17 +253,17 @@ export function PrivacyBenchmark() {
 
   return (
     <div className="neurai-stack min-w-0">
-      <section className="neurai-card privacy-bench-hero min-w-0">
+      <section className="neurai-card min-w-0">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
             <p className="neurai-eyebrow">TEST DATA · LOCAL DEVICE LAB</p>
-            <h2 className="neurai-card__title privacy-bench-hero__title">Privacy Pool benchmark</h2>
+            <h3 className="neurai-card__title">Privacy Pool benchmark</h3>
             <p className="mb-0 mt-3 max-w-2xl text-sm text-base-content/75">
               Test the browser operations needed to prepare a private deposit, assign two private notes,
               and inspect a withdrawal. Everything runs on this device with disposable TEST secrets.
             </p>
           </div>
-          <div className="privacy-bench-hero__badge" aria-label="Local only">LOCAL ONLY <span aria-hidden="true">●</span></div>
+          <span className="neurai-status is-ok" aria-label="Local only"><span className="neurai-status__dot" aria-hidden="true" />Local only</span>
         </div>
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <button type="button" className="neurai-btn--primary" onClick={run} disabled={status === "running" || proofStatus === "running"}>
@@ -341,16 +341,17 @@ export function PrivacyBenchmark() {
           </div>
           <span className="font-mono text-xs text-base-content/60">snarkjs 0.7.6 · GPL-3.0</span>
         </div>
-        <div className="privacy-pool__actions">
-          <label>C3 operation<select aria-label="C3 benchmark operation" value={c3Form} disabled={proofStatus==="running"} onChange={e=>setC3Form(e.target.value)}>{["D0","D1","T1","T2","W_partial","W_full"].map(f=><option key={f}>{f}</option>)}</select></label>
-          <button className="btn btn-primary" disabled={status==="running"||proofStatus==="running"} onClick={()=>runProof(c3Form)}>Run C3 benchmark</button>
-          {proofStatus==="running"&&<span role="status">{proofStage??"Loading parameters"} · {(proofElapsed/1000).toFixed(1)} s elapsed · working locally</span>}
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div><label htmlFor="privacy-bench-form" className="neurai-label">C3 operation</label>
+            <select id="privacy-bench-form" className="neurai-select w-auto min-w-40" aria-label="C3 benchmark operation" value={c3Form} disabled={proofStatus==="running"} onChange={e=>setC3Form(e.target.value)}>{["D0","D1","T1","T2","W_partial","W_full"].map(f=><option key={f}>{f}</option>)}</select></div>
+          <button className="neurai-btn--primary" disabled={status==="running"||proofStatus==="running"} onClick={()=>runProof(c3Form)}>Run C3 benchmark</button>
+          {proofStatus==="running"&&<span role="status" className="text-sm text-base-content/70">{proofStage??"Loading parameters"} · {(proofElapsed/1000).toFixed(1)} s elapsed · working locally</span>}
         </div>
         <details><summary>Advanced: choose your own matching TEST files</summary>
         <div className="privacy-bench-files mt-5">
           {PROOF_FILES.map(file => <label key={file.id} className="privacy-bench-file">
             <span>{file.label}</span>
-            <input type="file" accept={file.accept} disabled={proofStatus === "running"} onChange={event => {
+            <input type="file" className="file-input file-input-sm w-full" accept={file.accept} disabled={proofStatus === "running"} onChange={event => {
               const selected = event.currentTarget.files?.[0];
               setProofFiles(previous => ({ ...previous, [file.id]: selected }));
               setProofResult(null);
@@ -391,12 +392,9 @@ export function PrivacyBenchmark() {
           <h3 id="privacy-bench-console-title" className="neurai-card__title">Run log</h3>
           <span className="text-xs text-base-content/55">Disposable TEST operations · no network</span>
         </div>
-        <div className="privacy-console" role="log" aria-live="polite" aria-label="Benchmark command-line output" ref={consoleRef}>
-          <div className="privacy-console__titlebar"><span>NEURAI.EXE</span><span>PRIVACY LAB / DOS MODE</span></div>
-          <div className="privacy-console__body">
-            {lines.map((line, index) => <ConsoleLine key={`${index}-${line}`} text={line} />)}
-            {status === "running" && <div className="privacy-console__cursor" aria-hidden="true">█</div>}
-          </div>
+        <div className="max-h-72 overflow-auto rounded-xl border border-base-300 bg-base-100 p-3 font-mono text-xs leading-relaxed"
+          role="log" aria-live="polite" aria-label="Benchmark output" ref={consoleRef}>
+          {lines.map((line, index) => <ConsoleLine key={`${index}-${line}`} text={line} />)}
         </div>
       </section>
     </div>

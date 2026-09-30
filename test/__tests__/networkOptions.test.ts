@@ -1,6 +1,11 @@
 // The published CommonJS entry exposes `createInstance` on the module object.
 const Wallet: typeof import("@neuraiproject/neurai-jswallet") = require("@neuraiproject/neurai-jswallet");
-import { isWalletNetwork, NETWORK_OPTIONS, networkLabel, selectLoginNetwork, WALLET_NETWORKS } from "@/networkOptions";
+import {
+  ADDRESS_FAMILIES, defaultFamily, defaultLoginNetwork, describeNetwork, isChainAvailable,
+  isChoiceAvailable,
+  isWalletNetwork, NETWORK_OPTIONS, networkFor, networkLabel, selectLoginNetwork, WALLET_NETWORKS,
+} from "@/networkOptions";
+import { decodeAddress } from "@neuraiproject/neurai-create-transaction";
 
 const mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
 
@@ -40,6 +45,61 @@ test("never offers PQ AuthScript, the contract address family, as a wallet", () 
   }
   // Still named, for a session that was already open on it.
   expect(networkLabel("xna-pq-test")).toBe("Testnet PQ AuthScript");
+});
+
+test("the login picker's two axes map onto the library identifiers", () => {
+  expect(networkFor("mainnet", "legacy")).toBe("xna");
+  expect(networkFor("mainnet", "ecdsa")).toBe("xna-ecdsa");
+  expect(networkFor("mainnet", "pq")).toBe("xna-pq-strict");
+  expect(networkFor("testnet", "legacy")).toBe("xna-legacy-test");
+  expect(networkFor("testnet", "ecdsa")).toBe("xna-ecdsa-test");
+  expect(networkFor("testnet", "pq")).toBe("xna-pq-strict-test");
+});
+
+test("mainnet offers Legacy only; testnet offers all three and opens on ECDSA", () => {
+  expect(isChoiceAvailable("mainnet", "legacy")).toBe(true);
+  expect(isChoiceAvailable("mainnet", "ecdsa")).toBe(false);
+  expect(isChoiceAvailable("mainnet", "pq")).toBe(false);
+  for (const family of ["legacy", "ecdsa", "pq"] as const) {
+    expect(isChoiceAvailable("testnet", family)).toBe(true);
+  }
+  expect(isChainAvailable("mainnet")).toBe(true);
+  expect(isChainAvailable("testnet")).toBe(true);
+  expect(defaultFamily("mainnet")).toBe("legacy");
+  expect(defaultFamily("testnet")).toBe("ecdsa");
+  expect(defaultLoginNetwork()).toBe("xna");
+});
+
+test("a saved identifier splits back into the pair the picker shows", () => {
+  expect(describeNetwork("xna-ecdsa-test")).toEqual({
+    kind: "testnet", family: "ecdsa", oldWebwallet: false,
+  });
+  // Same address type as Mainnet Legacy, on the previous web wallet's coin type.
+  expect(describeNetwork("xna-legacy")).toEqual({
+    kind: "mainnet", family: "legacy", oldWebwallet: true,
+  });
+  // The legacy `?network=xna-test` URL derives the Testnet Legacy addresses.
+  expect(describeNetwork("xna-test")).toEqual({
+    kind: "testnet", family: "legacy", oldWebwallet: false,
+  });
+  // Never offered as a wallet, so it falls back instead of pre-selecting PQ.
+  expect(describeNetwork("xna-pq-test")).toEqual({
+    kind: "mainnet", family: "legacy", oldWebwallet: false,
+  });
+});
+
+test("each family shows a real address of its own, starting with the bold prefix", () => {
+  for (const { label, prefix, sample } of ADDRESS_FAMILIES) {
+    for (const kind of ["mainnet", "testnet"] as const) {
+      const address = sample[kind];
+      // A sample whose bold start were not its real start would teach the
+      // wrong shape, and one that does not decode would teach a wrong format.
+      expect(`${label}/${kind}: ${address.startsWith(prefix[kind])}`).toBe(
+        `${label}/${kind}: true`
+      );
+      expect(() => decodeAddress(address)).not.toThrow();
+    }
+  }
 });
 
 test("knows every network jswallet can open, and nothing else", () => {

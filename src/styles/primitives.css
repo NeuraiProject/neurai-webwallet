@@ -127,6 +127,156 @@
   }
 
   /* -----------------------------------------------------------------------
+   * Choice tiles
+   *
+   * Radio cards for short, mutually exclusive lists where each option needs a
+   * line of explanation — a plain `<select>` has nowhere to put that. Each tile
+   * wraps a visually hidden radio input, so grouping, arrow keys and screen
+   * reader announcements stay native; the tile only draws the state.
+   * --------------------------------------------------------------------- */
+
+  /* Callers set the column count (e.g. `grid-cols-1 sm:grid-cols-3`). */
+  .neurai-choice-grid {
+    @apply grid gap-2;
+  }
+
+  .neurai-choice {
+    @apply flex min-w-0 cursor-pointer select-none items-stretch gap-2.5 rounded-lg
+           border border-base-300 bg-base-100 px-3 py-2.5 transition-colors;
+  }
+
+  .neurai-choice:hover {
+    @apply border-primary/45 bg-primary/5;
+  }
+
+  .neurai-choice:has(:focus-visible) {
+    @apply outline-2 outline-offset-2 outline-primary;
+  }
+
+  .neurai-choice.is-selected {
+    @apply border-primary bg-primary/10;
+  }
+
+  /* Visible but out of reach: the option exists, this network cannot use it. */
+  .neurai-choice.is-disabled {
+    @apply pointer-events-none border-dashed opacity-60;
+  }
+
+  /* The radio mark: hollow when unselected, filled when selected. */
+  .neurai-choice__mark {
+    @apply mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 border-base-content/30 transition-colors;
+  }
+
+  .neurai-choice.is-selected .neurai-choice__mark {
+    @apply border-primary bg-primary;
+  }
+
+  .neurai-choice__body {
+    @apply flex min-w-0 flex-1 flex-col gap-1.5;
+  }
+
+  .neurai-choice__name {
+    @apply text-sm font-semibold leading-none text-base-content;
+  }
+
+  .neurai-choice__desc {
+    @apply text-xs leading-snug text-base-content/65;
+  }
+
+  /* Sample address: big enough to read at a glance, with the part that
+     identifies the family carrying the weight. `self-start` keeps the chip as
+     wide as its content, `max-w-full` + `truncate` cut the tail when a long
+     bech32m address does not fit. `leading-5` leaves room for descenders,
+     which `truncate`'s hidden overflow would otherwise clip. */
+  .neurai-choice__address {
+    @apply max-w-full self-start truncate rounded bg-base-content/10 px-2 py-1
+           font-mono text-sm leading-5 text-base-content/50;
+  }
+
+  .neurai-choice__prefix {
+    @apply font-bold tracking-tight text-base-content;
+  }
+
+  /* -----------------------------------------------------------------------
+   * Choice dropdown — one tile in view, the rest a click away
+   *
+   * The panel is positioned rather than in flow, so opening it does not push
+   * the form down. Nothing between here and the card clips overflow.
+   * --------------------------------------------------------------------- */
+
+  .neurai-dropdown {
+    @apply relative;
+  }
+
+  .neurai-dropdown__panel {
+    @apply absolute inset-x-0 top-0 z-20 rounded-lg border border-base-300
+           bg-base-200 p-1.5;
+    box-shadow:
+      0 4px 8px rgba(0, 0, 0, 0.10),
+      0 16px 32px -8px rgba(0, 0, 0, 0.22);
+  }
+
+  [data-theme="dark"] .neurai-dropdown__panel {
+    box-shadow: 0 8px 28px -4px rgba(0, 0, 0, 0.7);
+  }
+
+  /* The tile that opens the panel: a chevron takes the radio mark's place. */
+  .neurai-choice--trigger {
+    @apply w-full text-left;
+  }
+
+  .neurai-choice__chevron {
+    @apply ml-auto h-5 w-5 shrink-0 self-center text-base-content/45 transition-transform;
+  }
+
+  .neurai-choice--trigger[aria-expanded="true"] .neurai-choice__chevron {
+    @apply rotate-180;
+  }
+
+  /* Why an option is out of reach, e.g. "soon". */
+  .neurai-choice__badge {
+    @apply rounded-full bg-base-300 px-1.5 py-0.5 text-[10px] font-bold uppercase
+           tracking-wider text-base-content/55;
+  }
+
+  /* -----------------------------------------------------------------------
+   * Segmented control — a handful of modes, one of them active
+   *
+   * Lighter than a row of buttons on purpose: these pick what the form shows,
+   * so they must not carry the same weight as the button that submits it.
+   * --------------------------------------------------------------------- */
+
+  .neurai-segmented {
+    @apply flex w-full gap-1 rounded-lg border border-base-300 bg-base-100 p-1;
+  }
+
+  .neurai-segmented__item {
+    @apply flex-1 rounded-md px-3 py-2 text-sm font-semibold text-base-content/65
+           transition-colors;
+  }
+
+  .neurai-segmented__item:hover {
+    @apply bg-base-content/5 text-base-content;
+  }
+
+  .neurai-segmented__item.is-active,
+  .neurai-segmented__item.is-active:hover {
+    @apply bg-base-200 text-primary;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.10),
+      0 2px 4px rgba(0, 0, 0, 0.06);
+  }
+
+  [data-theme="dark"] .neurai-segmented__item.is-active,
+  [data-theme="dark"] .neurai-segmented__item.is-active:hover {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  }
+
+  .neurai-segmented--sm .neurai-segmented__item {
+    @apply py-1.5 text-xs;
+  }
+
+  /* -----------------------------------------------------------------------
    * Misc
    * --------------------------------------------------------------------- */
 
