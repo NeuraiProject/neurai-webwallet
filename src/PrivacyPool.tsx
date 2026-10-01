@@ -1,12 +1,14 @@
 import React from 'react';
+import type { C4Manifest } from '@neuraiproject/neurai-privacy/browser';
 import type { Wallet } from '@neuraiproject/neurai-jswallet';
-import Signer from '@neuraiproject/neurai-sign-transaction';
+import {poolWalletNetwork,signPoolTransaction} from './privacy-pool/walletNetwork';
 import { isTestnetChain } from './buildTarget';
 import { PrivacyBenchmark } from './privacy-benchmark/PrivacyBenchmark';
 import { createPoolWorker } from './privacy-pool/workerFactory';
+import { C4_TESTNET_DEPLOYMENT } from './privacy-pool/deployment';
 import { scanCheckpointStore } from './privacy-pool/scanCheckpointStore';
 import {
-  C3_TESTNET_MANIFEST as manifest, C3_TEST_DEPOSIT_LIMIT_ATOMIC, MAX_ATOMIC, parseXna, formatXna, ROTATION_MAX_GAP, PoolWorkerClient, assertPoolChain, recheckInputs,
+  parseXna, formatXna, ROTATION_MAX_GAP, PoolWorkerClient, assertPoolChain, recheckInputs,
   confirmedPoolCoins, selectPoolCoins, withdrawalScript, admitTransaction, inspectFundingTransaction, publishTransaction,
   publicationStatus, rotationStorageKey, loadRotation as loadStoredRotation, saveRotation as storeRotation,
   type ReceivingInfo, type PoolCoin, type PoolIdentityMessage, type PoolScanMessage, type PoolAddressesMessage,
@@ -44,22 +46,44 @@ export function OperationTimer({busy,phase,elapsed,tone='idle',onCancel}:{busy:b
   </div>;
 }
 /** mnemonic and passphrase are the open wallet's words; they are only sent to the dedicated pool worker. */
-export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;mnemonic?:string;passphrase?:string}={}) {
+/** Deployment configuration is supplied by the application, never an RPC response. */
+export interface PrivacyPoolDeployment {
+  manifest:C4Manifest&{address?:string};
+  createWorker:()=>Worker;
+  explorerBaseUrl?:string|null;
+}
+export function PrivacyPool({wallet,mnemonic='',passphrase='',deployment}:{wallet?:Wallet;mnemonic?:string;passphrase?:string;deployment?:PrivacyPoolDeployment}={}) {
+  const manifest=deployment?.manifest??C4_TESTNET_DEPLOYMENT.manifest;
+  const explorer=deployment?.explorerBaseUrl===null?null:(deployment?.explorerBaseUrl??EXPLORER);
+
   const [bench,setBench]=React.useState(false),[busy,setBusy]=React.useState(false),[phase,setPhase]=React.useState('Ready');
   const [elapsed,setElapsed]=React.useState(0),[error,setError]=React.useState(''),[lines,setLines]=React.useState<string[]>(['Privacy pool ready.']);
   const [password,setPassword]=React.useState(''),[backup,setBackup]=React.useState<any>(null),[recipient,setRecipient]=React.useState<any>(null),[backupSaved,setBackupSaved]=React.useState(false);
   const [scan,setScan]=React.useState<Scan|null>(null),[action,setAction]=React.useState<'deposit'|'transfer'|'withdraw'>('deposit');
-  const [amount,setAmount]=React.useState('10'),[recipientText,setRecipientText]=React.useState(''),[destination,setDestination]=React.useState(''),[note,setNote]=React.useState('');
+  const [amount,setAmount]=React.useState('10'),[destination,setDestination]=React.useState(''),[note,setNote]=React.useState('');
+  const [batch,setBatch]=React.useState([{recipient:'',amount:'10'}]);
   const [fee,setFee]=React.useState('0.1'),[preview,setPreview]=React.useState<Preview|null>(null),[published,setPublished]=React.useState('');
   const [uncertain,setUncertain]=React.useState(false);
+  // Confirmed wallet coins, cached so the step state can be recomputed as the
+  // amount is typed. The real operation still reads them fresh from the node.
+  const [coinData,setCoinData]=React.useState<{confirmed:Coin[];values:string[]}|null>(null);
+  const [coinsBusy,setCoinsBusy]=React.useState(false),[coinsError,setCoinsError]=React.useState('');
+  // The deposit coin that was published and is not confirmed yet. Without it
+  // step A reads as untouched the moment its transaction is sent, which invites
+  // preparing a second coin while the first is still in the mempool.
+  const [sentCoin,setSentCoin]=React.useState<{txid:string;amountAtomic:string}|null>(null);
+  // A published pool transaction that has not confirmed. Its bytes are kept so
+  // the status can still be read if the node loses sight of it.
+  const [poolTx,setPoolTx]=React.useState<{txid:string;raw:string;points:{txid:string;vout:number}[]}|null>(null);
   const [addresses,setAddresses]=React.useState<AddressInfo|null>(null),[zkPassphrase,setZkPassphrase]=React.useState(''),[account,setAccount]=React.useState('0'),[gapText,setGapText]=React.useState('20');
   const rotation=React.useRef<{gap:number;issued:number}|null>(null);
   // Latest receiving data, readable from async code without waiting for a render.
   const receiving=React.useRef<AddressInfo|null>(null);
   const updateAddresses=(info:AddressInfo|null)=>{receiving.current=info;setAddresses(info);};
   const clientRef=React.useRef<PoolWorkerClient|null>(null),busyRef=React.useRef(false),command=React.useRef(''),start=React.useRef(0),owned=React.useRef<Coin[]>([]);
+  const coinEpoch=React.useRef(0);
   const mounted=React.useRef(true),epoch=React.useRef(0);
-  const network=wallet?.network??'',testnet=isTestnetChain(network),legacy=network==='xna-test'||network==='xna-legacy-test';
+  const network=wallet?.network??'',testnet=isTestnetChain(network),supported=!!poolWalletNetwork(network);
   const append=(text:string)=>setLines(old=>[...old.slice(-70),text]);
   const end=()=>{busyRef.current=false;if(mounted.current){setElapsed(performance.now()-start.current);setBusy(false);}};
   const fail=(e:unknown)=>{const text=e instanceof Error?e.message:String(e);setError(text);setPhase('Operation stopped');append('[ERROR] '+text);end();};
@@ -76,14 +100,14 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
   function lock() {
     epoch.current++;clientRef.current?.terminate();clientRef.current=null;busyRef.current=false;setBusy(false);setRecipient(null);setBackup(null);setBackupSaved(false);setScan(null);setPassword('');setZkPassphrase('');updateAddresses(null);rotation.current=null;setPreview(null);setPhase('Privacy wallet locked');
   }
-  React.useEffect(()=>{lock();setPublished('');setUncertain(false);},[wallet]);
+  React.useEffect(()=>{lock();setPublished('');setUncertain(false);},[wallet,wallet?.network,deployment,mnemonic,passphrase]);
   const checkInputs=(points:Preview['points'])=>recheckInputs(rpc,manifest,points);
   async function reviewPrepared(result:PreparedPoolTransaction) {
     const current=epoch.current;
     try {
       setPhase('Signing funding inputs locally');await checkInputs(result.inputPoints);
       const keys:Record<string,any>={};for(const c of owned.current){const key=wallet!.getPrivateKeyByAddress(c.address);if(!key)throw new Error('Funding key is unavailable');keys[c.address]=key;}
-      const raw=Signer.sign('xna-test',result.raw,owned.current as any,keys);
+      const raw=signPoolTransaction(wallet!.network,result.raw,owned.current as any,keys);
       for(const key of Object.keys(keys))delete keys[key];
       setPhase('Checking admission with the testnet node');
       const {txid}=await admitTransaction(rpc,raw);
@@ -95,7 +119,7 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
   // The library client bridges read-only RPC for the worker and resolves one operation at a time.
   function client() {
     if(clientRef.current&&!clientRef.current.stopped)return clientRef.current;
-    const c:PoolWorkerClient=new PoolWorkerClient({worker:createPoolWorker(),rpc,
+    const c:PoolWorkerClient=new PoolWorkerClient({worker:(deployment?.createWorker??createPoolWorker)(),rpc,
       onStage:message=>{if(c===clientRef.current){setPhase(message);append('[..] '+message);}},
       // A crashed worker lost the identity: show the panel as locked. The next operation starts a new worker.
       onCrash:e=>{if(c!==clientRef.current||!mounted.current)return;clientRef.current=null;setRecipient(null);updateAddresses(null);fail(e);}});
@@ -120,7 +144,7 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
   }
   function showAddresses(data:PoolAddressesMessage) {setRecipient(data.recipient);updateAddresses(data.addresses);saveRotation(data.addresses);}
   type Request={type:'create';password:string}|{type:'restore';backup:string;password:string}
-    |{type:'derive';mnemonic:string;passphrase:string;zkPassphrase:string;account:number}
+    |{type:'derive';family:'legacy'|'ecdsa'|'pq';mnemonic:string;passphrase:string;zkPassphrase:string;account:number}
     |{type:'scan';gap?:number;issued?:number}|{type:'new-address';force:boolean};
   async function request(r:Request) {
     if(busyRef.current)return;
@@ -146,7 +170,7 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
   }
   // Rotation state is not secret: last handed-out index and gap, per wallet, family check and account.
   const browserStorage=()=>{try {return globalThis.localStorage;} catch {return null;}};
-  const rotationKey=(info:AddressInfo)=>rotationStorageKey({network,walletId:wallet?.getAddresses?.()?.[0]??'',fingerprint:info.fingerprint!,account:info.account!});
+  const rotationKey=(info:AddressInfo)=>rotationStorageKey({network,walletId:wallet?.getAddresses?.()?.[0]??'',derivation:info.derivation!,family:info.family!,storageId:info.storageId!,account:info.account!});
   const loadRotation=(info:AddressInfo)=>loadStoredRotation(browserStorage(),rotationKey(info));
   function saveRotation(info:AddressInfo) {
     if(info.kind!=='derived')return;rotation.current={gap:info.gap!,issued:info.issued!};
@@ -169,7 +193,9 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
     const n=Number(account);
     if(!mnemonic){setError('This wallet was opened without its words. Use an encrypted backup file.');return;}
     if(!/^\d+$/.test(account)||!Number.isSafeInteger(n)||n>=2**31){setError('Account must be a whole number from 0.');return;}
-    setBackupSaved(false);void request({type:'derive',mnemonic,passphrase,zkPassphrase,account:n});
+    const family=wallet&&poolWalletNetwork(wallet.network)?.family;
+    if(!family){setError('Select a supported Legacy, ECDSA or PQ wallet.');return;}
+    setBackupSaved(false);void request({type:'derive',family,mnemonic,passphrase,zkPassphrase,account:n});
   }
   function newAddress() {
     if(addresses?.kind!=='derived')return;
@@ -179,6 +205,16 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
       force=true;
     }
     void request({type:'new-address',force});
+  }
+  /**
+   * The identity picks `max(maxUsed + 1, issued)` as its current address, so
+   * lowering `issued` walks back over addresses nobody has paid yet and stops
+   * on its own at the last used one.
+   */
+  function previousAddress() {
+    if(addresses?.kind!=='derived')return;
+    if(addresses.current.index<=(addresses.maxUsed??-1)+1)return;
+    void request({type:'scan',gap:addresses.gap??20,issued:Math.max(0,(addresses.issued??addresses.current.index)-1)});
   }
   function applyGap() {
     const gap=Number(gapText);
@@ -197,20 +233,41 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
   async function coins():Promise<Coin[]> {
     return await confirmedPoolCoins(rpc,await wallet!.getUTXOs() as any,{baseCurrency:wallet!.baseCurrency}) as Coin[];
   }
+  /**
+   * Read the wallet's coins so the panel can say which steps are still open.
+   * It runs beside the main operation rather than through `begin`: it must not
+   * claim the operation slot, and failing to read them is not a failed deposit.
+   */
+  async function refreshCoins() {
+    if(!wallet||!supported||!testnet)return;
+    const current=++coinEpoch.current;setCoinsBusy(true);setCoinsError('');
+    try {
+      const utxos=await wallet.getUTXOs() as any[];
+      const confirmed=await confirmedPoolCoins(rpc,utxos as any,{baseCurrency:wallet.baseCurrency}) as Coin[];
+      if(current!==coinEpoch.current||!mounted.current)return;
+      // Every own coin, confirmed or not: an exact one still in the mempool is
+      // a prepared step, not a missing one, and the two read very differently.
+      setCoinData({confirmed,values:utxos.filter(u=>u.assetName===wallet.baseCurrency).map(u=>String(u.satoshis))});
+    }catch(e){
+      if(current!==coinEpoch.current||!mounted.current)return;
+      setCoinData(null);setCoinsError(e instanceof Error?e.message:String(e));
+    }finally{if(current===coinEpoch.current&&mounted.current)setCoinsBusy(false);}
+  }
   async function prepare() {
     if(busyRef.current)return;
     const current=epoch.current;
     let c:PoolWorkerClient|undefined;
     try {
       begin('Checking wallet funding');setPreview(null);await chainCheck();
-      if(!legacy||!backupSaved)throw new Error('Use a Legacy testnet wallet and save the encrypted privacy JSON first');
+      if(!supported||!backupSaved)throw new Error('Use a supported testnet wallet and save the encrypted privacy JSON first');
       const feeAtomic=parseXna(fee).toString();
-      const amountAtomic=action==='withdraw'?'0':parseXna(amount).toString();
+      const recipients=action==='transfer'?batch.map(row=>({recipient:row.recipient,amountAtomic:parseXna(row.amount).toString()})):undefined;
+      const amountAtomic=action==='withdraw'?'0':recipients?recipients.reduce((n,row)=>n+BigInt(row.amountAtomic),0n).toString():parseXna(amount).toString();
       const {funding,sponsor}=selectPoolCoins(await coins(),{action,amountAtomic,feeAtomic}) as {funding?:Coin;sponsor:Coin};
       const payout=action==='withdraw'?await withdrawalScript(rpc,destination):undefined;
       if(current!==epoch.current||!mounted.current)return;
       owned.current=[...(funding?[funding]:[]),sponsor];command.current='prepare';c=client();
-      const result=await c.prepare({action,amountAtomic,feeAtomic,funding,sponsor,payout,note,recipient:recipientText});
+      const result=await c.prepare({action,amountAtomic,feeAtomic,funding,sponsor,payout,note,recipients});
       if(current!==epoch.current||!mounted.current)return;
       await reviewPrepared(result);
     }catch(e){if(c)workerFailed(c,e,current);else fail(e);}
@@ -220,7 +277,7 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
     const current=epoch.current;
     try {
       command.current='funding';begin('Preparing an exact deposit coin');setPreview(null);await chainCheck();
-      const atomic=parseXna(amount);if(atomic>C3_TEST_DEPOSIT_LIMIT_ATOMIC)throw new Error(`Deposit limit: ${formatXna(C3_TEST_DEPOSIT_LIMIT_ATOMIC)} XNA`);const value=formatXna(atomic);
+      const value=formatXna(parseXna(amount));
       const toAddress=wallet!.getAddresses()[0];
       const result=await wallet!.createTransaction({amount:value,toAddress,assetName:wallet!.baseCurrency});
       const raw=result.debug?.signedTransaction;if(!raw)throw new Error('Wallet did not return a signed funding transaction');
@@ -236,28 +293,143 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
       // The txid is recorded before sending: a failed call leaves the outcome uncertain.
       const txid=await publishTransaction(rpc,manifest,{raw:p.raw,txid:p.txid,points:p.points},
         {onBroadcast:id=>{setPhase('Publishing to testnet');setPublished(id);setUncertain(true);}});
-      setUncertain(false);setPreview(null);setScan(null);setPhase('Published · waiting for confirmation');append('[TX] '+txid);end();
+      setUncertain(false);setPreview(null);
+      if(p.funding){try{setSentCoin({txid,amountAtomic:parseXna(p.amount).toString()});}catch{setSentCoin(null);}}
+      else setPoolTx({txid,raw:p.raw,points:p.points});
+      setPhase('Published · waiting for confirmation');append('[TX] '+txid);end();
     }catch(e){fail(e);}
+  }
+  /**
+   * A confirmed pool transaction is the end of the operation: the notes it
+   * created are only readable now, and the coins it spent are only gone now.
+   */
+  function poolTxConfirmed() {
+    setPoolTx(null);append('[OK] Pool transaction confirmed. Reading the new notes.');
+    void refreshCoins();void request({type:'scan'});
   }
   async function checkPublication() {
     if(!published||busyRef.current)return;
     try {
       command.current='check-publication';begin('Checking the submitted transaction');
-      const status=await publicationStatus(rpc,manifest,{txid:published,raw:preview?.raw,points:preview?.points});
+      const status=await publicationStatus(rpc,manifest,{txid:published,raw:preview?.raw??poolTx?.raw,points:preview?.points??poolTx?.points});
       setUncertain(false);
-      if(status==='retryable'){setPhase('Node has not seen it · the same transaction can be retried');end();return;}
+      // The node never saw it, so nothing is pending: let the panel be used again.
+      if(status==='retryable'){setPoolTx(null);setPhase('Node has not seen it · the same transaction can be retried');end();return;}
       setPreview(null);setPhase(status==='confirmed'?'Transaction confirmed':'Transaction is in the mempool');end();
+      if(status==='confirmed')poolTxConfirmed();
     }catch(e){fail(e);}
   }
+  // Read the coins once the pool can be used, and again after each publication.
+  React.useEffect(()=>{if(recipient&&supported&&testnet)void refreshCoins();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[recipient,supported,testnet,published]);
+
   const selected=scan?.notes.find(n=>n.cm===note);
-  const canOperate=testnet&&legacy&&!!recipient&&backupSaved&&!busy&&!uncertain;
+  const canOperate=testnet&&supported&&!!recipient&&backupSaved&&!busy&&!uncertain&&!poolTx;
   // The first missing condition, shown instead of silently disabled controls.
-  const requirement=!testnet?'':!legacy?'Open a Testnet Legacy wallet: this C3 pool only accepts Legacy funding and withdrawal addresses.'
-    :!recipient?'Create or open your private wallet in step 1.':!backupSaved?'Save your encrypted backup in step 1 before using the pool.'
+  const requirement=!testnet?'':!supported?'Open a Testnet Legacy, PQ or ECDSA wallet.'
+    :!recipient?'Open your private wallet in step 1 before depositing. Your normal wallet balance is separate from the private balance.':!backupSaved?'Save your encrypted backup in step 1 before using the pool.'
     :uncertain?'Check the pending publication below before starting another operation.'
+    :poolTx?'Your pool transaction is waiting for a confirmation. The notes refresh on their own when it lands.'
     :action!=='deposit'&&scan&&scan.notes.length===0?'You have no spendable private notes yet. Make a deposit first.':'';
   const locked=!canOperate||!!preview;
+
+  const box='rounded-xl border border-base-300 bg-base-100 p-4 min-w-0';
+  const notice='rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-base-content m-0';
+
+  /**
+   * Which step the coins allow next. `selectPoolCoins` is pure, so the answer
+   * follows the amount as it is typed without another round trip to the node.
+   */
+  const funding=React.useMemo(():{state:'unknown'|'ready'|'pending'|'blocked';message:string;exact:boolean}=>{
+    if(!coinData)return {state:'unknown',message:coinsError,exact:false};
+    // The deposit coin and the fee coin are separate requirements, and only the
+    // first is what the prepare step produces: they are reported apart so a
+    // missing fee coin never reads as a deposit coin that has not confirmed.
+    let exact=action!=='deposit';
+    try {
+      const amountAtomic=action==='withdraw'?'0':action==='transfer'
+        ?batch.reduce((n,row)=>n+parseXna(row.amount),0n).toString()
+        :parseXna(amount).toString();
+      if(action==='deposit')exact=coinData.confirmed.some(c=>String(c.valueSats)===amountAtomic);
+      selectPoolCoins(coinData.confirmed,{action,amountAtomic,feeAtomic:parseXna(fee).toString()});
+      return {state:'ready',message:'',exact};
+    }catch(e){
+      const message=e instanceof Error?e.message:String(e);
+      if(action==='deposit'&&!exact){
+        // Tell "not prepared yet" apart from "prepared, still unconfirmed":
+        // the first needs a button press, the second only needs a block.
+        try {
+          if(coinData.values.includes(parseXna(amount).toString()))
+            return {state:'pending',message:'The exact deposit coin is not confirmed yet. It can be used after one confirmation.',exact};
+        }catch{/* an unparseable amount is reported by the message below */}
+      }
+      return {state:'blocked',message,exact};
+    }
+  },[coinData,coinsError,action,amount,fee,batch]);
+
+  const coinsChecking=coinsBusy&&!coinData;
+  // An unreadable coin list must not lock the panel: let the operation run and
+  // surface the node's own refusal instead of a step that can never clear.
+  const fundingBlocks=coinsChecking||funding.state==='pending'||funding.state==='blocked';
+  // Step A is done once its coin is confirmed, even if the fee coin is missing.
+  const coinReady=funding.exact;
+  // Published but not confirmed. A coin sent for another amount is not this
+  // step's coin, so changing the amount drops back to "nothing prepared".
+  const sentForThisAmount=!!sentCoin&&(()=>{try{return sentCoin.amountAtomic===parseXna(amount).toString();}catch{return false;}})();
+  const coinWaiting=action==='deposit'&&!coinReady&&(sentForThisAmount||funding.state==='pending');
+  // Confirmation is the only thing left, and it arrives without the user doing
+  // anything, so the step advances by itself instead of waiting for a press.
+  // Asking after the transaction separates the three outcomes that matter: in
+  // the mempool, confirmed, or never seen — the last one would otherwise leave
+  // the step waiting for a coin that is never coming.
+  React.useEffect(()=>{
+    if(!coinWaiting||busy)return;
+    const txid=sentCoin?.txid;
+    const id=setInterval(()=>{
+      if(busyRef.current)return;
+      if(!txid){void refreshCoins();return;}
+      void rpc('getrawtransaction',[txid,true])
+        .then(tx=>{
+          if(!mounted.current)return;
+          if(tx&&tx.confirmations>0)void refreshCoins();
+          else if(!tx)setSentCoin(null);
+        })
+        .catch(()=>{if(mounted.current)setSentCoin(null);});
+    },20000);
+    return()=>clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[coinWaiting,busy,sentCoin]);
+  React.useEffect(()=>{if(coinReady)setSentCoin(null);},[coinReady]);
+
+  // The same wait on the other side of the operation: confirmation is what
+  // makes the new notes readable, and it needs no press to happen.
+  React.useEffect(()=>{
+    if(!poolTx||busy)return;
+    const id=setInterval(()=>{
+      if(busyRef.current)return;
+      void publicationStatus(rpc,manifest,poolTx)
+        .then(status=>{if(status==='confirmed'&&mounted.current)poolTxConfirmed();})
+        // A background check that fails changes nothing: the next one retries,
+        // and `Check transaction status` reports properly when asked.
+        .catch(()=>undefined);
+    },20000);
+    return()=>clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[poolTx,busy]);
+
+  const canBuild=!locked&&(action==='deposit'||!!note)&&!fundingBlocks;
+  const fundingStatus=funding.state==='ready'&&!coinsChecking?null:
+    <div className={`${notice} flex flex-wrap items-center justify-between gap-3`} role="status">
+      <span className="min-w-0">{coinsChecking?'Checking the coins in your wallet…'
+        :funding.state==='unknown'?`Could not read your wallet coins: ${funding.message||'unknown error'}`
+        :coinWaiting?'The deposit coin is pending in the mempool. Step B opens once a block includes it; this is checked every few seconds.'
+        :funding.message}</span>
+      <button className="neurai-btn--secondary btn-sm" disabled={busy||coinsBusy} onClick={()=>void refreshCoins()}>
+        {coinsBusy?'Checking…':'Check again'}</button>
+    </div>;
   const derived=addresses?.kind==='derived';
+  const canStepBack=derived&&addresses!.current.index>(addresses!.maxUsed??-1)+1;
   const tone:StatusTone=error?'error':elapsed>0?'done':'idle';
   const cancel=busy&&command.current==='prepare'&&phase!=='Publishing to testnet'?()=>{lock();append('[STOP] Worker terminated; reload your privacy JSON to continue.');}:undefined;
   const feeField=<div><label htmlFor="privacy-fee" className="neurai-label">Public network fee (XNA)</label>
@@ -267,10 +439,17 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
       <option value="">{scan?'Select a note':'Refresh notes in step 1 first'}</option>
       {scan?.notes.map(n=><option value={n.cm} key={n.cm}>{formatXna(n.amountAtomic)} XNA · {n.cm.slice(0,12)}…</option>)}
     </select></div>;
-  const buildButton=<button className="neurai-btn--primary" disabled={locked||(action!=='deposit'&&!note)} onClick={()=>void prepare()}>Build and verify proof</button>;
-  const depositLimited=C3_TEST_DEPOSIT_LIMIT_ATOMIC<MAX_ATOMIC;
-  const box='rounded-xl border border-base-300 bg-base-100 p-4 min-w-0';
-  const notice='rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-base-content m-0';
+  const reviewCard=preview?<section className={`${box} neurai-stack gap-2 border-primary`} aria-labelledby="privacy-review-title">
+    <h3 id="privacy-review-title" className="neurai-card__title">Review and publish</h3>
+    <p className="m-0">{preview.form} · <strong>{preview.amount} XNA</strong> · network fee <strong>{preview.fee} XNA</strong></p>
+    <p className="m-0 text-sm text-base-content/70">The node accepted the prepared transaction. It has not been broadcast.</p>
+    <code className="block font-mono text-xs break-all text-base-content/70">{preview.txid}</code>
+    <div className="flex flex-wrap gap-2"><button className="neurai-btn--primary" disabled={busy||uncertain} onClick={()=>void publish()}>Publish TEST transaction</button><button className="neurai-btn--secondary" disabled={busy||uncertain} onClick={()=>setPreview(null)}>Discard</button></div>
+  </section>:null;
+  const buildButton=<button className="neurai-btn--primary" disabled={!canBuild} onClick={()=>void prepare()}>Build and verify proof</button>;
+  // Why the only button on screen cannot be pressed, rather than a dead control.
+  const buildHint=action!=='deposit'&&!note&&scan&&scan.notes.length>0
+    ?'Select the note to spend above.':'Nothing is published until you review it.';
   return <section className="privacy-pool neurai-stack min-w-0" aria-label="Privacy Pool">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
@@ -280,7 +459,7 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
       <button className="neurai-btn--secondary" disabled={busy} onClick={()=>setBench(x=>!x)} aria-expanded={bench}>{bench?'Back to pool':'Open benchmark'}</button>
     </div>
     {bench?<PrivacyBenchmark/>:<>
-      <p className={notice}>C3 TEST keys · XNA only · Legacy funding and withdrawal addresses. This pool does not accept valuable funds.</p>
+      <p className={notice}>C4 TEST keys · XNA only · Legacy, PQ and ECDSA funding and withdrawal addresses. This pool does not accept valuable funds.</p>
       {!testnet&&<p role="alert" className="text-sm text-error m-0">Switch to a testnet wallet to use the pool.</p>}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
         <section className="neurai-card neurai-stack min-w-0" aria-labelledby="privacy-wallet-title">
@@ -289,7 +468,7 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
             {recipient&&<button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={lock}>Lock</button>}
           </div>
           {!recipient?<>
-            <p className="text-sm text-base-content/70 m-0">Open your private wallet from this wallet’s words. Nothing needs to be saved: the same words, passphrase, ZK passphrase and account always give the same private wallet.</p>
+            <p className="text-sm text-base-content/70 m-0">Open the private wallet for your selected Legacy, ECDSA or PQ family. The same words, passphrases, family, account and pool recover the same keys. Keep a record of the pools and accounts you use.</p>
             {!mnemonic&&<p className={notice}>This wallet was opened without its words. Use an encrypted backup file below.</p>}
             <div><label htmlFor="privacy-zk-passphrase" className="neurai-label">ZK passphrase <span className="font-normal opacity-60">(optional)</span></label>
               <input id="privacy-zk-passphrase" className="neurai-input" type="password" aria-label="ZK passphrase" autoComplete="off" value={zkPassphrase} onChange={e=>setZkPassphrase(e.target.value)} disabled={busy||!mnemonic}/>
@@ -317,9 +496,32 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
                 <button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={()=>void request({type:'scan'})}>Refresh notes</button>
               </div>
             </div>
+            <div className={`${box} neurai-stack gap-2`}>
+              <p className="neurai-eyebrow mb-0">Receive privately</p>
+              <p className="m-0 text-sm text-base-content/70">{derived?'Share this address. After it receives a note a new one appears; earlier addresses keep working.':'Share this address. A backup file has a single address; open from the wallet words to get a new one after each payment.'}</p>
+              {addresses&&<><code className="block rounded-lg border-2 border-primary/35 bg-base-200 px-3 py-3 font-mono text-sm leading-relaxed break-all select-all" aria-label="Receiving address">{addresses.current.address}</code>
+                {derived&&<p className="neurai-hint m-0">Address #{addresses.current.index} · account {addresses.account}</p>}</>}
+              <div className="flex flex-wrap gap-2">
+                {addresses&&<button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={()=>void copyText(addresses.current.address,'Receiving address')}>Copy address</button>}
+                {derived&&<>
+                  {/* Rotation only ever moved forward, so a mistaken press could
+                      not be taken back. The identity clamps the index at the
+                      last used address, so stepping back never reuses one. */}
+                  <button className="neurai-btn--secondary btn-sm" disabled={busy||!canStepBack} onClick={previousAddress}
+                    title={canStepBack?'Go back to the previous unused address':'The address before this one has already received a note'}>← Previous</button>
+                  <button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={newAddress}>New address →</button>
+                </>}
+                <button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={()=>saveJson('neurai-privacy-recipient.json',recipient)}>Save receiving descriptor</button>
+              </div>
+              {derived&&addresses!.used.length>0&&<details><summary className="cursor-pointer text-sm font-semibold">Used addresses ({addresses!.used.length})</summary>
+                <ul className="list-none m-0 mt-2 p-0 flex flex-col">{addresses!.used.map(u=><li key={u.index} className="flex items-center gap-3 py-2 border-b border-base-300 last:border-b-0 text-sm">
+                  <span className="text-base-content/70">#{u.index}</span><code className="font-mono text-xs min-w-0 flex-1 truncate">{u.address.slice(0,18)}…{u.address.slice(-8)}</code><strong className="tabular-nums">{formatXna(u.receivedAtomic)} XNA</strong></li>)}</ul></details>}
+              <details><summary className="cursor-pointer text-sm font-semibold">Show descriptor JSON</summary>
+                <textarea className="neurai-textarea font-mono text-xs mt-2 min-h-28" readOnly value={JSON.stringify(recipient,null,2)} aria-label="Receiving descriptor"/></details>
+            </div>
             {derived?<div className={`${box} neurai-stack gap-2`}>
               <p className="m-0 font-semibold text-success">✓ Recovered from the wallet words</p>
-              <p className="m-0 text-sm text-base-content/70">Account {addresses!.account} · check <code className="font-mono">{addresses!.fingerprint}</code>. Opening it again with the same ZK passphrase must show the same check.</p>
+              <p className="m-0 text-sm text-base-content/70">NeuraiZK/v2 · {addresses!.family} · account {addresses!.account} · check <code className="font-mono">{addresses!.fingerprint}</code>. Opening it again with the same ZK passphrase must show the same check.</p>
               <details><summary className="cursor-pointer text-sm font-semibold">Recovery settings</summary>
                 <div className="neurai-stack gap-2 mt-3">
                   <div><label htmlFor="privacy-gap" className="neurai-label">Gap limit (1–{MAX_GAP})</label>
@@ -333,22 +535,6 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
               <p className="m-0 text-sm text-base-content/70">{backupSaved?'Keep the file and its password. They are the only way to recover these notes.':'Save it before using the pool. Without it these notes cannot be recovered.'}</p>
               <button className={`${backupSaved?'neurai-btn--secondary':'neurai-btn--primary'} btn-sm self-start`} disabled={busy} onClick={()=>{saveJson('neurai-privacy-test-backup.json',backup);setBackupSaved(true);}}>Save encrypted JSON</button>
             </div>}
-            <div className={`${box} neurai-stack gap-2`}>
-              <p className="neurai-eyebrow mb-0">Receive privately</p>
-              <p className="m-0 text-sm text-base-content/70">{derived?'Share this address. After it receives a note a new one appears; earlier addresses keep working.':'Share this address. A backup file has a single address; open from the wallet words to get a new one after each payment.'}</p>
-              {addresses&&<><code className="block rounded-lg border border-base-300 bg-base-200 px-3 py-2 font-mono text-xs leading-relaxed break-all select-all" aria-label="Receiving address">{addresses.current.address}</code>
-                {derived&&<p className="neurai-hint m-0">Address #{addresses.current.index} · account {addresses.account}</p>}</>}
-              <div className="flex flex-wrap gap-2">
-                {addresses&&<button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={()=>void copyText(addresses.current.address,'Receiving address')}>Copy address</button>}
-                {derived&&<button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={newAddress}>New address</button>}
-                <button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={()=>saveJson('neurai-privacy-recipient.json',recipient)}>Save receiving descriptor</button>
-              </div>
-              {derived&&addresses!.used.length>0&&<details><summary className="cursor-pointer text-sm font-semibold">Used addresses ({addresses!.used.length})</summary>
-                <ul className="list-none m-0 mt-2 p-0 flex flex-col">{addresses!.used.map(u=><li key={u.index} className="flex items-center gap-3 py-2 border-b border-base-300 last:border-b-0 text-sm">
-                  <span className="text-base-content/70">#{u.index}</span><code className="font-mono text-xs min-w-0 flex-1 truncate">{u.address.slice(0,18)}…{u.address.slice(-8)}</code><strong className="tabular-nums">{formatXna(u.receivedAtomic)} XNA</strong></li>)}</ul></details>}
-              <details><summary className="cursor-pointer text-sm font-semibold">Show descriptor JSON</summary>
-                <textarea className="neurai-textarea font-mono text-xs mt-2 min-h-28" readOnly value={JSON.stringify(recipient,null,2)} aria-label="Receiving descriptor"/></details>
-            </div>
           </>}
         </section>
         <section className="neurai-card neurai-stack min-w-0" aria-labelledby="privacy-use-title">
@@ -356,61 +542,78 @@ export function PrivacyPool({wallet,mnemonic='',passphrase=''}:{wallet?:Wallet;m
           <div role="tablist" aria-label="Pool operation" className="join w-full">{(['deposit','transfer','withdraw'] as const).map(a=>
             <button key={a} type="button" role="tab" aria-selected={action===a} disabled={busy||!!preview} onClick={()=>setAction(a)}
               className={`btn join-item flex-1 ${action===a?'btn-primary':'btn-ghost border border-base-300'}`}>{a==='transfer'?'Assign':a[0].toUpperCase()+a.slice(1)}</button>)}</div>
-          <p className="text-sm text-base-content/70 m-0">{action==='deposit'?'Move XNA from this wallet into a new private note.':action==='transfer'?'Give part or all of one of your notes to another private wallet. Any remainder comes back to you as a new note.':'Turn one whole note back into XNA at a Legacy testnet address.'}</p>
+          <p className="text-sm text-base-content/70 m-0">{action==='deposit'?'Move XNA from this wallet into a new private note.':action==='transfer'?'Give part or all of one of your notes to another private wallet. Any remainder comes back to you as a new note.':`Turn one whole note back into XNA at a Legacy, PQ or ECDSA testnet address.`}</p>
           {requirement&&<p className={notice}>{requirement}</p>}
           {action==='deposit'&&<>
-            <div><label htmlFor="privacy-amount" className="neurai-label">Deposit amount (XNA{depositLimited?`, up to ${formatXna(C3_TEST_DEPOSIT_LIMIT_ATOMIC)}`:''})</label>
+            <div><label htmlFor="privacy-amount" className="neurai-label">Deposit amount (XNA)</label>
               <input id="privacy-amount" className="neurai-input" inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} disabled={locked}/></div>
             {feeField}
+            <p className="text-sm text-base-content/70 m-0">A deposit is published twice: first the coin, then the note. The pool spends a coin worth exactly the deposit, so one has to be made before the proof can be built.</p>
             <ol className="list-none m-0 p-0 flex flex-col gap-3">
-              {([['Prepare an exact coin','Sends the deposit amount to your own address. Publish it and wait for one confirmation.',
-                <button key="fund" className="neurai-btn--secondary" disabled={locked} onClick={()=>void prepareFunding()}>Prepare deposit coin</button>],
-                ['Create the private note','Builds and verifies the proof on this device. Nothing is published until you review it.',buildButton]] as const).map(([title,text,control],i)=>
-                <li key={title} className={`${box} grid grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3`}>
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary" aria-hidden="true">{i+1}</span>
-                  <div className="min-w-0"><p className="m-0 text-sm font-semibold">{title}</p><p className="neurai-hint m-0">{text}</p></div>
+              {([['A','Prepare an exact coin',coinWaiting?'Pending in the mempool. It becomes usable once a block includes it.':'Sends the deposit amount to your own address. Publish it and wait for one confirmation.',coinReady,coinWaiting,
+                // Shut while its transaction is pending: preparing a second coin
+                // then would spend the change of the first one, or nothing.
+                <button key="fund" className={coinReady||coinWaiting?'neurai-btn--secondary':'neurai-btn--primary'} disabled={locked||coinWaiting} onClick={()=>void prepareFunding()}>
+                  {coinReady?'Prepare another':'Prepare deposit coin'}</button>],
+                ['B','Create the private note',poolTx?'Waiting for a confirmation. The notes refresh on their own once the block lands.':'Builds and verifies the proof on this device. Nothing is published until you review it.',false,!!poolTx,buildButton]] as const)
+                .map(([mark,title,text,done,waiting,control])=><React.Fragment key={mark}>
+                <li className={`${box} grid grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 ${done?'border-success/50':waiting?'border-warning/50':''}`}>
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${done?'bg-success/15 text-success':waiting?'bg-warning/20 text-warning':'bg-primary/15 text-primary'}`} aria-hidden="true">{done?'\u2713':mark}</span>
+                  <div className="min-w-0">
+                    <p className="m-0 text-sm font-semibold">{title}{done&&<span className="ml-2 font-normal text-success">done</span>}</p>
+                    <p className={`m-0 mt-1 text-xs leading-snug ${waiting?'font-medium text-warning':'text-base-content/70'}`}>{text}</p></div>
                   <div className="col-span-2 sm:col-span-1 justify-self-start sm:justify-self-end">{control}</div>
-                </li>)}
+                </li>
+                {preview&&preview.funding===(mark==='A')&&<li>{reviewCard}</li>}
+              </React.Fragment>)}
             </ol>
+            {fundingStatus}
           </>}
           {action==='transfer'&&<>
             {noteField}
-            <div><label htmlFor="privacy-assign-amount" className="neurai-label">Amount to assign (XNA)</label>
-              <input id="privacy-assign-amount" className="neurai-input" inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} disabled={locked}/></div>
-            <div><label htmlFor="privacy-recipient" className="neurai-label">Recipient address or descriptor</label>
-              <textarea id="privacy-recipient" className="neurai-textarea font-mono text-xs min-h-24" value={recipientText} onChange={e=>setRecipientText(e.target.value)} placeholder="tnzk1… or the recipient’s JSON descriptor" disabled={locked}/></div>
+            <div className="neurai-stack">
+              <p className="neurai-hint m-0">Up to four private notes per transfer, including your change. Use private receiving addresses or descriptors.</p>
+              {batch.map((row,i)=><div key={i} className="rounded-xl border border-base-300 p-3 neurai-stack">
+                <label htmlFor={`privacy-batch-recipient-${i}`} className="neurai-label">Recipient {i+1}</label>
+                <textarea id={`privacy-batch-recipient-${i}`} className="neurai-textarea font-mono text-xs" value={row.recipient} disabled={locked}
+                  placeholder="tnzk1… or receiving descriptor" onChange={e=>setBatch(rows=>rows.map((x,j)=>i===j?{...x,recipient:e.target.value}:x))}/>
+                <label htmlFor={`privacy-batch-amount-${i}`} className="neurai-label">Amount {i+1} (XNA)</label>
+                <input id={`privacy-batch-amount-${i}`} className="neurai-input" inputMode="decimal" value={row.amount} disabled={locked}
+                  onChange={e=>setBatch(rows=>rows.map((x,j)=>i===j?{...x,amount:e.target.value}:x))}/>
+                {batch.length>1&&<button className="neurai-btn--secondary btn-sm" disabled={locked} onClick={()=>setBatch(rows=>rows.filter((_,j)=>j!==i))}>Remove recipient {i+1}</button>}
+              </div>)}
+              <button className="neurai-btn--secondary btn-sm" disabled={locked||batch.length>=4} onClick={()=>setBatch(rows=>[...rows,{recipient:'',amount:''}])}>Add recipient</button>
+            </div>
             {feeField}
-            <div className="flex flex-wrap items-center gap-3">{buildButton}<span className="neurai-hint m-0">Nothing is published until you review it.</span></div>
+            {fundingStatus}
+            <div className="flex flex-wrap items-center gap-3">{buildButton}<span className="neurai-hint m-0">{buildHint}</span></div>
+            {reviewCard}
           </>}
           {action==='withdraw'&&<>
             {noteField}
             <p className="text-sm text-base-content/70 m-0">This withdrawal spends the whole selected note: <strong className="text-base-content">{selected?formatXna(selected.amountAtomic):'—'} XNA</strong>. To withdraw less, first assign part of it to your own address.</p>
-            <div><label htmlFor="privacy-destination" className="neurai-label">Legacy withdrawal address</label>
+            <div><label htmlFor="privacy-destination" className="neurai-label">Legacy, PQ or ECDSA withdrawal address</label>
               <input id="privacy-destination" className="neurai-input" value={destination} onChange={e=>setDestination(e.target.value)} disabled={locked}/></div>
             {feeField}
-            <div className="flex flex-wrap items-center gap-3">{buildButton}<span className="neurai-hint m-0">Nothing is published until you review it.</span></div>
+            {fundingStatus}
+            <div className="flex flex-wrap items-center gap-3">{buildButton}<span className="neurai-hint m-0">{buildHint}</span></div>
+            {reviewCard}
           </>}
         </section>
       </div>
       {error&&<p className="rounded-xl border border-error/40 bg-error/10 px-4 py-3 text-sm text-error m-0" role="alert">{error}</p>}
-      {preview&&<section className="neurai-card neurai-stack min-w-0 border-primary" aria-labelledby="privacy-review-title">
-        <div><p className="neurai-eyebrow mb-1">Step 3</p><h3 id="privacy-review-title" className="neurai-card__title">Review and publish</h3></div>
-        <p className="m-0">{preview.form} · <strong>{preview.amount} XNA</strong> · network fee <strong>{preview.fee} XNA</strong></p>
-        <p className="m-0 text-sm text-base-content/70">The node accepted the prepared transaction. It has not been broadcast.</p>
-        <code className="block font-mono text-xs break-all text-base-content/70">{preview.txid}</code>
-        <div className="flex flex-wrap gap-2"><button className="neurai-btn--primary" disabled={busy||uncertain} onClick={()=>void publish()}>Publish TEST transaction</button><button className="neurai-btn--secondary" disabled={busy||uncertain} onClick={()=>setPreview(null)}>Discard</button></div>
-      </section>}
       {published&&<section className="neurai-card neurai-stack min-w-0" aria-label="Published transaction">
-        <p className="m-0">{uncertain?'Publication result is uncertain. Check this transaction before building another one.':'Transaction sent. Refresh notes after it confirms.'}</p>
-        <div className="flex flex-wrap gap-2"><a className="neurai-btn--secondary btn-sm" href={EXPLORER+published} target="_blank" rel="noreferrer">View {published.slice(0,16)}… in the explorer</a><button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={()=>void checkPublication()}>Check transaction status</button></div>
+        <p className="m-0">{uncertain?'Publication result is uncertain. Check this transaction before building another one.'
+          :poolTx?'Transaction sent. The notes refresh on their own once it confirms.':'Transaction sent. Refresh notes after it confirms.'}</p>
+        <div className="flex flex-wrap gap-2">{explorer?<a className="neurai-btn--secondary btn-sm" href={explorer+published} target="_blank" rel="noreferrer">View {published.slice(0,16)}… in the explorer</a>:<code className="break-all">{published}</code>}<button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={()=>void checkPublication()}>Check transaction status</button></div>
       </section>}
       <OperationTimer busy={busy} phase={phase} elapsed={elapsed} tone={tone} onCancel={cancel}/>
       <details className="neurai-card min-w-0"><summary className="neurai-card__title cursor-pointer">Confirmed pool activity</summary>
         <div className="neurai-stack gap-2 mt-4 text-sm">
           <p className="m-0">Pool instance: <code className="font-mono">{manifest.identity}</code></p>
-          <p className="m-0 font-mono text-xs break-all text-base-content/70">{manifest.address}</p>
+          <p className="m-0 font-mono text-xs break-all text-base-content/70">{manifest.address??manifest.commitment}</p>
           {scan?.transitions.length?<ul className="list-none m-0 p-0 flex flex-col">{scan.transitions.slice(-12).reverse().map(t=><li key={t.txid} className="flex flex-wrap items-center gap-2 py-2 border-b border-base-300 last:border-b-0">
-            <strong>{t.form}</strong><span className="text-base-content/70">block {t.height}</span><a className="link link-primary font-mono text-xs" href={EXPLORER+t.txid} target="_blank" rel="noreferrer">{t.txid.slice(0,20)}…</a></li>)}</ul>
+            <strong>{t.form}</strong><span className="text-base-content/70">block {t.height}</span>{explorer?<a className="link link-primary font-mono text-xs" href={explorer+t.txid} target="_blank" rel="noreferrer">{t.txid.slice(0,20)}…</a>:<code className="text-xs">{t.txid.slice(0,20)}…</code>}</li>)}</ul>
             :<p className="neurai-hint m-0">Refresh notes to list the latest pool operations.</p>}
         </div>
       </details>

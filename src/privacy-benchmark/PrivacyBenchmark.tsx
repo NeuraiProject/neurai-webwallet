@@ -4,17 +4,9 @@ import { createGroth16BenchmarkWorker, createPrivacyBenchmarkWorker } from "./wo
 import "../styles/privacy-benchmark.css";
 
 type RunStatus = "idle" | "running" | "done" | "error" | "cancelled";
-type ProofFile = "input" | "wasm" | "zkey" | "vk";
-type ProofStage = ProofFile | "witness" | "proof" | "verify";
+type ProofStage = "input" | "witness" | "proof" | "verify";
 type ProofResult = { proof?: unknown; publicSignals?: string[]; form?: string; manifestId?: string; totalMs: number; wasmBytes: number; zkeyBytes: number; publicSignalCount: number; proofVerified: true; stages: Partial<Record<"input" | "witness" | "proof" | "verify", number>> };
 const PROOF_STAGES = ["input", "witness", "proof", "verify"] as const;
-const PROOF_FILES: { id: ProofFile; label: string; accept: string }[] = [
-  { id: "input", label: "TEST circuit input (.json)", accept: ".json,application/json" },
-  { id: "wasm", label: "Matching circuit (.wasm)", accept: ".wasm,application/wasm" },
-  { id: "zkey", label: "Matching TEST proving key (.zkey)", accept: ".zkey" },
-  { id: "vk", label: "Matching verification key (.json)", accept: ".json,application/json" },
-];
-
 const STEPS: { id: BenchmarkStageId; label: string; detail: string }[] = [
   { id: "checks", label: "Environment", detail: "Secure random source and Poseidon vector" },
   { id: "poseidon", label: "Poseidon", detail: "100 commitment hashes" },
@@ -47,10 +39,9 @@ export function PrivacyBenchmark() {
   const [elapsedMs, setElapsedMs] = React.useState(0);
   const workerRef = React.useRef<Worker | null>(null);
   const proofWorkerRef = React.useRef<Worker | null>(null);
-  const [c3Form,setC3Form] = React.useState("D0");
+  const [c4Form,setC4Form] = React.useState("D0");
   const [proofElapsed,setProofElapsed] = React.useState(0);
   const proofStarted=React.useRef(0);
-  const [proofFiles, setProofFiles] = React.useState<Partial<Record<ProofFile, File>>>({});
   const [proofStatus, setProofStatus] = React.useState<RunStatus>("idle");
   const [proofStage, setProofStage] = React.useState<ProofStage | null>(null);
   const [proofStageTimes, setProofStageTimes] = React.useState<ProofResult["stages"]>({});
@@ -93,12 +84,8 @@ export function PrivacyBenchmark() {
     append("[STOP] Groth16 TEST worker terminated.");
   }, [append]);
 
-  const runProof = (form?: string) => {
+  const runProof = (form: string) => {
     if (proofWorkerRef.current || proofStatus === "running") return;
-    if (!form && (!proofFiles.input || !proofFiles.wasm || !proofFiles.zkey || !proofFiles.vk)) {
-      setProofError("Select the four matching TEST files first.");
-      return;
-    }
     setProofError("");
     setProofResult(null);
     setProofStageTimes({});
@@ -106,7 +93,7 @@ export function PrivacyBenchmark() {
     setProofStage(null);
     proofStarted.current=performance.now();setProofElapsed(0);
     setProofStatus("running");
-    append(form ? `[INFO] C3 ${form} TEST · one thread · pinned artifacts.` : `[INFO] Local TEST artifacts · one thread.`);
+    append(`[INFO] C4 ${form} TEST · one thread · pinned artifacts · synthetic inputs.`);
     try {
       const worker = createGroth16BenchmarkWorker();
       proofWorkerRef.current = worker;
@@ -155,7 +142,7 @@ export function PrivacyBenchmark() {
         worker.terminate();
         proofWorkerRef.current = null;
       };
-      worker.postMessage({ type: "start", ...(form?{form}:{files:proofFiles}) });
+      worker.postMessage({ type: "start", form });
     } catch (error) {
       setProofError(error instanceof Error ? error.message : String(error));
       setProofStatus("error");
@@ -342,32 +329,12 @@ export function PrivacyBenchmark() {
           <span className="font-mono text-xs text-base-content/60">snarkjs 0.7.6 · GPL-3.0</span>
         </div>
         <div className="mt-4 flex flex-wrap items-end gap-3">
-          <div><label htmlFor="privacy-bench-form" className="neurai-label">C3 operation</label>
-            <select id="privacy-bench-form" className="neurai-select w-auto min-w-40" aria-label="C3 benchmark operation" value={c3Form} disabled={proofStatus==="running"} onChange={e=>setC3Form(e.target.value)}>{["D0","D1","T1","T2","W_partial","W_full"].map(f=><option key={f}>{f}</option>)}</select></div>
-          <button className="neurai-btn--primary" disabled={status==="running"||proofStatus==="running"} onClick={()=>runProof(c3Form)}>Run C3 benchmark</button>
+          <div><label htmlFor="privacy-bench-form" className="neurai-label">C4 operation</label>
+            <select id="privacy-bench-form" className="neurai-select w-auto min-w-40" aria-label="C4 benchmark operation" value={c4Form} disabled={proofStatus==="running"} onChange={e=>setC4Form(e.target.value)}>{["D0","D1","T1","T2","T3","T4","W_partial","W_full"].map(f=><option key={f}>{f}</option>)}</select></div>
+          <button className="neurai-btn--primary" disabled={status==="running"||proofStatus==="running"} onClick={()=>runProof(c4Form)}>Run C4 benchmark</button>
           {proofStatus==="running"&&<span role="status" className="text-sm text-base-content/70">{proofStage??"Loading parameters"} · {(proofElapsed/1000).toFixed(1)} s elapsed · working locally</span>}
         </div>
-        <details><summary>Advanced: choose your own matching TEST files</summary>
-        <div className="privacy-bench-files mt-5">
-          {PROOF_FILES.map(file => <label key={file.id} className="privacy-bench-file">
-            <span>{file.label}</span>
-            <input type="file" className="file-input file-input-sm w-full" accept={file.accept} disabled={proofStatus === "running"} onChange={event => {
-              const selected = event.currentTarget.files?.[0];
-              setProofFiles(previous => ({ ...previous, [file.id]: selected }));
-              setProofResult(null);
-            }} />
-            {proofFiles[file.id] && <small>{proofFiles[file.id]!.name} · {(proofFiles[file.id]!.size / 1048576).toFixed(1)} MiB</small>}
-          </label>)}
-        </div>
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <button type="button" className="neurai-btn--primary" onClick={() => runProof()} disabled={status === "running" || proofStatus === "running" || !PROOF_FILES.every(file => proofFiles[file.id])}>
-            {proofStatus === "running" ? "Generating TEST proof…" : "Benchmark full TEST proof"}
-          </button>
-          {proofStatus === "running" && <button type="button" className="neurai-btn--secondary" onClick={stopProof}>Stop proof</button>}
-          <span className="text-xs text-base-content/60">Stop terminates the worker; a browser may close before it can report an out-of-memory error.</span>
-        </div>
-        </details>
-        {proofStatus === "running" && <button className="btn btn-outline" onClick={stopProof}>Stop C3 proof</button>}
+        {proofStatus === "running" && <button className="btn btn-outline" onClick={stopProof}>Stop C4 proof</button>}
         {proofError && <p role="alert" className="mt-3 text-sm text-error">{proofError}</p>}
         <div className="privacy-bench-proof-stages mt-5" role="progressbar" aria-label="Groth16 TEST progress" aria-valuemin={0} aria-valuemax={4} aria-valuenow={proofResult ? 4 : PROOF_STAGES.indexOf(proofStage as typeof PROOF_STAGES[number]) + 1}>
           {PROOF_STAGES.map((stage, index) => <div key={stage} className={`privacy-bench-proof-stage ${proofStageTimes[stage] !== undefined ? "is-done" : proofStage === stage ? "is-active" : ""}`}>
@@ -379,7 +346,7 @@ export function PrivacyBenchmark() {
           <strong>Proof verified.</strong> Total {ms(proofResult.totalMs)} · {proofResult.publicSignalCount} public signals · key {(proofResult.zkeyBytes / 1048576).toFixed(1)} MiB.
         </p>}
         <p className="mt-3 mb-0 text-xs leading-relaxed text-warning">
-          The C3 TEST keys range from about 35 to 111 MiB. Proving uses one thread. Key size is not peak RAM; mobile measurements are collected separately.
+          C4 uses pinned TEST parameters, including a T4 key of about 193 MiB. Inputs are synthetic and contain no wallet data. Proving uses one thread. Key size is not peak RAM; mobile measurements are collected separately.
         </p>
         <p className="mt-3 mb-0 text-xs text-base-content/60">
           This measures one selected circuit, not a complete deposit, transfer or withdrawal. It does not measure chain scan,

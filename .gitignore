@@ -138,5 +138,11 @@ flash_esp32/
 # Ignore future changes to these files
 future-changes
 
-# Public C3 TEST proving artifacts: install locally, do not commit large binaries.
+# Retired proving artifacts: never serve or bundle these old local files.
 /public/privacy-c3/
+
+# Ephemeral, independently pinned regtest browser deployments.
+/test/browser/generated/
+
+# Public C4 TEST proving artifacts (installed and hash-checked locally).
+/public/privacy-c4/

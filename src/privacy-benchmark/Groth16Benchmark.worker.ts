@@ -2,17 +2,18 @@
 
 // The only worker that loads snarkjs. No wallet keys or live pool notes are passed here.
 import * as snarkjs from "snarkjs";
-import { C3_TESTNET_ARTIFACTS as artifacts } from '@neuraiproject/neurai-privacy/client';
+import { C4_TESTNET_DEPLOYMENT } from '../privacy-pool/deployment';
+import fixtures from './c4-fixtures.json';
+const artifacts = C4_TESTNET_DEPLOYMENT.artifacts;
 import { loadVerifiedArtifact } from '@neuraiproject/neurai-privacy/worker';
 // Pinned size and SHA-256 are checked by the library before snarkjs sees a byte.
 async function loadArtifact(path:string):Promise<File> {
-  const bytes=await loadVerifiedArtifact({path,artifacts,fetchArtifact:p=>fetch('/privacy-c3/'+p),
-    missingMessage:'Install the C3 TEST artifacts on this webwallet server first'});
+  const bytes=await loadVerifiedArtifact({path,artifacts,fetchArtifact:p=>fetch('/privacy-c4/'+p),
+    missingMessage:'Install the C4 TEST artifacts on this webwallet server first'});
   return new File([bytes],path.split('/').slice(-1)[0]);
 }
 
-type Files = { input: File; wasm: File; zkey: File; vk: File };
-type Start = { type: "start"; files?: Files; form?: string };
+type Start = { type: "start"; form: string };
 type Stage = "input" | "witness" | "proof" | "verify";
 
 function progress(stage: Stage, ms?: number): void {
@@ -29,15 +30,16 @@ self.onmessage = async (event: MessageEvent<Start>) => {
   const urls: string[] = [];
   const started = performance.now();
   try {
-    let files=event.data.files;
-    if(event.data.form) {
-      const entry=(artifacts.forms as Record<string,any>)[event.data.form];if(!entry)throw new Error('Unknown C3 circuit');
-      files={input:await loadArtifact(entry.input),wasm:await loadArtifact(entry.wasm),zkey:await loadArtifact(entry.zkey),vk:await loadArtifact(entry.vk)};
-      expected=JSON.parse(await (await loadArtifact(entry.public)).text());
-    }
-    if(!files)throw new Error('TEST files or C3 form required');
-    const {input,wasm,zkey,vk}=files;
-    if (!input || !wasm || !zkey || !vk) throw new Error("Select all four TEST files");
+    const entry=(artifacts.forms as Record<string, {wasm:string;zkey:string;vk:string}>)[event.data.form];
+    if (!Object.prototype.hasOwnProperty.call(fixtures.forms, event.data.form) || !entry) throw new Error('Unknown C4 circuit');
+    if (fixtures.commitment !== C4_TESTNET_DEPLOYMENT.pin || fixtures.artifactsId !== artifacts.id) throw new Error('Benchmark deployment mismatch');
+    const sample = (fixtures.forms as Record<string, { input: unknown; publicSignals: string[] }>)[event.data.form];
+    // Public synthetic TEST witnesses are never sourced from a wallet or RPC.
+    const input = new File([JSON.stringify(sample.input)], 'benchmark-input.json');
+    const wasm = await loadArtifact(entry.wasm);
+    const zkey = await loadArtifact(entry.zkey);
+    const vk = await loadArtifact(entry.vk);
+    expected = sample.publicSignals;
     if (input.size > 16 * 1024 * 1024 || vk.size > 16 * 1024 * 1024) {
       throw new Error("Input and verification key must each be at most 16 MiB");
     }
@@ -50,29 +52,11 @@ self.onmessage = async (event: MessageEvent<Start>) => {
     }
     progress("input", performance.now() - inputStart);
 
-    // Chromium cannot fetch a multi-GiB Blob URL as a single ArrayBuffer.
-    // fastfile's bigMem source accepts 4 MiB pages and snarkjs reads sections from it.
-    let zkeySource: string | { type: "bigMem"; data: Uint8Array[] };
-    if (zkey.size > 256 * 1024 * 1024) {
-      const pageSize = 1 << 22;
-      const pages: Uint8Array[] = [];
-      let lastPercent = -1;
-      for (let offset = 0; offset < zkey.size; offset += pageSize) {
-        pages.push(new Uint8Array(await zkey.slice(offset, Math.min(offset + pageSize, zkey.size)).arrayBuffer()));
-        const percent = Math.floor(Math.min(offset + pageSize, zkey.size) * 100 / zkey.size / 10) * 10;
-        if (percent > lastPercent) {
-          lastPercent = percent;
-          self.postMessage({ type: "key-load", percent });
-        }
-      }
-      zkeySource = { type: "bigMem", data: pages };
-    } else {
-      const zkeyUrl = URL.createObjectURL(zkey);
-      urls.push(zkeyUrl);
-      zkeySource = zkeyUrl;
-    }
+    // Pinned C4 artifacts are capped at 256 MiB by loadVerifiedArtifact.
+    const zkeyUrl = URL.createObjectURL(zkey);
+    urls.push(zkeyUrl);
+    const zkeySource = zkeyUrl;
 
-    // Blob URLs keep selected files off the application server. snarkjs reads them inside this worker.
     const wasmUrl = URL.createObjectURL(wasm);
     urls.push(wasmUrl);
     progress("witness");
@@ -85,7 +69,7 @@ self.onmessage = async (event: MessageEvent<Start>) => {
     const proofStart = performance.now();
     const { proof, publicSignals } = await snarkjs.groth16.prove(zkeySource, witness, undefined, { singleThread: true });
     progress("proof", performance.now() - proofStart);
-    if(expected && JSON.stringify(expected.map(String))!==JSON.stringify(publicSignals.map(String)))throw new Error('C3 public input mismatch');
+    if(expected && JSON.stringify(expected.map(String))!==JSON.stringify(publicSignals.map(String)))throw new Error('C4 public input mismatch');
 
     progress("verify");
     const verifyStart = performance.now();

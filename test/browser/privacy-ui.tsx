@@ -8,6 +8,6 @@ import '../../src/App.css';
 const wallet:any={network:'xna-test',getUTXOs:async()=>[],rpc:async(method:string,params:unknown[])=>{
  const r=await(await fetch('/rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method,params})})).json();if(r.error)throw new Error(r.error);return r.result;
 }};
-// Public BIP-39 test vector words, TEST only: they reproduce the NeuraiZK/v1 draft vectors.
+// Public BIP-39 test vector words, TEST only: the private wallet uses the active NeuraiZK derivation.
 const TEST_WORDS='abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 createRoot(document.getElementById('app')!).render(<PrivacyPool wallet={wallet} mnemonic={TEST_WORDS} passphrase="TREZOR"/>);
