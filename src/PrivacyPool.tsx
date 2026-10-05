@@ -1,11 +1,14 @@
+import {C6_ASSET_TESTNET_RUNTIME,C6_XNA_TESTNET_RUNTIME,C6_XNA_UNAVAILABLE_REASON} from './privacy-pool/c6Deployment';
+import type {C6XnaRuntime} from './privacy-pool/C6XnaPrivacyPool';
+import type {C6PrivacyRuntime} from './privacy-pool/C6PrivacyPool';
 import React from 'react';
-import type { C4Manifest } from '@neuraiproject/neurai-privacy/browser';
+import type { C4Manifest, C5Manifest } from '@neuraiproject/neurai-privacy/browser';
 import type { Wallet } from '@neuraiproject/neurai-jswallet';
 import {poolWalletNetwork,signPoolTransaction} from './privacy-pool/walletNetwork';
 import { isTestnetChain } from './buildTarget';
 import { PrivacyBenchmark } from './privacy-benchmark/PrivacyBenchmark';
-import { createPoolWorker } from './privacy-pool/workerFactory';
-import { C4_TESTNET_DEPLOYMENT } from './privacy-pool/deployment';
+import { createPoolWorker, createC5PoolWorker } from './privacy-pool/workerFactory';
+import { C4_TESTNET_DEPLOYMENT, C5_TESTNET_DEPLOYMENT, C5_UNAVAILABLE_REASON } from './privacy-pool/deployment';
 import { scanCheckpointStore } from './privacy-pool/scanCheckpointStore';
 import {
   parseXna, formatXna, ROTATION_MAX_GAP, PoolWorkerClient, assertPoolChain, recheckInputs,
@@ -48,11 +51,47 @@ export function OperationTimer({busy,phase,elapsed,tone='idle',onCancel}:{busy:b
 /** mnemonic and passphrase are the open wallet's words; they are only sent to the dedicated pool worker. */
 /** Deployment configuration is supplied by the application, never an RPC response. */
 export interface PrivacyPoolDeployment {
-  manifest:C4Manifest&{address?:string};
+  manifest:(C4Manifest|C5Manifest)&{address?:string};
   createWorker:()=>Worker;
   explorerBaseUrl?:string|null;
 }
-export function PrivacyPool({wallet,mnemonic='',passphrase='',deployment}:{wallet?:Wallet;mnemonic?:string;passphrase?:string;deployment?:PrivacyPoolDeployment}={}) {
+const C6PrivacyPool=React.lazy(()=>import('./privacy-pool/C6PrivacyPool').then(module=>({default:module.C6PrivacyPool})));
+const C6XnaPrivacyPool=React.lazy(()=>import('./privacy-pool/C6XnaPrivacyPool').then(module=>({default:module.C6XnaPrivacyPool})));
+const C6AssetPrivacyPool=React.lazy(()=>import('./privacy-pool/C6AssetPrivacyPool').then(m=>({default:m.C6AssetPrivacyPool})));
+type PoolVersion='C4'|'C5'|'C6';
+type PrivacyPoolProps={wallet?:Wallet;mnemonic?:string;passphrase?:string;deployment?:PrivacyPoolDeployment;
+  deployments?:Partial<Record<'C4'|'C5',PrivacyPoolDeployment>>;c6?:C6PrivacyRuntime|{xna:C6XnaRuntime}};
+const PUBLIC_C4:PrivacyPoolDeployment={manifest:C4_TESTNET_DEPLOYMENT.manifest,createWorker:createPoolWorker};
+const PUBLIC_C5:PrivacyPoolDeployment|null=C5_TESTNET_DEPLOYMENT?{manifest:C5_TESTNET_DEPLOYMENT.manifest,createWorker:createC5PoolWorker}:null;
+/** Every selected pool gets a fresh session/worker; private state is never shared. */
+export function PrivacyPool(props:PrivacyPoolProps={}) {
+  const options=React.useMemo(()=>props.deployments??(props.deployment
+    ?{[props.deployment.manifest.schema==='neurai-c5-xna-test-v1'?'C5':'C4']:props.deployment}
+    :{C4:PUBLIC_C4,...(PUBLIC_C5?{C5:PUBLIC_C5}:{})}),[props.deployment,props.deployments]);
+  const [selected,setSelected]=React.useState<PoolVersion>(()=>props.deployment?.manifest.schema==='neurai-c5-xna-test-v1'?'C5':'C4');
+  const [c6Currency,setC6Currency]=React.useState('XNA');
+  const [switchBlocked,setSwitchBlocked]=React.useState(false);
+  const c6=props.c6??(C6_XNA_TESTNET_RUNTIME?{xna:C6_XNA_TESTNET_RUNTIME}:undefined);
+  const chosen=selected==='C6'?null:options[selected];
+  return <div className="neurai-stack" style={{display:'grid',gap:'1rem'}}>
+    <div className="neurai-card neurai-card--compact">
+      <label htmlFor="privacy-pool-version" className="neurai-label">Pool version</label>
+      <select id="privacy-pool-version" className="neurai-input" value={selected} disabled={switchBlocked}
+        onChange={e=>{const value=e.target.value;if(!switchBlocked&&(value==='C4'||value==='C5'||value==='C6')){setSelected(value);setSwitchBlocked(false);}}}>
+        <option value="C4">C4 · original TEST pool</option>
+        <option value="C5">C5 · smaller proving parameters</option>
+        <option value="C6">C6 · portable proofs and sponsor recovery</option>
+      </select>
+      <p className="neurai-hint mt-2 mb-0">Each pool has a separate private balance. Switching locks the private wallet.</p>
+      {switchBlocked&&<p className="neurai-hint mt-2 mb-0">Finish or cancel the operation and resolve pending transactions before switching.</p>}
+    </div>
+    {selected==='C6'&&C6_ASSET_TESTNET_RUNTIME&&<label>Pool currency<select aria-label="C6 pool currency" value={c6Currency} disabled={switchBlocked} onChange={e=>{if(!switchBlocked)setC6Currency(e.target.value);}}><option value="XNA">XNA</option><option value="asset">{C6_ASSET_TESTNET_RUNTIME.config.manifest.asset} · ordinary asset TEST</option></select></label>}
+    {selected==='C6'&&c6Currency==='asset'&&C6_ASSET_TESTNET_RUNTIME?<React.Suspense fallback={<p role="status">Loading private asset wallet…</p>}><C6AssetPrivacyPool key={C6_ASSET_TESTNET_RUNTIME.config.expectedCommitment} wallet={props.wallet} mnemonic={props.mnemonic} passphrase={props.passphrase} runtime={C6_ASSET_TESTNET_RUNTIME} onSwitchBlocked={setSwitchBlocked}/></React.Suspense>:selected==='C6'&&c6?<React.Suspense fallback={<p role="status">Loading C6 wallet…</p>}>{'xna' in c6?<C6XnaPrivacyPool key={'C6-XNA'} wallet={props.wallet} mnemonic={props.mnemonic} passphrase={props.passphrase} runtime={c6.xna} onSwitchBlocked={setSwitchBlocked}/>:<C6PrivacyPool key={'C6'} wallet={props.wallet} mnemonic={props.mnemonic} passphrase={props.passphrase} runtime={c6} onSwitchBlocked={setSwitchBlocked}/>}</React.Suspense>:chosen?<PrivacyPoolSession key={selected+':'+chosen.manifest.commitment} {...props} deployment={chosen} onSwitchBlocked={setSwitchBlocked}/>
+      :<section className="neurai-card" role="status"><h2 className="text-xl font-bold">{selected} TEST pool unavailable</h2>
+        <p>{selected==='C6'?C6_XNA_UNAVAILABLE_REASON:selected==='C5'?C5_UNAVAILABLE_REASON:'No C4 deployment is configured for this test.'}</p></section>}
+  </div>;
+}
+function PrivacyPoolSession({wallet,mnemonic='',passphrase='',deployment,onSwitchBlocked}:{wallet?:Wallet;mnemonic?:string;passphrase?:string;deployment?:PrivacyPoolDeployment;onSwitchBlocked?:(blocked:boolean)=>void}={}) {
   const manifest=deployment?.manifest??C4_TESTNET_DEPLOYMENT.manifest;
   const explorer=deployment?.explorerBaseUrl===null?null:(deployment?.explorerBaseUrl??EXPLORER);
 
@@ -75,6 +114,8 @@ export function PrivacyPool({wallet,mnemonic='',passphrase='',deployment}:{walle
   // A published pool transaction that has not confirmed. Its bytes are kept so
   // the status can still be read if the node loses sight of it.
   const [poolTx,setPoolTx]=React.useState<{txid:string;raw:string;points:{txid:string;vout:number}[]}|null>(null);
+  React.useEffect(()=>{onSwitchBlocked?.(busy||uncertain||!!preview||!!poolTx||!!sentCoin);},
+    [busy,uncertain,preview,poolTx,sentCoin,onSwitchBlocked]);
   const [addresses,setAddresses]=React.useState<AddressInfo|null>(null),[zkPassphrase,setZkPassphrase]=React.useState(''),[account,setAccount]=React.useState('0'),[gapText,setGapText]=React.useState('20');
   const rotation=React.useRef<{gap:number;issued:number}|null>(null);
   // Latest receiving data, readable from async code without waiting for a render.
@@ -459,7 +500,7 @@ export function PrivacyPool({wallet,mnemonic='',passphrase='',deployment}:{walle
       <button className="neurai-btn--secondary" disabled={busy} onClick={()=>setBench(x=>!x)} aria-expanded={bench}>{bench?'Back to pool':'Open benchmark'}</button>
     </div>
     {bench?<PrivacyBenchmark/>:<>
-      <p className={notice}>C4 TEST keys · XNA only · Legacy, PQ and ECDSA funding and withdrawal addresses. This pool does not accept valuable funds.</p>
+      <p className={notice}>{manifest.schema==='neurai-c5-xna-test-v1'?'C5':'C4'} TEST keys · XNA only · Legacy, PQ and ECDSA funding and withdrawal addresses. This pool does not accept valuable funds.</p>
       {!testnet&&<p role="alert" className="text-sm text-error m-0">Switch to a testnet wallet to use the pool.</p>}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
         <section className="neurai-card neurai-stack min-w-0" aria-labelledby="privacy-wallet-title">
@@ -495,6 +536,11 @@ export function PrivacyPool({wallet,mnemonic='',passphrase='',deployment}:{walle
                 <span className="text-sm text-base-content/70">{scan?`${scan.notes.length} spendable notes · checked through block ${scan.height}`:'Notes not loaded yet'}</span>
                 <button className="neurai-btn--secondary btn-sm" disabled={busy} onClick={()=>void request({type:'scan'})}>Refresh notes</button>
               </div>
+              {/* The reserve output holds every note's XNA, so it is public and the same for every wallet. */}
+              <p className="m-0 mt-3 pt-3 border-t border-base-300 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
+                <span className="text-base-content/70">Total in the pool, all wallets</span>
+                <strong className="tabular-nums break-all">{scan?formatXna(scan.reserveAtomic):'—'} XNA</strong>
+              </p>
             </div>
             <div className={`${box} neurai-stack gap-2`}>
               <p className="neurai-eyebrow mb-0">Receive privately</p>

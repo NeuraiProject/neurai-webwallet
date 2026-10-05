@@ -9,7 +9,7 @@ module.exports = {
   transform: {
     "^.+\\.tsx?$": ["ts-jest", { tsconfig: "test/tsconfig.json" }],
     // The neurai-privacy browser entries are ES modules; compile them to CommonJS for Jest.
-    "^.+/node_modules/@neuraiproject/neurai-privacy/.+\\.js$": ["ts-jest", { tsconfig: "test/tsconfig.esm-packages.json" }]
+    "^.+/(?:node_modules/@neuraiproject/|librerias-neurai/)neurai-privacy/.+\\.js$": "<rootDir>/test/esm-package-transformer.cjs"
   },
   transformIgnorePatterns: ["/node_modules/(?!@neuraiproject/neurai-privacy/)"],
   collectCoverageFrom: [

@@ -383,6 +383,17 @@ describe('Privacy Pool wallet-word identities',()=>{
    recipient:{owner:'bb'},addresses:info(1,1,0)}});await worker.onmessage({data:{type:'done'}});await new Promise(r=>setTimeout(r,0));});
   expect(button('\u2190 Previous')!.disabled).toBe(true);
  });
+ it('shows the XNA held by the whole pool beside the private balance',async()=>{
+  const worker=await openPrivateWallet(walletHolding([100]));
+  const info={kind:'derived',derivation:'NeuraiZK/v2',family:'legacy',storageId:'ab'.repeat(32),fingerprint:'ce62fe35',
+   account:0,gap:20,issued:0,maxUsed:-1,current:{index:0,address:'tnzk1qyaddress0'},used:[]};
+  await act(async()=>{button('Refresh notes')!.click();await new Promise(r=>setTimeout(r,0));});
+  await act(async()=>{await worker.onmessage({data:{type:'scan',result:{balanceAtomic:'250000000',reserveAtomic:'1234500000000',height:7,
+   notes:[{cm:'11'.repeat(32),amountAtomic:'250000000',address:{chain:0,index:0}}],transitions:[]},recipient:{owner:'aa'},addresses:info}});
+   await worker.onmessage({data:{type:'done'}});await new Promise(r=>setTimeout(r,0));});
+  const row=Array.from(host.querySelectorAll('p')).find(p=>p.textContent?.startsWith('Total in the pool, all wallets'));
+  expect(row?.textContent).toContain('12345 XNA');
+ });
  it('puts the receiving address above the recovery details',async()=>{
   await openPrivateWallet(walletHolding([100]));
   const text=host.textContent??'';

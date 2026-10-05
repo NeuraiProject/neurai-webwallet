@@ -146,3 +146,11 @@ future-changes
 
 # Public C4 TEST proving artifacts (installed and hash-checked locally).
 /public/privacy-c4/
+
+# Public C5 TEST proving artifacts (installed and hash-checked locally).
+/public/privacy-c5/
+
+/public/privacy-c6/
+
+# Public per-asset C6 TEST parameters, verified by the installer.
+/public/privacy-c6-assets/
