@@ -63,7 +63,7 @@ export function C6WalletLayout({title,description,label,open,busy,phase,seconds,
   </section>;
 }
 
-export function C6LockedWalletHelp(){return <>
+export function C6LockedWalletHelp({history='First use here: create an encrypted history below. Returning on another device: restore its backup to preserve pending operations.'}:{history?:string}={}){return <>
   <p className="text-sm text-base-content/70 m-0">The same words, address family and private passphrase recover the same private addresses. A different passphrase opens another wallet; spaces count.</p>
-  <p className="neurai-hint m-0">First use here: create an encrypted history below. Returning on another device: restore its backup to preserve pending operations.</p>
+  <p className="neurai-hint m-0">{history}</p>
 </>;}

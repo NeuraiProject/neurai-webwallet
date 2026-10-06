@@ -25,7 +25,7 @@ describe('C6 XNA private wallet lifecycle',()=>{
   act(()=>root.render(<C6XnaPrivacyPool wallet={wallet} mnemonic="TEST words" runtime={runtime}/>));
   expect(host.querySelector('[aria-label="C6 private wallet setup"]')).not.toBeNull();expect(host.querySelector('[aria-label="C6 private operations"]')).not.toBeNull();
   const cards=host.querySelectorAll('[aria-label="Available C6 operations"] button');expect(cards).toHaveLength(4);cards.forEach(b=>expect((b as HTMLButtonElement).disabled).toBe(true));
-  expect(host.textContent).toContain('First use here:');expect(host.textContent).toContain('ZK passphrase (optional)');expect(host.textContent).toContain('Confirmed private balance');
+  expect(host.textContent).toContain('creates its encrypted operation history automatically');expect(host.textContent).toContain('ZK passphrase (optional)');expect(host.textContent).toContain('Confirmed private balance');
   expect(host.querySelector('[aria-label="C6 amount"]')!.matches(':disabled')).toBe(true);expect(mock.derive).not.toHaveBeenCalled();expect(runtime.createWorker).not.toHaveBeenCalled();
  });
  it('explains mainnet, unsupported families and unavailable words separately',()=>{
@@ -44,12 +44,12 @@ describe('C6 XNA private wallet lifecycle',()=>{
   await act(async()=>{job.resolve(state);await new Promise(r=>setTimeout(r,0));});expect(host.textContent).not.toContain('900 XNA');expect(mock.terminate).toHaveBeenCalled();expect(Array.from(host.querySelectorAll('[role="status"]')).at(-1)!.textContent).toContain('Private wallet locked');
  });
  it('opens durable encrypted history without requiring a downloaded backup and keeps families separate',async()=>{
-  await open();expect(mock.derive).toHaveBeenCalledWith(expect.objectContaining({family:'ecdsa',mnemonic:'TEST words'}));expect(mock.openJournal).toHaveBeenCalledWith({create:false,backup:undefined});
-  expect(host.textContent).toContain('Checked through block 22,485');expect(host.textContent).toContain('900 XNA');expect(button('Prepare operation').disabled).toBe(true);expect(URL.createObjectURL).not.toHaveBeenCalled();
-  await act(async()=>{button('Save encrypted backup').click();await new Promise(r=>setTimeout(r,0));});expect(button('Prepare operation').disabled).toBe(true);expect(URL.createObjectURL).toHaveBeenCalled();
+  await open();expect(mock.derive).toHaveBeenCalledWith(expect.objectContaining({family:'ecdsa',mnemonic:'TEST words'}));expect(mock.openJournal).toHaveBeenCalledWith({create:true,backup:undefined});
+  expect(host.textContent).toContain('Checked through block 22,485');expect(host.textContent).toContain('900 XNA');expect(button('1/2 · Prepare funding coin').disabled).toBe(true);expect(button('Prepare operation')).toBeUndefined();expect(URL.createObjectURL).not.toHaveBeenCalled();
+  await act(async()=>{button('Save encrypted backup').click();await new Promise(r=>setTimeout(r,0));});expect(button('1/2 · Prepare funding coin').disabled).toBe(true);expect(URL.createObjectURL).toHaveBeenCalled();
   act(()=>(host.querySelector('[role=tab][data-action=withdraw]') as HTMLButtonElement).click());expect(button('Prepare operation').disabled).toBe(false);
  });
- it('never silently creates missing history or substitutes another pool',async()=>{
+ it('stops without scanning when the history cannot be opened',async()=>{
   mock.openJournal.mockRejectedValueOnce(Error('History missing; restore backup'));await open();expect(host.textContent).toContain('History missing');expect(mock.scan).not.toHaveBeenCalled();expect(mock.terminate).toHaveBeenCalled();
  });
  it('locks and discards a delayed scan after changing the wallet',async()=>{
@@ -90,11 +90,21 @@ describe('C6 XNA private wallet lifecycle',()=>{
   }finally{jest.useRealTimers();}
  });
 
- it('recovers read-only without history and never silently creates reservations',async()=>{
-  mock.openJournal.mockRejectedValueOnce(Error('C6 private journal missing: restore the encrypted backup or explicitly create a new history'));await open();
-  expect(host.textContent).toContain('Read-only recovery');expect(host.textContent).toContain('encrypted');
-  expect(mock.scan).toHaveBeenCalledTimes(1);expect(mock.openJournal).toHaveBeenCalledTimes(1);expect(mock.openJournal).toHaveBeenCalledWith({create:false,backup:undefined});
-  expect(button('Save encrypted backup').disabled).toBe(true);expect(mock.prepare).not.toHaveBeenCalled();
+ it('creates the history on first use and offers a backup restore only before opening',async()=>{
+  act(()=>root.render(<C6XnaPrivacyPool wallet={wallet} mnemonic="TEST words" runtime={runtime}/>));
+  expect(button('Create new private history')).toBeUndefined();expect(host.querySelector('[aria-label="Restore C6 backup"]')).not.toBeNull();
+  await act(async()=>{button('Open private wallet').click();await new Promise(r=>setTimeout(r,0));});
+  expect(mock.openJournal).toHaveBeenCalledTimes(1);expect(mock.openJournal).toHaveBeenCalledWith({create:true,backup:undefined});
+  expect(button('Save encrypted backup').disabled).toBe(false);expect(host.textContent).not.toContain('Read-only recovery');
+  expect(host.querySelector('[aria-label="Restore C6 backup"]')).toBeNull();
+ });
+ it('restores a backup chosen before opening instead of starting an empty history',async()=>{
+  act(()=>root.render(<C6XnaPrivacyPool wallet={wallet} mnemonic="TEST words" runtime={runtime}/>));
+  const input=host.querySelector('[aria-label="Restore C6 backup"]') as HTMLInputElement;
+  Object.defineProperty(input,'files',{value:[{size:30,text:async()=>JSON.stringify({cipher:'ENCRYPTED TEST'})}]});
+  await act(async()=>{input.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,0));});
+  expect(mock.openJournal).toHaveBeenCalledTimes(1);expect(mock.openJournal).toHaveBeenCalledWith({create:true,backup:{cipher:'ENCRYPTED TEST'}});
+  expect(button('Lock private wallet')).toBeDefined();
  });
 
  it('detects the existing confirmed 1000.1 funding coin, preserves the form and prepares only once',async()=>{
@@ -110,13 +120,13 @@ describe('C6 XNA private wallet lifecycle',()=>{
    act(()=>{const input=host.querySelector('[aria-label="C6 amount"]') as HTMLInputElement;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'1000');input.dispatchEvent(new Event('input',{bubbles:true}));});
    await act(async()=>jest.advanceTimersByTime(1000));
    expect(host.querySelector('[aria-label="C6 funding status"]')!.textContent).toContain('Confirmed funding ready: 1000.1 XNA');
-   expect(button('Prepare funding coin').disabled).toBe(true);
+   expect(button('1/2 · Prepare funding coin')).toBeUndefined();
    expect(host.textContent).toContain('Operation history saves encrypted in this browser automatically');
    expect(URL.createObjectURL).not.toHaveBeenCalled();
    await act(async()=>jest.advanceTimersByTime(120000));
-   expect(mock.scan).toHaveBeenCalledTimes(1);expect(button('Prepare operation').disabled).toBe(false);
+   expect(mock.scan).toHaveBeenCalledTimes(1);expect(button('2/2 · Deposit').disabled).toBe(false);
    expect((host.querySelector('[aria-label="C6 amount"]') as HTMLInputElement).value).toBe('1000');
-   await act(async()=>{button('Prepare operation').click();await Promise.resolve();});
+   await act(async()=>{button('2/2 · Deposit').click();await Promise.resolve();});
    expect(mock.prepare).toHaveBeenCalledWith(expect.objectContaining({action:'deposit',amountAtomic:'100000000000',fundingValue:'100010000000',fundingPoint:txid+':0'}));
    expect(mock.recordSigned).toHaveBeenCalledWith('test-op','SIGNED_TEST_DEPOSIT');
    expect(mock.scan).toHaveBeenCalledTimes(1);expect(button('Publish operation').disabled).toBe(false);
@@ -125,10 +135,15 @@ describe('C6 XNA private wallet lifecycle',()=>{
    expect(mock.prepare).toHaveBeenCalledTimes(1);
    // Publication scans immediately; confirmation and maturity must follow
    // automatically from a new tip, with no manual Scan now or backup export.
+   const rescan=deferred();mock.scan.mockImplementationOnce(()=>rescan.promise);
    await act(async()=>button('Publish operation').click());expect(mock.broadcastAttempt).toHaveBeenCalledWith('test-op');expect(mock.scan).toHaveBeenCalledTimes(2);
+   // The deposit step is locked from the moment it is published, before the rescan ends, so it cannot be sent twice.
+   expect(button('Waiting for deposit confirmation…').disabled).toBe(true);expect(button('2/2 · Deposit')).toBeUndefined();
+   expect(host.querySelector('[aria-label="C6 funding status"]')!.textContent).toContain('Deposit '+'ab'.repeat(32)+' published');
+   await act(async()=>rescan.resolve(state));expect(button('Waiting for deposit confirmation…').disabled).toBe(true);expect(button('2/2 · Deposit')).toBeUndefined();
    let chain='22'.repeat(32);wallet.rpc.mockImplementation(async method=>method==='getbestblockhash'?chain:method==='getblockcount'?22487:{confirmations:16,value:1000.1,scriptPubKey:{hex:script}});
    mock.scan.mockResolvedValueOnce({...state,scan:{...state.scan,result:{...state.scan.result,tip:{height:22487,hash:chain},balanceAtomic:'190000000000',spendableAtomic:'90000000000'}},journal:{operations:[{id:'test-op',action:'deposit',phase:'confirmed',outcome:'confirmed',txid:'ab'.repeat(32)}]}});
-   await act(async()=>jest.advanceTimersByTime(20000));expect(mock.scan).toHaveBeenCalledTimes(3);expect(host.textContent).toContain('1900 XNA');expect(host.textContent).toContain('Available: 900 XNA');expect(host.querySelector('[aria-label="C6 amount"]')!.matches(':disabled')).toBe(false);
+   await act(async()=>jest.advanceTimersByTime(20000));expect(mock.scan).toHaveBeenCalledTimes(3);expect(host.textContent).toContain('1900 XNA');expect(button('Waiting for deposit confirmation…')).toBeUndefined();expect(host.textContent).toContain('Available: 900 XNA');expect(host.querySelector('[aria-label="C6 amount"]')!.matches(':disabled')).toBe(false);
    chain='33'.repeat(32);mock.scan.mockResolvedValueOnce({...state,scan:{...state.scan,result:{...state.scan.result,tip:{height:22488,hash:chain},balanceAtomic:'190000000000',spendableAtomic:'190000000000'}}});
    await act(async()=>jest.advanceTimersByTime(20000));expect(host.textContent).toContain('Available: 1900 XNA');expect(URL.createObjectURL).not.toHaveBeenCalled();
   }finally{jest.useRealTimers();}
@@ -150,11 +165,44 @@ describe('C6 XNA private wallet lifecycle',()=>{
   jest.useFakeTimers();try{
    act(()=>root.render(<C6XnaPrivacyPool wallet={wallet} mnemonic="TEST words" runtime={runtime}/>));
    await act(async()=>{button('Open private wallet').click();await Promise.resolve();});await act(async()=>jest.advanceTimersByTime(1000));
-   await act(async()=>{button('Prepare funding coin').click();await Promise.resolve();});
+   await act(async()=>{button('1/2 · Prepare funding coin').click();await Promise.resolve();});
    const card=host.querySelector('[aria-label="Review funding transaction"]')!;expect(card.className).toContain('neurai-card');expect(card.textContent).toContain('100.1 XNA');expect(card.textContent).toContain('0.01 XNA');expect(card.querySelector('code')?.textContent).toBe('aa'.repeat(32));
-   expect(button('Publish funding coin').disabled).toBe(false);expect(button('Prepare operation').disabled).toBe(true);expect(URL.createObjectURL).not.toHaveBeenCalled();
+   expect(button('Publish funding coin').disabled).toBe(false);expect(button('1/2 · Prepare funding coin').disabled).toBe(true);expect(URL.createObjectURL).not.toHaveBeenCalled();
    const {publishTransaction}=jest.requireMock('@neuraiproject/neurai-privacy/client');expect(publishTransaction).not.toHaveBeenCalled();
    await act(async()=>button('Discard funding preview').click());expect(host.querySelector('[aria-label="Review funding transaction"]')).toBeNull();expect(mock.releaseDraft).not.toHaveBeenCalled();
+  }finally{jest.useRealTimers();}
+ });
+
+ it('guides a deposit through funding, confirmation and proof on one primary button',async()=>{
+  jest.useFakeTimers();try{
+   const script='76a914'+'11'.repeat(20)+'88ac',txid='aa'.repeat(32);let tip='11'.repeat(32),spent=false;
+   wallet.rpc.mockImplementation(async method=>method==='getbestblockhash'?tip:method==='getblockcount'?22485:method==='gettxout'&&spent?null:{confirmations:1,value:100.1,scriptPubKey:{hex:script}});
+   act(()=>root.render(<C6XnaPrivacyPool wallet={wallet} mnemonic="TEST words" runtime={runtime}/>));
+   await act(async()=>{button('Open private wallet').click();await Promise.resolve();});await act(async()=>jest.advanceTimersByTime(500));
+   expect(button('1/2 · Prepare funding coin').className).toContain('neurai-btn--primary');expect(button('1/2 · Prepare funding coin').disabled).toBe(false);
+   act(()=>button('500 XNA').click());expect((host.querySelector('[aria-label="C6 amount"]') as HTMLInputElement).value).toBe('500');
+   act(()=>button('100 XNA').click());await act(async()=>jest.advanceTimersByTime(500));
+   await act(async()=>{button('1/2 · Prepare funding coin').click();await Promise.resolve();});
+   expect(wallet.createTransaction).toHaveBeenCalledWith(expect.objectContaining({amount:'100.1',assetName:'XNA'}));
+   await act(async()=>{button('Publish funding coin').click();await Promise.resolve();});
+   expect(button('Waiting for funding confirmation…').disabled).toBe(true);expect(button('1/2 · Prepare funding coin')).toBeUndefined();expect(button('2/2 · Deposit')).toBeUndefined();
+   wallet.getUTXOs.mockResolvedValue([{txid,outputIndex:0,script,satoshis:10010000000,assetName:'XNA',address:'own'}]);
+   await act(async()=>jest.advanceTimersByTime(20000));
+   expect(button('2/2 · Deposit').disabled).toBe(false);expect(button('Waiting for funding confirmation…')).toBeUndefined();expect(mock.prepare).not.toHaveBeenCalled();
+   mock.prepare.mockResolvedValue({operationId:'test-op',transaction:{raw:'UNSIGNED',form:'D1',feeAtomic:'10000000',funding:{point:txid+':0',valueAtomic:'10010000000',index:2}}});
+   mock.recordSigned.mockResolvedValue({operationId:'test-op',raw:'SIGNED_TEST_DEPOSIT',txid:'ab'.repeat(32),inputPoints:[]});
+   await act(async()=>{button('2/2 · Deposit').click();await Promise.resolve();});
+   await act(async()=>{button('Publish operation').click();await Promise.resolve();});
+   expect(button('Waiting for deposit confirmation…').disabled).toBe(true);
+   // In the mempool the deposit already spends the funding coin.
+   spent=true;await act(async()=>jest.advanceTimersByTime(20000));
+   expect(button('Waiting for deposit confirmation…').disabled).toBe(true);expect(button('2/2 · Deposit')).toBeUndefined();
+   tip='22'.repeat(32);
+   mock.scan.mockResolvedValueOnce({...state,scan:{...state.scan,result:{...state.scan.result,tip:{height:22486,hash:tip},balanceAtomic:'10000000000'}},journal:{operations:[{id:'test-op',action:'deposit',phase:'prepared',outcome:'confirmed',txid:'ab'.repeat(32)}]}});
+   await act(async()=>jest.advanceTimersByTime(20000));
+   // Once confirmed, the deposit step starts over instead of waiting for the spent funding coin.
+   expect(host.textContent).toContain('100 XNA');expect(button('Waiting for deposit confirmation…')).toBeUndefined();expect(button('Waiting for funding confirmation…')).toBeUndefined();
+   expect(button('1/2 · Prepare funding coin').disabled).toBe(false);
   }finally{jest.useRealTimers();}
  });
 
@@ -167,14 +215,14 @@ describe('C6 XNA private wallet lifecycle',()=>{
    wallet.rpc.mockImplementation(async(method,params)=>method==='getblockcount'?22485:{confirmations:2,value:params[0]===first?100.1:200.1,scriptPubKey:{hex:script}});
    const fees={...runtime,config:{...runtime.config,manifest:{...runtime.config.manifest,fees:{...runtime.config.manifest.fees,D:['10000000','20000000']}}}};
    act(()=>root.render(<C6XnaPrivacyPool wallet={wallet} mnemonic="TEST words" runtime={fees}/>));
-   await act(async()=>{button('Open private wallet').click();await Promise.resolve();});expect(button('Prepare operation').disabled).toBe(true);
-   await act(async()=>jest.advanceTimersByTime(500));expect(button('Prepare operation').disabled).toBe(false);
+   await act(async()=>{button('Open private wallet').click();await Promise.resolve();});expect(button('2/2 · Deposit')).toBeUndefined();
+   await act(async()=>jest.advanceTimersByTime(500));expect(button('2/2 · Deposit')?.disabled).toBe(false);
    const setAmount=(value:string)=>act(()=>{const input=host.querySelector('[aria-label="C6 amount"]') as HTMLInputElement;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));});
-   setAmount('200');expect(button('Prepare operation').disabled).toBe(true);act(()=>button('Prepare operation').click());expect(mock.prepare).not.toHaveBeenCalled();
-   await act(async()=>jest.advanceTimersByTime(500));expect(button('Prepare operation').disabled).toBe(false);expect(host.querySelector('[aria-label="C6 funding status"]')!.textContent).toContain('Confirmed funding ready: 200.1 XNA');
-   act(()=>{const select=host.querySelector('[aria-label="C6 fee"]') as HTMLSelectElement;select.value='20000000';select.dispatchEvent(new Event('change',{bubbles:true}));});expect(button('Prepare operation').disabled).toBe(true);
-   await act(async()=>jest.advanceTimersByTime(500));expect(button('Prepare operation').disabled).toBe(true);expect(host.querySelector('[aria-label="C6 funding status"]')!.textContent).toContain('No confirmed funding coin for 200.2 XNA');
-   setAmount('');expect(button('Prepare operation').disabled).toBe(true);await act(async()=>jest.advanceTimersByTime(500));expect(button('Prepare operation').disabled).toBe(true);expect(mock.prepare).not.toHaveBeenCalled();
+   setAmount('200');expect(button('2/2 · Deposit')).toBeUndefined();expect(mock.prepare).not.toHaveBeenCalled();
+   await act(async()=>jest.advanceTimersByTime(500));expect(button('2/2 · Deposit')?.disabled).toBe(false);expect(host.querySelector('[aria-label="C6 funding status"]')!.textContent).toContain('Confirmed funding ready: 200.1 XNA');
+   act(()=>{const select=host.querySelector('[aria-label="C6 fee"]') as HTMLSelectElement;select.value='20000000';select.dispatchEvent(new Event('change',{bubbles:true}));});expect(button('2/2 · Deposit')).toBeUndefined();
+   await act(async()=>jest.advanceTimersByTime(500));expect(button('2/2 · Deposit')).toBeUndefined();expect(host.querySelector('[aria-label="C6 funding status"]')!.textContent).toContain('No confirmed funding coin for 200.2 XNA');
+   setAmount('');expect(button('2/2 · Deposit')).toBeUndefined();await act(async()=>jest.advanceTimersByTime(500));expect(button('2/2 · Deposit')).toBeUndefined();expect(mock.prepare).not.toHaveBeenCalled();
   }finally{jest.useRealTimers();}
  });
  it('does not enable a deposit from an old confirmation response after editing its amount',async()=>{
@@ -183,18 +231,18 @@ describe('C6 XNA private wallet lifecycle',()=>{
    wallet.getUTXOs.mockImplementationOnce(()=>old.promise).mockResolvedValue([{txid:second,outputIndex:0,script,satoshis:20010000000,assetName:'XNA',address:'own'}]);
    wallet.rpc.mockImplementation(async(method,params)=>method==='getblockcount'?22485:{confirmations:2,value:params[0]===first?100.1:200.1,scriptPubKey:{hex:script}});
    act(()=>root.render(<C6XnaPrivacyPool wallet={wallet} mnemonic="TEST words" runtime={runtime}/>));await act(async()=>{button('Open private wallet').click();await Promise.resolve();});await act(async()=>jest.advanceTimersByTime(500));
-   act(()=>{const input=host.querySelector('[aria-label="C6 amount"]') as HTMLInputElement;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'200');input.dispatchEvent(new Event('input',{bubbles:true}));});expect(button('Prepare operation').disabled).toBe(true);
-   await act(async()=>jest.advanceTimersByTime(500));expect(button('Prepare operation').disabled).toBe(false);
+   act(()=>{const input=host.querySelector('[aria-label="C6 amount"]') as HTMLInputElement;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'200');input.dispatchEvent(new Event('input',{bubbles:true}));});expect(button('2/2 · Deposit')).toBeUndefined();
+   await act(async()=>jest.advanceTimersByTime(500));expect(button('2/2 · Deposit')?.disabled).toBe(false);
    await act(async()=>{old.resolve([{txid:first,outputIndex:0,script,satoshis:10010000000,assetName:'XNA',address:'own'}]);await Promise.resolve();});
-   expect(button('Prepare operation').disabled).toBe(false);expect(host.querySelector('[aria-label="C6 funding status"]')!.textContent).toContain('200.1 XNA');expect(host.querySelector('[aria-label="C6 funding status"]')!.textContent).not.toContain('100.1 XNA');expect(mock.prepare).not.toHaveBeenCalled();
+   expect(button('2/2 · Deposit')?.disabled).toBe(false);expect(host.querySelector('[aria-label="C6 funding status"]')!.textContent).toContain('200.1 XNA');expect(host.querySelector('[aria-label="C6 funding status"]')!.textContent).not.toContain('100.1 XNA');expect(mock.prepare).not.toHaveBeenCalled();
   }finally{jest.useRealTimers();}
  });
  it('waits for confirmation even when an exact funding output already exists',async()=>{
   jest.useFakeTimers();try{
    let confirmations=0;const script='76a914'+'11'.repeat(20)+'88ac';wallet.getUTXOs.mockResolvedValue([{txid:'aa'.repeat(32),outputIndex:0,script,satoshis:10010000000,assetName:'XNA',address:'own'}]);
    wallet.rpc.mockImplementation(async method=>method==='getblockcount'?22485:{confirmations,value:100.1,scriptPubKey:{hex:script}});
-   act(()=>root.render(<C6XnaPrivacyPool wallet={wallet} mnemonic="TEST words" runtime={runtime}/>));await act(async()=>{button('Open private wallet').click();await Promise.resolve();});await act(async()=>jest.advanceTimersByTime(500));expect(button('Prepare operation').disabled).toBe(true);
-   confirmations=1;await act(async()=>jest.advanceTimersByTime(20000));expect(button('Prepare operation').disabled).toBe(false);expect(mock.prepare).not.toHaveBeenCalled();
+   act(()=>root.render(<C6XnaPrivacyPool wallet={wallet} mnemonic="TEST words" runtime={runtime}/>));await act(async()=>{button('Open private wallet').click();await Promise.resolve();});await act(async()=>jest.advanceTimersByTime(500));expect(button('2/2 · Deposit')).toBeUndefined();
+   confirmations=1;await act(async()=>jest.advanceTimersByTime(20000));expect(button('2/2 · Deposit')?.disabled).toBe(false);expect(mock.prepare).not.toHaveBeenCalled();
   }finally{jest.useRealTimers();}
  });
 
