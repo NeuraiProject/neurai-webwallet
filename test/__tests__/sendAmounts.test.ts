@@ -4,7 +4,7 @@ jest.mock("../../src/betterDialog", () => ({
 }));
 import { Wallet } from "@neuraiproject/neurai-jswallet";
 import { send } from "../../src/Send";
-import { betterConfirm } from "../../src/betterDialog";
+import { betterAlert, betterConfirm } from "../../src/betterDialog";
 
 const confirm = jest.mocked(betterConfirm);
 beforeEach(() => jest.clearAllMocks());
@@ -57,4 +57,69 @@ test.each([
     expect(options?.confirmLabel).toBe('Send');
   }
   expect(wallet.sendRawTransaction).not.toHaveBeenCalled();
+});
+
+describe("DePIN transfers", () => {
+  const depinWallet = (ownerUtxos: unknown[], transferState = "closed") => ({
+    network: "xna-ecdsa-test", baseCurrency: "XNA",
+    getAssetUTXOs: jest.fn().mockResolvedValue(ownerUtxos),
+    rpc: jest.fn().mockResolvedValue({ name: "&CHAT", transfer_state: transferState }),
+    transferAsset: jest.fn().mockResolvedValue({ fee: 0.0123, signedTransaction: "escorted" }),
+    createTransaction: jest.fn().mockResolvedValue({ debug: { amount: "5", fee: "0.01", signedTransaction: "plain" } }),
+    sendRawTransaction: jest.fn(),
+  });
+  const ownerUtxo = { assetName: "&CHAT!", txid: "a".repeat(64), outputIndex: 2 };
+
+  test("the owner's transfer spends and returns the owner token", async () => {
+    const wallet = depinWallet([ownerUtxo]);
+    const clearForm = jest.fn();
+    confirm.mockResolvedValue(true);
+    await send({ wallet: wallet as unknown as Wallet, to: "recipient", asset: "&CHAT", amount: "5", clearForm });
+    expect(wallet.getAssetUTXOs).toHaveBeenCalledWith("&CHAT!");
+    expect(wallet.transferAsset).toHaveBeenCalledWith({
+      assetName: "&CHAT", recipients: [{ address: "recipient", amount: "5" }], broadcast: false,
+    });
+    expect(wallet.createTransaction).not.toHaveBeenCalled();
+    expect(confirm.mock.calls[0][1]).toContain("0.0123");
+    expect(confirm.mock.calls[0][1]).toContain("&CHAT!");
+    expect(wallet.sendRawTransaction).toHaveBeenCalledWith("escorted");
+    expect(clearForm).toHaveBeenCalled();
+  });
+
+  test("without the owner token a closed asset is refused before building", async () => {
+    const wallet = depinWallet([]);
+    await send({ wallet: wallet as unknown as Wallet, to: "recipient", asset: "&CHAT", amount: "5", clearForm: jest.fn() });
+    expect(wallet.rpc).toHaveBeenCalledWith("getassetdata", ["&CHAT"]);
+    expect(jest.mocked(betterAlert).mock.calls[0][1]).toContain("only the wallet holding &CHAT! can send it");
+    expect(wallet.transferAsset).not.toHaveBeenCalled();
+    expect(wallet.createTransaction).not.toHaveBeenCalled();
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  test("without the owner token an open asset is a plain holder transfer", async () => {
+    const wallet = depinWallet([], "open");
+    confirm.mockResolvedValue(false);
+    await send({ wallet: wallet as unknown as Wallet, to: "recipient", asset: "&CHAT", amount: "5", clearForm: jest.fn() });
+    expect(wallet.createTransaction).toHaveBeenCalledWith({ toAddress: "recipient", assetName: "&CHAT", amount: "5" });
+    expect(wallet.transferAsset).not.toHaveBeenCalled();
+    expect(confirm.mock.calls[0][1]).not.toContain("owner token");
+  });
+
+  test("Coin Control cannot drop the owner token from the owner's transfer", async () => {
+    const wallet = depinWallet([ownerUtxo]);
+    await send({
+      wallet: wallet as unknown as Wallet, to: "recipient", asset: "&CHAT", amount: "5", clearForm: jest.fn(),
+      selectedUtxos: [{ assetName: "&CHAT" } as never],
+    });
+    expect(jest.mocked(betterAlert).mock.calls[0][1]).toContain("Coin Control cannot be used for &CHAT");
+    expect(wallet.transferAsset).not.toHaveBeenCalled();
+  });
+
+  test("the owner token itself is sent as an ordinary asset", async () => {
+    const wallet = depinWallet([ownerUtxo]);
+    confirm.mockResolvedValue(false);
+    await send({ wallet: wallet as unknown as Wallet, to: "recipient", asset: "&CHAT!", amount: "1", clearForm: jest.fn() });
+    expect(wallet.getAssetUTXOs).not.toHaveBeenCalled();
+    expect(wallet.createTransaction).toHaveBeenCalledWith({ toAddress: "recipient", assetName: "&CHAT!", amount: "1" });
+  });
 });

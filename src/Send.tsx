@@ -18,6 +18,7 @@ import { isTestnetChain } from "./buildTarget";
 import { formatNumberWith8Decimals } from "./formatNumberWith8Decimals";
 import { isWalletNetwork } from "./networkOptions";
 import { invalidAddressMessage } from "./utils/addressFormat";
+import { getAssetType } from "./utils/assetUtils";
 
 type ValidateAddressResponse = {
   isvalid: boolean;
@@ -390,6 +391,37 @@ function useQRReader(showQRCode: boolean, onResult: (value: string | null) => vo
   return qr;
 }
 
+/** `&NAME` or `&ROOT/SUB`; the owner token `&NAME!` transfers like any other owner token. */
+function isDepinTransferAsset(assetName: string): boolean {
+  return getAssetType(assetName) === "depin" && !assetName.endsWith("!");
+}
+
+/**
+ * DePIN assets are soulbound: unless the asset's transfer state is "open",
+ * consensus only accepts a transfer that spends and re-emits its owner token
+ * (bad-txns-depin-transfer-not-by-owner). Returns that owner token when the
+ * wallet holds it, null when a plain holder transfer is allowed, and throws
+ * when the wallet cannot transfer the asset at all.
+ */
+async function depinEscortOwnerToken(wallet: Wallet, assetName: string): Promise<string | null> {
+  const ownerToken = `${assetName}!`;
+  const ownerUtxos = await wallet.getAssetUTXOs(ownerToken);
+  if (ownerUtxos.some(utxo => utxo.assetName === ownerToken)) return ownerToken;
+  const data = await wallet.rpc("getassetdata", [assetName]) as { transfer_state?: string } | null;
+  if (data?.transfer_state === "open") return null;
+  throw new Error(`${assetName} is a DePIN asset and its transfers are not open: only the wallet holding ${ownerToken} can send it.`);
+}
+
+/** The asset builder spends the owner token and returns it to the wallet. */
+async function createDepinTransfer(wallet: Wallet, to: string, assetName: string, amount: string): Promise<CreateTransactionResult> {
+  const result = await wallet.transferAsset({
+    assetName,
+    recipients: [{ address: to, amount: amountFromInput(amount) }],
+    broadcast: false,
+  });
+  return { debug: { amount, assetName, fee: result.fee, signedTransaction: result.signedTransaction } };
+}
+
 /**
  *
  * Two steps to send
@@ -427,19 +459,24 @@ export async function send({
     ? { toAddress: to, assetName: asset, sendMax: true }
     : { toAddress: to, assetName: asset, amount: amountFromInput(amount) };
 
-  const promise = selectedUtxos
-    ? createCoinControlledTransaction(wallet, txOptions, selectedUtxos)
-    : wallet.createTransaction(txOptions);
-
+  let depinOwnerToken: string | null = null;
+  let sendResult: CreateTransactionResult;
   try {
-    await promise;
+    if (isDepinTransferAsset(asset)) depinOwnerToken = await depinEscortOwnerToken(wallet, asset);
+    if (depinOwnerToken && selectedUtxos) {
+      throw new Error(`Coin Control cannot be used for ${asset}: the transfer must also spend the owner token ${depinOwnerToken}.`);
+    }
+    sendResult = (depinOwnerToken
+      ? await createDepinTransfer(wallet, to, asset, amount)
+      : selectedUtxos
+        ? await createCoinControlledTransaction(wallet, txOptions, selectedUtxos)
+        : await wallet.createTransaction(txOptions)) as CreateTransactionResult;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     betterAlert("Error", errorMessage);
     return;
   }
 
-  const sendResult = (await promise) as CreateTransactionResult;
   // For sendMax, use the wallet-computed amount (the actual amount that
   // lands at the recipient = balance − fee). For regular sends, echo what
   // the user typed.
@@ -450,10 +487,13 @@ export async function send({
     sendMax && sendResult.debug.dustAbsorbedSats
       ? `\n(Dust ${sendResult.debug.dustAbsorbedSats} sats absorbed into fee)`
       : "";
+  const ownerTokenLine = depinOwnerToken
+    ? `\nThe owner token ${depinOwnerToken} is spent and returned to your wallet.`
+    : "";
   const confirmText = `Do you want to send ${displayedAmount} ${asset} to
 ${to}?
 
-Transaction fee: ${String(sendResult.debug.fee)} ${wallet.baseCurrency}${dustLine}`;
+Transaction fee: ${String(sendResult.debug.fee)} ${wallet.baseCurrency}${dustLine}${ownerTokenLine}`;
   const onMainnet = isWalletNetwork(wallet.network) && !isTestnetChain(wallet.network);
   const c = await betterConfirm("About to send", confirmText, onMainnet ? {
     warning: {
