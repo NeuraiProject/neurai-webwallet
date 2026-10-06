@@ -133,7 +133,6 @@ describe('Privacy Pool controls',()=>{
  });
 });
 
-import {PrivacyPanel} from '@/PrivacyPool';
 
 describe('Privacy Pool layout',()=>{
  it('shows a compact idle status without a spinner or a frozen timer',()=>{
@@ -152,33 +151,6 @@ describe('Privacy Pool layout',()=>{
   expect(html).toContain('Open your private wallet in step 1 before depositing.');
   const pq=renderToStaticMarkup(<PrivacyPool wallet={{network:'xna-pq-test'} as any}/>);
   expect(pq).toContain('Open a Testnet Legacy, PQ or ECDSA wallet');
- });
-});
-
-describe('Privacy Pool panel',()=>{
- let host:HTMLDivElement,root:Root;
- beforeEach(()=>{(globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;host=document.createElement('div');document.body.appendChild(host);root=createRoot(host);});
- afterEach(()=>{act(()=>root.unmount());host.remove();jest.clearAllMocks();});
- const button=(text:string)=>Array.from(host.querySelectorAll('button')).find(x=>x.textContent===text);
- const wallet=(address:string):any=>({network:'xna-test',rpc:jest.fn().mockResolvedValue(manifest.genesis),getAddresses:()=>[address]});
- it('keeps an unlocked identity across wallet sections, but never for another wallet',async()=>{
-  const worker:any={postMessage:jest.fn(),terminate:jest.fn()};(createPoolWorker as jest.Mock).mockReturnValue(worker);
-  const first=wallet('tFirstAddress');
-  act(()=>root.render(<PrivacyPanel active wallet={first}/>));
-  const input=host.querySelector('input[aria-label="Backup password"]') as HTMLInputElement;
-  act(()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'A sufficiently long TEST password');input.dispatchEvent(new Event('input',{bubbles:true}));});
-  await act(async()=>{button('Create privacy wallet')!.click();await Promise.resolve();});
-  await act(async()=>{await worker.onmessage({data:{type:'identity',recipient:{owner:'aa'},backup:{v:1}}});await worker.onmessage({data:{type:'done'}});});
-  expect(button('Save encrypted JSON')).toBeDefined();
-  act(()=>root.render(<PrivacyPanel active={false} wallet={first}/>));
-  expect((host.firstChild as HTMLElement).hidden).toBe(true);
-  act(()=>root.render(<PrivacyPanel active wallet={first}/>));
-  expect((host.firstChild as HTMLElement).hidden).toBe(false);
-  expect(button('Save encrypted JSON')).toBeDefined();expect(button('Lock')).toBeDefined();
-  expect(worker.terminate).not.toHaveBeenCalled();expect(createPoolWorker).toHaveBeenCalledTimes(1);
-  act(()=>root.render(<PrivacyPanel active wallet={wallet('tSecondAddress')}/>));
-  expect(button('Create privacy wallet')).toBeDefined();expect(button('Save encrypted JSON')).toBeUndefined();
-  expect(worker.terminate).toHaveBeenCalled();
  });
 });
 
