@@ -10,14 +10,14 @@ function server(enabled=true){
  vm.runInNewContext(source,{module,__dirname:'/app',require:(name:string)=>{
   if(name==='node:fs')return {createReadStream};if(name==='node:fs/promises')return {stat};if(name==='node:path')return path;
   if(name.endsWith('c6-assets-testnet.json'))return {enabled,config:{manifest:{asset:'ASSET_TEST'},artifacts:{files}}};
-  if(name.endsWith('c6-testnet.json'))return {enabled,config:{artifacts:{files}}};return {artifacts:{files}};
+  if(name.endsWith('c6-testnet.json')||name.endsWith('c7-testnet.json'))return {enabled,config:{artifacts:{files}}};return {artifacts:{files}};
  }});
  module.exports({use:(name:string,handler:Function)=>routes.set(name,handler)});
  const res={statusCode:200,setHeader:jest.fn(),end:jest.fn(),destroy:jest.fn()};
  return {routes,stat,createReadStream,stream,res};
 }
 describe('pinned proving artifact development hosting',()=>{
- it.each(['c4','c5','c6','c6-assets/ASSET_TEST'])('serves the pinned %s artifact with its exact size and MIME',async profile=>{
+ it.each(['c4','c5','c6','c7','c6-assets/ASSET_TEST'])('serves the pinned %s artifact with its exact size and MIME',async profile=>{
   const s=server();await s.routes.get('/privacy-'+profile)!({url:'/D.wasm?version=pin',method:'GET'},s.res);
   expect(s.stat).toHaveBeenCalledWith('/app/public/privacy-'+profile+'/D.wasm');expect(s.res.setHeader).toHaveBeenCalledWith('Content-Type','application/wasm');expect(s.res.setHeader).toHaveBeenCalledWith('Content-Length',3);expect(s.stream.pipe).toHaveBeenCalledWith(s.res);
  });

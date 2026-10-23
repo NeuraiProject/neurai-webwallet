@@ -23,7 +23,8 @@
     "privacy:install": "node scripts/install-privacy-c4.mjs",
     "privacy:install:c5": "node scripts/install-privacy-c5.mjs",
     "privacy:install:c6": "node scripts/install-privacy-c6.mjs",
-    "privacy:install:c6-assets": "node scripts/install-privacy-c6-assets.mjs"
+    "privacy:install:c6-assets": "node scripts/install-privacy-c6-assets.mjs",
+    "privacy:install:c7": "node scripts/install-privacy-c7.mjs"
   },
   "keywords": [
     "Neurai",

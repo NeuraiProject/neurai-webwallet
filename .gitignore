@@ -152,5 +152,8 @@ future-changes
 
 /public/privacy-c6/
 
+# Public C7 TEST proving artifacts (the C6 files, checked against the C7 pins).
+/public/privacy-c7/
+
 # Public per-asset C6 TEST parameters, verified by the installer.
 /public/privacy-c6-assets/
