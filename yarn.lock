@@ -724,10 +724,10 @@
     "@noble/secp256k1" "^3.0.0"
     "@scure/base" "^2.4.0"
 
-"@neuraiproject/neurai-privacy@^0.2.1":
-  version "0.2.1"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-privacy/-/neurai-privacy-0.2.1.tgz"
-  integrity sha512-XdCw+G/b7Vf7jw+yllIj4Twvh5bsz5lrtku49OVXDFrHwiZn8+xA9YKBQWHP0qB53VldwpBUmGiG2Yy5ZDe+GQ==
+"@neuraiproject/neurai-privacy@^0.3.0":
+  version "0.3.0"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-privacy/-/neurai-privacy-0.3.0.tgz"
+  integrity sha512-rd3BQG4gDUB15R5860Iyhyd++1g8WCxdw3rtYB8oCmJ41HLeNa0u7oBhyso/hjwL8sNyGrjyUlU/OoTCiuM2Kg==
 
 "@neuraiproject/neurai-rpc@^0.7.0":
   version "0.7.0"
@@ -2308,9 +2308,9 @@ detect-newline@^3.1.0:
   integrity sha512-TLz+x/vEXm/Y7P7wn1EJFNLxYpUD4TgMosxY6fAVJUnJMbupHBOncxyWUG9OpTaH9EBD7uFI5LfEgmMOc54DsA==
 
 dompurify@^3.4.14:
-  version "3.4.16"
-  resolved "https://registry.npmjs.org/dompurify/-/dompurify-3.4.16.tgz"
-  integrity sha512-sqo+pNp3qRhCIpbgRi1y8Tgk27Bo2Ry7w0dC1NBeNTdZChWjz9Xb/KOoZbRP/R6pQZ80Qw8YhXw13hWWBbMRnQ==
+  version "3.4.17"
+  resolved "https://registry.npmjs.org/dompurify/-/dompurify-3.4.17.tgz"
+  integrity sha512-B/pSlYVHQ58kqISD/yDjuJ1yfzI34m1gF4lAod2bwSRhiN4K5Cl3H8Af7hqB2PmTL911tdEudnnXn5FnhRoz0w==
   optionalDependencies:
     "@types/trusted-types" "^2.0.7"
 
@@ -2641,11 +2641,11 @@ graceful-fs@^4.2.11, graceful-fs@^4.2.4:
   integrity sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==
 
 handlebars@^4.7.9:
-  version "4.7.9"
-  resolved "https://registry.npmjs.org/handlebars/-/handlebars-4.7.9.tgz"
-  integrity sha512-4E71E0rpOaQuJR2A3xDZ+GM1HyWYv1clR58tC8emQNeQe3RH7MAzSbat+V0wG78LQBo6m6bzSG/L4pBuCsgnUQ==
+  version "4.7.10"
+  resolved "https://registry.npmjs.org/handlebars/-/handlebars-4.7.10.tgz"
+  integrity sha512-P5VJMVM7qgBn6vjXMw8WG9uVI+ncf2pi72j4de4yz5ZULLj2RGqLYaKOYGsgyrViQ0tePOVlN1tDCCXXtFqXKg==
   dependencies:
-    minimist "^1.2.5"
+    minimist "^1.2.8"
     neo-async "^2.6.2"
     source-map "^0.6.1"
     wordwrap "^1.0.0"
@@ -3496,7 +3496,7 @@ minimatch@^9.0.4:
   dependencies:
     brace-expansion "^2.0.2"
 
-minimist@^1.2.5:
+minimist@^1.2.8:
   version "1.2.8"
   resolved "https://registry.npmjs.org/minimist/-/minimist-1.2.8.tgz"
   integrity sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==
@@ -3993,9 +3993,9 @@ snarkjs@0.7.6:
     r1csfile "0.0.48"
 
 source-map-js@^1.2.1:
-  version "1.2.1"
-  resolved "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz"
-  integrity sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==
+  version "1.2.2"
+  resolved "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz"
+  integrity sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==
 
 source-map-support@0.5.13:
   version "0.5.13"
