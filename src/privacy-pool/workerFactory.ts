@@ -13,3 +13,7 @@ export function createC6PoolWorker(): Worker {
 export function createC6AssetPoolWorker(): Worker {
  return new Worker(new URL('./PoolC6Asset.worker.ts', import.meta.url), {type:'module'});
 }
+
+export function createC7PoolWorker(): Worker {
+  return new Worker(new URL('./PoolC7.worker.ts', import.meta.url), { type: 'module' });
+}

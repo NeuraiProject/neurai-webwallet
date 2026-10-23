@@ -8,7 +8,8 @@ jest.mock('@/privacy-pool/workerFactory',()=>({createPoolWorker:jest.fn(),create
 // here while the asset pool is configured, to prove the wallet hides it.
 jest.mock('@/privacy-pool/c6Deployment',()=>({C6_XNA_TESTNET_RUNTIME:null,C6_XNA_UNAVAILABLE_REASON:'No application-pinned C6 deployment',
  C6_ASSET_TESTNET_RUNTIME:{config:{manifest:{asset:'ASSET_TEST'},expectedCommitment:'aa'.repeat(32)},createWorker:jest.fn()}}));
-import {PrivacyPanel,PrivacyPool} from '@/PrivacyPool';
+jest.mock('@/privacy-pool/c7Deployment',()=>({C7_XNA_TESTNET_RUNTIME:null,C7_XNA_UNAVAILABLE_REASON:'No application-pinned C7 deployment'}));
+import {PrivacyPanel,PrivacyPool,walletPoolVersions} from '@/PrivacyPool';
 import {createPoolWorker} from '@/privacy-pool/workerFactory';
 
 const wallet=(own:string):any=>({network:'xna-ecdsa-test',getAddresses:()=>[own],rpc:jest.fn()});
@@ -33,7 +34,12 @@ describe('Privacy Pool panel',()=>{
   expect(options()).toEqual(['C6']);
   expect(host.querySelector('select[aria-label="C6 pool currency"]')).not.toBeNull();
   act(()=>root.render(<PrivacyPool key="all" wallet={wallet('tFirstAddress')}/>));
-  expect(options()).toEqual(['C4','C5','C6']);
+  expect(options()).toEqual(['C4','C5','C6','C7']);
+ });
+
+ it('offers C7 first, next to C6, once its instance is installed',()=>{
+  expect(walletPoolVersions(null)).toEqual(['C6']);
+  expect(walletPoolVersions({config:{},createWorker:jest.fn()} as any)).toEqual(['C7','C6']);
  });
 
  it('keeps the pool mounted across wallet sections, but never for another wallet',()=>{

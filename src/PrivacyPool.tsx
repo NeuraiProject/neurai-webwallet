@@ -1,4 +1,5 @@
 import {C6_ASSET_TESTNET_RUNTIME,C6_XNA_TESTNET_RUNTIME,C6_XNA_UNAVAILABLE_REASON} from './privacy-pool/c6Deployment';
+import {C7_XNA_TESTNET_RUNTIME,C7_XNA_UNAVAILABLE_REASON} from './privacy-pool/c7Deployment';
 import type {C6XnaRuntime} from './privacy-pool/C6XnaPrivacyPool';
 import type {C6PrivacyRuntime} from './privacy-pool/C6PrivacyPool';
 import React from 'react';
@@ -58,12 +59,12 @@ export interface PrivacyPoolDeployment {
 const C6PrivacyPool=React.lazy(()=>import('./privacy-pool/C6PrivacyPool').then(module=>({default:module.C6PrivacyPool})));
 const C6XnaPrivacyPool=React.lazy(()=>import('./privacy-pool/C6XnaPrivacyPool').then(module=>({default:module.C6XnaPrivacyPool})));
 const C6AssetPrivacyPool=React.lazy(()=>import('./privacy-pool/C6AssetPrivacyPool').then(m=>({default:m.C6AssetPrivacyPool})));
-type PoolVersion='C4'|'C5'|'C6';
-const POOL_LABELS:Record<PoolVersion,string>={C4:'C4 · original TEST pool',C5:'C5 · smaller proving parameters',C6:'C6 · portable proofs and sponsor recovery'};
-const ALL_POOL_VERSIONS:readonly PoolVersion[]=['C4','C5','C6'];
+type PoolVersion='C4'|'C5'|'C6'|'C7';
+const POOL_LABELS:Record<PoolVersion,string>={C4:'C4 · original TEST pool',C5:'C5 · smaller proving parameters',C6:'C6 · portable proofs and sponsor recovery',C7:'C7 · one private wallet, many addresses, fast scanning'};
+const ALL_POOL_VERSIONS:readonly PoolVersion[]=['C4','C5','C6','C7'];
 /** `versions` limits the selector; `c6Assets={false}` hides the C6 asset pool. */
 type PrivacyPoolProps={wallet?:Wallet;mnemonic?:string;passphrase?:string;deployment?:PrivacyPoolDeployment;
-  deployments?:Partial<Record<'C4'|'C5',PrivacyPoolDeployment>>;c6?:C6PrivacyRuntime|{xna:C6XnaRuntime};
+  deployments?:Partial<Record<'C4'|'C5',PrivacyPoolDeployment>>;c6?:C6PrivacyRuntime|{xna:C6XnaRuntime};c7?:C6XnaRuntime|null;
   versions?:readonly PoolVersion[];c6Assets?:boolean};
 const PUBLIC_C4:PrivacyPoolDeployment={manifest:C4_TESTNET_DEPLOYMENT.manifest,createWorker:createPoolWorker};
 const PUBLIC_C5:PrivacyPoolDeployment|null=C5_TESTNET_DEPLOYMENT?{manifest:C5_TESTNET_DEPLOYMENT.manifest,createWorker:createC5PoolWorker}:null;
@@ -81,7 +82,8 @@ export function PrivacyPool(props:PrivacyPoolProps={}) {
   const [switchBlocked,setSwitchBlocked]=React.useState(false);
   const c6=props.c6??(C6_XNA_TESTNET_RUNTIME?{xna:C6_XNA_TESTNET_RUNTIME}:undefined);
   const c6Asset=props.c6Assets===false?null:C6_ASSET_TESTNET_RUNTIME;
-  const chosen=selected==='C6'?null:options[selected];
+  const c7=props.c7===undefined?C7_XNA_TESTNET_RUNTIME:props.c7;
+  const chosen=selected==='C6'||selected==='C7'?null:options[selected];
   return <div className="neurai-stack" style={{display:'grid',gap:'1rem'}}>
     <div className="neurai-card neurai-card--compact">
       <label htmlFor="privacy-pool-version" className="neurai-label">Pool version</label>
@@ -93,7 +95,9 @@ export function PrivacyPool(props:PrivacyPoolProps={}) {
       {switchBlocked&&versions.length>1&&<p className="neurai-hint mt-2 mb-0">Finish or cancel the operation and resolve pending transactions before switching.</p>}
     </div>
     {selected==='C6'&&c6Asset&&<label>Pool currency<select aria-label="C6 pool currency" value={c6Currency} disabled={switchBlocked} onChange={e=>{if(!switchBlocked)setC6Currency(e.target.value);}}><option value="XNA">XNA</option><option value="asset">{c6Asset.config.manifest.asset} · ordinary asset TEST</option></select></label>}
-    {selected==='C6'&&c6Currency==='asset'&&c6Asset?<React.Suspense fallback={<p role="status">Loading private asset wallet…</p>}><C6AssetPrivacyPool key={c6Asset.config.expectedCommitment} wallet={props.wallet} mnemonic={props.mnemonic} passphrase={props.passphrase} runtime={c6Asset} onSwitchBlocked={setSwitchBlocked}/></React.Suspense>:selected==='C6'&&c6?<React.Suspense fallback={<p role="status">Loading C6 wallet…</p>}>{'xna' in c6?<C6XnaPrivacyPool key={'C6-XNA'} wallet={props.wallet} mnemonic={props.mnemonic} passphrase={props.passphrase} runtime={c6.xna} onSwitchBlocked={setSwitchBlocked}/>:<C6PrivacyPool key={'C6'} wallet={props.wallet} mnemonic={props.mnemonic} passphrase={props.passphrase} runtime={c6} onSwitchBlocked={setSwitchBlocked}/>}</React.Suspense>:chosen?<PrivacyPoolSession key={selected+':'+chosen.manifest.commitment} {...props} deployment={chosen} onSwitchBlocked={setSwitchBlocked}/>
+    {selected==='C7'?(c7?<React.Suspense fallback={<p role="status">Loading C7 wallet…</p>}><C6XnaPrivacyPool key={'C7-XNA'} generation="C7" wallet={props.wallet} mnemonic={props.mnemonic} passphrase={props.passphrase} runtime={c7} onSwitchBlocked={setSwitchBlocked}/></React.Suspense>
+      :<section className="neurai-card" role="status"><h2 className="text-xl font-bold">C7 TEST pool unavailable</h2><p>{C7_XNA_UNAVAILABLE_REASON}</p></section>)
+    :selected==='C6'&&c6Currency==='asset'&&c6Asset?<React.Suspense fallback={<p role="status">Loading private asset wallet…</p>}><C6AssetPrivacyPool key={c6Asset.config.expectedCommitment} wallet={props.wallet} mnemonic={props.mnemonic} passphrase={props.passphrase} runtime={c6Asset} onSwitchBlocked={setSwitchBlocked}/></React.Suspense>:selected==='C6'&&c6?<React.Suspense fallback={<p role="status">Loading C6 wallet…</p>}>{'xna' in c6?<C6XnaPrivacyPool key={'C6-XNA'} wallet={props.wallet} mnemonic={props.mnemonic} passphrase={props.passphrase} runtime={c6.xna} onSwitchBlocked={setSwitchBlocked}/>:<C6PrivacyPool key={'C6'} wallet={props.wallet} mnemonic={props.mnemonic} passphrase={props.passphrase} runtime={c6} onSwitchBlocked={setSwitchBlocked}/>}</React.Suspense>:chosen?<PrivacyPoolSession key={selected+':'+chosen.manifest.commitment} {...props} deployment={chosen} onSwitchBlocked={setSwitchBlocked}/>
       :<section className="neurai-card" role="status"><h2 className="text-xl font-bold">{selected} TEST pool unavailable</h2>
         <p>{selected==='C6'?C6_XNA_UNAVAILABLE_REASON:selected==='C5'?C5_UNAVAILABLE_REASON:'No C4 deployment is configured for this test.'}</p></section>}
   </div>;
@@ -683,8 +687,10 @@ function PrivacyPoolSession({wallet,mnemonic='',passphrase='',deployment,onSwitc
  * SendPanel, so an unlocked identity, its notes and a running step survive
  * navigation. Keyed by wallet so another wallet never inherits this identity.
  */
-/** Testing currently focuses on C6 with XNA, so the wallet offers no other pool. */
-const WALLET_POOL_VERSIONS:readonly PoolVersion[]=['C6'];
+/** Testing focuses on the XNA pool: the wallet offers C7, first when its instance
+ * is installed, and C6. */
+export const walletPoolVersions=(c7:C6XnaRuntime|null):readonly PoolVersion[]=>c7?['C7','C6']:['C6'];
+const WALLET_POOL_VERSIONS=walletPoolVersions(C7_XNA_TESTNET_RUNTIME);
 export function PrivacyPanel({active,wallet,mnemonic,passphrase}:{active:boolean;wallet:Wallet;mnemonic?:string;passphrase?:string}) {
   const walletKey=`${wallet.network}:${wallet.getAddresses()[0]}`;
   return <div hidden={!active}><PrivacyPool key={walletKey} wallet={wallet} mnemonic={mnemonic} passphrase={passphrase} versions={WALLET_POOL_VERSIONS} c6Assets={false}/></div>;

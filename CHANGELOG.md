@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added: C7 XNA pool (testnet)
+
+- **The Privacy Pool opens the C7 pool first** when its testnet instance is installed. C6 is still offered in the same selector. Each pool has a separate private balance and encrypted history.
+- **One private wallet, many addresses.** C7 receiving addresses are `tnzk1…` version 3 addresses, derived from the wallet words. Each one is unlinkable to the others. Every new address costs nothing at recovery time, so there is no address gap to manage.
+- **Faster recovery.** Each published note costs one curve multiplication to check, whatever the number of addresses.
+- **Same proving files.** C7 reuses the C6 circuits and proving parameters, served from `/privacy-c6/`, so `npm run privacy:install:c6` installs what both pools need.
+- **Pinned birth.** The instance (`src/privacy-pool/c7-testnet.json`) is checked against its verifiable birth. Its domain must derive from the genesis, the pool's UNIQUE emission and its name.
+
+Requires `@neuraiproject/neurai-privacy` 0.3.0.
+
 ## 1.3.0 — 2026-10-01
 
 ### Added: Privacy Pool (testnet)

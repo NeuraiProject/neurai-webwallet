@@ -13,8 +13,11 @@ type Preview={operationId:string;raw:string;txid:string;inputPoints:Array<{txid:
 const outpoint=(txid:string,vout:number)=>{
   const a=txid.match(/../g)!.reverse();for(let i=0;i<4;i++)a.push(((vout>>>8*i)&255).toString(16).padStart(2,'0'));return a.join('');
 };
-/** XNA uses private-note fees, not detachable asset sponsor signatures. */
-export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwitchBlocked}:{wallet?:Wallet;mnemonic?:string;passphrase?:string;runtime:C6XnaRuntime;onSwitchBlocked?:(v:boolean)=>void}){
+/** XNA uses private-note fees, not detachable asset sponsor signatures. The same
+ * screen serves C7 (generation="C7"): its worker handles nzk v3 addresses and
+ * records, and its encrypted history lives in a separate store. */
+export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwitchBlocked,generation='C6'}:{wallet?:Wallet;mnemonic?:string;passphrase?:string;runtime:C6XnaRuntime;onSwitchBlocked?:(v:boolean)=>void;generation?:'C6'|'C7'}){
+  const pool=generation.toLowerCase();
  const [open,setOpen]=React.useState(false),[busy,setBusy]=React.useState(false),[phase,setPhase]=React.useState('Private wallet locked'),[elapsed,setElapsed]=React.useState(0),[error,setError]=React.useState('');
   const [summary,setSummary]=React.useState<Summary|null>(null),[addresses,setAddresses]=React.useState<ReceivingInfo|null>(null),[operations,setOperations]=React.useState<Operation[]>([]),[preview,setPreview]=React.useState<Preview|null>(null);
   const [zkPass,setZkPass]=React.useState(''),[saved,setSaved]=React.useState(false),[action,setAction]=React.useState('deposit'),[amount,setAmount]=React.useState('100'),[fee,setFee]=React.useState(''),[note,setNote]=React.useState(''),[second,setSecond]=React.useState(''),[destination,setDestination]=React.useState('');
@@ -57,7 +60,7 @@ export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwi
   async function unlock(backup?:any){
     if(!valid)throw Error('Open a supported testnet wallet with its words first');const token=epoch.current;
     client.current?.terminate();void store.current?.close();
-    const db=new IndexedDbSponsorStore({name:'neurai-c6-private-journal-v1'});store.current=db;
+    const db=new IndexedDbSponsorStore({name:'neurai-'+pool+'-private-journal-v1'});store.current=db;
     const c=new C6WorkerClient({worker:runtime.createWorker(),store:db,rpc:async(m,p)=>{live(token);const r=await rpc(m,p);live(token);return r;},onStage:m=>{if(token===epoch.current&&!sync.isRunning())setPhase(m);},onCrash:e=>{if(token===epoch.current){lock();setError(e.message);}}});client.current=c;
     let journalReady=false;
     try{update(await c.derive({family:network!.family,mnemonic,passphrase,zkPassphrase:zkPass}));live(token);
@@ -69,7 +72,7 @@ export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwi
   }
   async function backup(token:number){
     const result=await client.current!.backup();live(token);const url=URL.createObjectURL(new Blob([JSON.stringify(result)],{type:'application/json'}));
-    const a=document.createElement('a');a.href=url;a.download='neurai-c6-private-journal.encrypted.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setSaved(true);
+    const a=document.createElement('a');a.href=url;a.download='neurai-'+pool+'-private-journal.encrypted.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setSaved(true);
   }
   async function restore(file:File,token:number){if(file.size>8001000)throw Error('Backup too large');const value=JSON.parse(await file.text());live(token);await unlock(value);}
   async function exactCoin(value:string){
@@ -149,12 +152,12 @@ export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwi
     </div>
     {!open?<>
       <C6LockedWalletHelp history="Opening the private wallet here for the first time creates its encrypted operation history automatically."/>
-      <label className="neurai-label">ZK passphrase (optional)<input className="neurai-input" type="password" aria-label="C6 private passphrase" autoComplete="off" value={zkPass} disabled={!valid||busy} onChange={e=>setZkPass(e.target.value)}/></label>
+      <label className="neurai-label">ZK passphrase (optional)<input className="neurai-input" type="password" aria-label={generation+" private passphrase"} autoComplete="off" value={zkPass} disabled={!valid||busy} onChange={e=>setZkPass(e.target.value)}/></label>
       <div className="flex flex-wrap gap-2">
         <button className="neurai-btn--primary" disabled={!valid||busy} onClick={()=>void run('Opening private wallet',()=>unlock())}>Open private wallet</button>
       </div>
       <details className="rounded-xl border border-base-300 p-3"><summary className="cursor-pointer text-sm font-semibold">Encrypted history and recovery</summary><div className="neurai-stack mt-3">
-      <label className="neurai-label">Restore pending-operation backup<input className="neurai-input" aria-label="Restore C6 backup" type="file" accept="application/json" disabled={!valid||busy} onChange={e=>{const f=e.target.files?.[0];if(f)void run('Restoring encrypted history',t=>restore(f,t));}}/></label>
+      <label className="neurai-label">Restore pending-operation backup<input className="neurai-input" aria-label={"Restore "+generation+" backup"} type="file" accept="application/json" disabled={!valid||busy} onChange={e=>{const f=e.target.files?.[0];if(f)void run('Restoring encrypted history',t=>restore(f,t));}}/></label>
       <p className="neurai-hint m-0">Optional. Restore the backup of another device to continue its pending operations. Do it before opening the private wallet in this browser: once this browser has its own history, a backup cannot replace it.</p>
       </div></details>
     </>:<>
@@ -162,21 +165,21 @@ export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwi
       <p className="text-sm m-0">{saved?'Encrypted backup downloaded. Local history continues to save automatically.':'Operation history saves encrypted in this browser automatically. Downloading a backup is optional; keep a current one to move pending operations to another device.'}</p>
     </>}
     <div className="rounded-xl border border-base-300 p-3 neurai-stack">
-      <label className="neurai-label">Receive privately<input className="neurai-input font-mono text-xs" aria-label="C6 private receiving address" readOnly placeholder="Open the private wallet to see its receiving address" value={open?addresses?.current.address??'':''}/></label>
+      <label className="neurai-label">Receive privately<input className="neurai-input font-mono text-xs" aria-label={generation+" private receiving address"} readOnly placeholder="Open the private wallet to see its receiving address" value={open?addresses?.current.address??'':''}/></label>
       <p className="neurai-hint m-0">Share this private address for assignments inside this pool. A transparent Legacy, PQ or ECDSA address is used for withdrawals.</p>
       <button className="neurai-btn--secondary btn-sm self-start" disabled={!open||busy} onClick={()=>void run('New private address',async t=>{const m=await client.current!.newAddress();live(t);update(m);setSaved(false);})}>New receiving address</button>
     </div>
   </>;
   const operationPanel=<>
     <fieldset className="neurai-stack min-w-0 border-0 p-0 m-0" disabled={!open||busy||!!preview}>
-      {action!=='deposit'&&<label className="neurai-label">Note<select className="neurai-input" aria-label="C6 note" value={note} onChange={e=>setNote(e.target.value)}><option value="">Select a note</option>{summary?.notes.filter(n=>n.spendable).map(n=><option key={n.cm} value={n.cm}>{formatXna(n.amountAtomic)} XNA · {n.cm.slice(0,8)}</option>)}</select></label>}
-      {action==='join'&&<label className="neurai-label">Second note<select className="neurai-input" aria-label="C6 second note" value={second} onChange={e=>setSecond(e.target.value)}><option value="">Select another note</option>{summary?.notes.filter(n=>n.spendable&&n.cm!==note).map(n=><option key={n.cm} value={n.cm}>{formatXna(n.amountAtomic)} XNA · {n.cm.slice(0,8)}</option>)}</select></label>}
-      {(action==='deposit'||action==='withdraw')&&<label className="neurai-label">Amount (XNA)<input className="neurai-input" aria-label="C6 amount" value={amount} onChange={e=>setAmount(e.target.value)}/></label>}
+      {action!=='deposit'&&<label className="neurai-label">Note<select className="neurai-input" aria-label={generation+" note"} value={note} onChange={e=>setNote(e.target.value)}><option value="">Select a note</option>{summary?.notes.filter(n=>n.spendable).map(n=><option key={n.cm} value={n.cm}>{formatXna(n.amountAtomic)} XNA · {n.cm.slice(0,8)}</option>)}</select></label>}
+      {action==='join'&&<label className="neurai-label">Second note<select className="neurai-input" aria-label={generation+" second note"} value={second} onChange={e=>setSecond(e.target.value)}><option value="">Select another note</option>{summary?.notes.filter(n=>n.spendable&&n.cm!==note).map(n=><option key={n.cm} value={n.cm}>{formatXna(n.amountAtomic)} XNA · {n.cm.slice(0,8)}</option>)}</select></label>}
+      {(action==='deposit'||action==='withdraw')&&<label className="neurai-label">Amount (XNA)<input className="neurai-input" aria-label={generation+" amount"} value={amount} onChange={e=>setAmount(e.target.value)}/></label>}
       {action==='deposit'&&<div className="flex flex-wrap gap-2" aria-label="Quick deposit amounts">{['100','200','500'].map(v=><button type="button" key={v} aria-pressed={amount===v} className={'btn btn-sm '+(amount===v?'btn-primary':'btn-ghost border border-base-300')} onClick={()=>setAmount(v)}>{v} XNA</button>)}</div>}
-      {action==='withdraw'&&<label className="neurai-label">Transparent recipient<input className="neurai-input" aria-label="C6 withdrawal destination" value={destination} onChange={e=>setDestination(e.target.value)}/></label>}
+      {action==='withdraw'&&<label className="neurai-label">Transparent recipient<input className="neurai-input" aria-label={generation+" withdrawal destination"} value={destination} onChange={e=>setDestination(e.target.value)}/></label>}
       {action==='transfer'&&<>{recipients.map((r,i)=><div key={i}><input className="neurai-input" aria-label={'Private recipient '+(i+1)} placeholder="nzk…" value={r.recipient} onChange={e=>setRecipients(rows=>rows.map((row,j)=>j===i?{...row,recipient:e.target.value}:row))}/><input className="neurai-input" aria-label={'Recipient amount '+(i+1)} value={r.amount} onChange={e=>setRecipients(rows=>rows.map((row,j)=>j===i?{...row,amount:e.target.value}:row))}/></div>)}<button className="neurai-btn--secondary" disabled={recipients.length>=3||busy} onClick={()=>setRecipients(rows=>[...rows,{recipient:'',amount:'100'}])}>Add recipient</button><p>At most three output notes, including change. Ordinary payments use multiples of 100 XNA.</p></>}
-      <label className="neurai-label">Fee (XNA)<select className="neurai-input" aria-label="C6 fee" value={fee} onChange={e=>setFee(e.target.value)}>{levels.map(v=><option key={String(v)} value={String(v)}>{formatXna(String(v))}</option>)}</select></label>
-      {action==='deposit'&&<p className="neurai-hint m-0 break-all" role="status" aria-label="C6 funding status">{depositSent?'Deposit '+depositSent+' published; waiting for confirmation. The private balance updates automatically.':fundingMessage||'Checking existing funding…'}{!depositSent&&fundingSent&&!fundingCoin?' Published '+fundingSent+'; waiting for confirmation.':''}{!depositSent&&fundingCoin?' You can now prepare the deposit.':''}</p>}
+      <label className="neurai-label">Fee (XNA)<select className="neurai-input" aria-label={generation+" fee"} value={fee} onChange={e=>setFee(e.target.value)}>{levels.map(v=><option key={String(v)} value={String(v)}>{formatXna(String(v))}</option>)}</select></label>
+      {action==='deposit'&&<p className="neurai-hint m-0 break-all" role="status" aria-label={generation+" funding status"}>{depositSent?'Deposit '+depositSent+' published; waiting for confirmation. The private balance updates automatically.':fundingMessage||'Checking existing funding…'}{!depositSent&&fundingSent&&!fundingCoin?' Published '+fundingSent+'; waiting for confirmation.':''}{!depositSent&&fundingCoin?' You can now prepare the deposit.':''}</p>}
       {action!=='deposit'?<button className="neurai-btn--primary" disabled={!open||busy||!!preview||!fee} onClick={()=>void run('Preparing private operation',prepare)}>Prepare operation</button>
         // A deposit is two steps on one primary button: fund an exact coin, then prove the deposit.
         :depositSent?<button className="neurai-btn--primary" disabled><span className="loading loading-spinner loading-xs" aria-hidden="true"/>Waiting for deposit confirmation…</button>
@@ -188,7 +191,7 @@ export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwi
       {open&&preview&&<C6TransactionReview title="Review private operation" form={preview.form} txid={preview.txid} amount={preview.amount} fee={preview.fee} busy={busy} onPublish={()=>void run('Publishing private operation',publish)} publishLabel="Publish operation" onClose={()=>setPreview(null)} closeLabel="Close preview; keep reservation"/>}
     <p className="neurai-hint m-0">Nothing is sent until you review and publish. A deposit needs a confirmed funding coin for the amount plus the selected fee. Private assignments use multiples of 100 XNA; change stays private.</p>
   </>;
-  return <C6WalletLayout title="Privacy Pool · C6" label="C6 XNA private wallet"
+  return <C6WalletLayout title={"Privacy Pool · "+generation} label={generation+" XNA private wallet"}
     description="Deposit XNA, assign private notes, withdraw or join two notes. Proofs are built on this device."
     open={open} busy={busy} phase={phase} seconds={elapsed} error={error} blockedReason={blockedReason}
     action={action} onAction={setAction} actionsBlocked={!open||busy||!!preview||!!fundingPreview} onCancel={lock}
