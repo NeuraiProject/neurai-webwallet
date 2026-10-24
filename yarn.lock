@@ -724,10 +724,10 @@
     "@noble/secp256k1" "^3.0.0"
     "@scure/base" "^2.4.0"
 
-"@neuraiproject/neurai-privacy@^0.3.0":
-  version "0.3.0"
-  resolved "https://registry.npmjs.org/@neuraiproject/neurai-privacy/-/neurai-privacy-0.3.0.tgz"
-  integrity sha512-rd3BQG4gDUB15R5860Iyhyd++1g8WCxdw3rtYB8oCmJ41HLeNa0u7oBhyso/hjwL8sNyGrjyUlU/OoTCiuM2Kg==
+"@neuraiproject/neurai-privacy@^0.3.1":
+  version "0.3.1"
+  resolved "https://registry.npmjs.org/@neuraiproject/neurai-privacy/-/neurai-privacy-0.3.1.tgz"
+  integrity sha512-+cD76mUcyIvfgD8YPnlS3pvE2unWBfS3/qvNSOlo7TnRbRxz2tKc4XetACsyHYdTnyQ1pXhxJ/hWLAYHm17/1w==
 
 "@neuraiproject/neurai-rpc@^0.7.0":
   version "0.7.0"

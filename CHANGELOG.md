@@ -10,7 +10,12 @@
 - **Same proving files, own folder.** C7 reuses the C6 circuits and proving parameters, served from `/privacy-c7/`. `npm run privacy:install:c7 -- <C6 artifact directory> [destination]` checks the C6 files against the C7 pins and copies them there (default `public/privacy-c7`; `dist/privacy-c7` after a static build).
 - **Pinned birth.** The instance (`src/privacy-pool/c7-testnet.json`) is checked against its verifiable birth. Its domain must derive from the genesis, the pool's UNIQUE emission and its name.
 
-Requires `@neuraiproject/neurai-privacy` 0.3.0.
+### Changed: faster private balance sync
+
+- **The pool history is read in pages.** Opening or refreshing a C6 or C7 private wallet asks the node for the pool's confirmed transactions with `getprivacypoolupdates`, a few calls in all, instead of several calls for every pool operation. On testnet the C6 pool scan goes from about 220 RPC calls to 13. Every transaction is still checked against the pinned instance.
+- **Older nodes keep working.** When the RPC endpoint does not offer `getprivacypoolupdates` (it needs a node with `-spentindex -txindex` and a proxy that allows it), the scan continues with `getspentinfo` as before.
+
+Requires `@neuraiproject/neurai-privacy` 0.3.1.
 
 ## 1.3.0 — 2026-10-01
 
