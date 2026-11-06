@@ -1,23 +1,22 @@
 import React from 'react';
-import {C6TransactionReview} from './C6TransactionReview';
-import {useC6BackgroundSync} from './useC6BackgroundSync';
+import {C7TransactionReview} from './C7TransactionReview';
+import {useC7BackgroundSync} from './useC7BackgroundSync';
 import type {Wallet} from '@neuraiproject/neurai-jswallet';
-import {C6WorkerClient,IndexedDbSponsorStore,confirmedPoolCoins,withdrawalScript,admitTransaction,inspectFundingTransaction,publishTransaction,parseXna,formatXna,type PoolCoin,type ReceivingInfo} from '@neuraiproject/neurai-privacy/client';
-import type {startC6PoolWorker} from '@neuraiproject/neurai-privacy/worker';
+import {C7WorkerClient,IndexedDbJournalStore,confirmedPoolCoins,withdrawalScript,admitTransaction,inspectFundingTransaction,publishTransaction,parseXna,formatXna,type PoolCoin,type ReceivingInfo} from '@neuraiproject/neurai-privacy/client';
+import type {startC7PoolWorker} from '@neuraiproject/neurai-privacy/worker';
 import {poolWalletNetwork,signPoolInputs} from './walletNetwork';
-import {C6WalletLayout,C6LockedWalletHelp,c6WalletBlockedReason} from './C6WalletLayout';
-export interface C6XnaRuntime {config:Omit<Parameters<typeof startC6PoolWorker>[0],'scope'|'snarkjs'|'fetchArtifact'>;createWorker:()=>Worker;}
+import {C7WalletLayout,C7LockedWalletHelp,c7WalletBlockedReason} from './C7WalletLayout';
+export interface C7Runtime {config:Omit<Parameters<typeof startC7PoolWorker>[0],'scope'|'snarkjs'|'fetchArtifact'>;createWorker:()=>Worker;}
 type Operation={id:string;action:string;phase:string;outcome:string|null;txid:string|null};
 type Summary={tip?:{height:number;hash:string};balanceAtomic:string;spendableAtomic:string;reserveAtomic?:string;notes:Array<{cm:string;amountAtomic:string;spendable:boolean;reserved:boolean}>};
 type Preview={operationId:string;raw:string;txid:string;inputPoints:Array<{txid:string;vout:number}>;form:string;fee:string;amount?:string};
 const outpoint=(txid:string,vout:number)=>{
   const a=txid.match(/../g)!.reverse();for(let i=0;i<4;i++)a.push(((vout>>>8*i)&255).toString(16).padStart(2,'0'));return a.join('');
 };
-/** XNA uses private-note fees, not detachable asset sponsor signatures. The same
- * screen serves C7 (generation="C7"): its worker handles nzk v3 addresses and
- * records, and its encrypted history lives in a separate store. */
-export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwitchBlocked,generation='C6'}:{wallet?:Wallet;mnemonic?:string;passphrase?:string;runtime:C6XnaRuntime;onSwitchBlocked?:(v:boolean)=>void;generation?:'C6'|'C7'}){
-  const pool=generation.toLowerCase();
+/** The C7 XNA TEST pool: nzk v3 addresses and records, fees paid from the
+ * private note. Its encrypted history lives in this browser's IndexedDB. */
+export function C7PrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwitchBlocked}:{wallet?:Wallet;mnemonic?:string;passphrase?:string;runtime:C7Runtime;onSwitchBlocked?:(v:boolean)=>void}){
+  const generation='C7',pool='c7';
  const [open,setOpen]=React.useState(false),[busy,setBusy]=React.useState(false),[phase,setPhase]=React.useState('Private wallet locked'),[elapsed,setElapsed]=React.useState(0),[error,setError]=React.useState('');
   const [summary,setSummary]=React.useState<Summary|null>(null),[addresses,setAddresses]=React.useState<ReceivingInfo|null>(null),[operations,setOperations]=React.useState<Operation[]>([]),[preview,setPreview]=React.useState<Preview|null>(null);
   const [zkPass,setZkPass]=React.useState(''),[saved,setSaved]=React.useState(false),[action,setAction]=React.useState('deposit'),[amount,setAmount]=React.useState('100'),[fee,setFee]=React.useState(''),[note,setNote]=React.useState(''),[second,setSecond]=React.useState(''),[destination,setDestination]=React.useState('');
@@ -29,8 +28,8 @@ export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwi
   try{if(fee)requiredFundingAtomic=String(parseXna(amount)+BigInt(fee));}catch{/* Incomplete amounts are not ready to deposit. */}
   const fundingReady=requiredFundingAtomic!==null&&fundingCoin!==null&&String(fundingCoin.valueSats)===requiredFundingAtomic;
   const [recipients,setRecipients]=React.useState([{recipient:'',amount:'100'}]);
-  const client=React.useRef<C6WorkerClient|null>(null),store=React.useRef<IndexedDbSponsorStore|null>(null),epoch=React.useRef(0),running=React.useRef(false);
-  const network=wallet&&poolWalletNetwork(wallet.network),blockedReason=c6WalletBlockedReason(wallet?.network,!!mnemonic,runtime.config.network),valid=blockedReason===null;
+  const client=React.useRef<C7WorkerClient|null>(null),store=React.useRef<IndexedDbJournalStore|null>(null),epoch=React.useRef(0),running=React.useRef(false);
+  const network=wallet&&poolWalletNetwork(wallet.network),blockedReason=c7WalletBlockedReason(wallet?.network,!!mnemonic,runtime.config.network),valid=blockedReason===null;
   const opName=action==='deposit'?'D':action==='withdraw'?'W':action==='join'?'J2':('T'+Math.min(3,recipients.length+1));
   const levels=runtime.config.manifest.fees[opName as keyof typeof runtime.config.manifest.fees]??[];
   React.useEffect(()=>{setFee(String(levels[0]??''));},[action,recipients.length,runtime]);
@@ -38,7 +37,7 @@ export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwi
   React.useEffect(()=>{lock();return()=>{epoch.current++;client.current?.terminate();void store.current?.close();};},[wallet,mnemonic,passphrase,runtime,lock]);
   React.useEffect(()=>{onSwitchBlocked?.(busy||!!preview||!!fundingPreview);return()=>onSwitchBlocked?.(false);},[busy,preview,fundingPreview,onSwitchBlocked]);
   React.useEffect(()=>{if(!busy)return;const start=Date.now();setElapsed(0);const timer=setInterval(()=>setElapsed(Math.floor((Date.now()-start)/1000)),1000);return()=>clearInterval(timer);},[busy]);
-  const live=(token:number)=>{if(token!==epoch.current)throw Error('C6 wallet locked or switched');};
+  const live=(token:number)=>{if(token!==epoch.current)throw Error('C7 wallet locked or switched');};
   const rpc=React.useCallback(async (method:string,params:unknown[]=[])=>{
     if(!valid)throw Error('Supported testnet wallet required');
     let timer:ReturnType<typeof setTimeout>|undefined;
@@ -60,8 +59,8 @@ export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwi
   async function unlock(backup?:any){
     if(!valid)throw Error('Open a supported testnet wallet with its words first');const token=epoch.current;
     client.current?.terminate();void store.current?.close();
-    const db=new IndexedDbSponsorStore({name:'neurai-'+pool+'-private-journal-v1'});store.current=db;
-    const c=new C6WorkerClient({worker:runtime.createWorker(),store:db,rpc:async(m,p)=>{live(token);const r=await rpc(m,p);live(token);return r;},onStage:m=>{if(token===epoch.current&&!sync.isRunning())setPhase(m);},onCrash:e=>{if(token===epoch.current){lock();setError(e.message);}}});client.current=c;
+    const db=new IndexedDbJournalStore({name:'neurai-'+pool+'-private-journal-v1'});store.current=db;
+    const c=new C7WorkerClient({worker:runtime.createWorker(),store:db,rpc:async(m,p)=>{live(token);const r=await rpc(m,p);live(token);return r;},onStage:m=>{if(token===epoch.current&&!sync.isRunning())setPhase(m);},onCrash:e=>{if(token===epoch.current){lock();setError(e.message);}}});client.current=c;
     let journalReady=false;
     try{update(await c.derive({family:network!.family,mnemonic,passphrase,zkPassphrase:zkPass}));live(token);
       // First use creates the encrypted history; an existing one is opened, never replaced.
@@ -137,7 +136,7 @@ export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwi
   }
   // A published deposit keeps its step locked until the journal records its outcome.
   React.useEffect(()=>{if(depositSent&&operations.some(o=>o.txid===depositSent&&o.outcome))setDepositSent(null);},[depositSent,operations]);
-  const sync=useC6BackgroundSync({active:open&&!!summary?.tip,paused:busy||!!preview||!!fundingPreview,tip:summary?.tip,rpc,
+  const sync=useC7BackgroundSync({active:open&&!!summary?.tip,paused:busy||!!preview||!!fundingPreview,tip:summary?.tip,rpc,
     canStart:()=>!running.current,
     scan:async()=>{const token=epoch.current,result=await client.current!.scan();live(token);return result;},apply:update});
   const walletPanel=<>
@@ -151,7 +150,7 @@ export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwi
       {open&&summary?.reserveAtomic!==undefined&&<p className="neurai-hint mt-3 mb-0 border-t border-base-300 pt-3">Total in the pool, all wallets: {formatXna(summary.reserveAtomic)} XNA</p>}
     </div>
     {!open?<>
-      <C6LockedWalletHelp history="Opening the private wallet here for the first time creates its encrypted operation history automatically."/>
+      <C7LockedWalletHelp history="Opening the private wallet here for the first time creates its encrypted operation history automatically."/>
       <label className="neurai-label">ZK passphrase (optional)<input className="neurai-input" type="password" aria-label={generation+" private passphrase"} autoComplete="off" value={zkPass} disabled={!valid||busy} onChange={e=>setZkPass(e.target.value)}/></label>
       <div className="flex flex-wrap gap-2">
         <button className="neurai-btn--primary" disabled={!valid||busy} onClick={()=>void run('Opening private wallet',()=>unlock())}>Open private wallet</button>
@@ -186,12 +185,12 @@ export function C6XnaPrivacyPool({wallet,mnemonic='',passphrase='',runtime,onSwi
         :fundingReady?<button className="neurai-btn--primary" disabled={!open||busy||!!preview||!!fundingPreview||!fee} onClick={()=>void run('Preparing private operation',prepare)}>2/2 · Deposit</button>
         :fundingSent?<button className="neurai-btn--primary" disabled><span className="loading loading-spinner loading-xs" aria-hidden="true"/>Waiting for funding confirmation…</button>
         :<button className="neurai-btn--primary" disabled={busy||!open||!fee||!fundingMessage||fundingMessage.startsWith('Funding check:')||!!fundingPreview} onClick={()=>void run('Preparing exact funding coin',prepareFunding)}>1/2 · Prepare funding coin</button>}
-      {open&&fundingPreview&&<C6TransactionReview title="Review funding transaction" txid={fundingPreview.txid} amount={fundingPreview.amount} fee={fundingPreview.fee} busy={busy} onPublish={()=>void run('Publishing funding coin',async t=>{await publishTransaction(async(m,p)=>{live(t);const r=await rpc(m,p);live(t);return r;},{genesis:runtime.config.deployment.genesis},fundingPreview);live(t);setFundingSent(fundingPreview.txid);setFundingPreview(null);})} publishLabel="Publish funding coin" onClose={()=>setFundingPreview(null)}/>}
+      {open&&fundingPreview&&<C7TransactionReview title="Review funding transaction" txid={fundingPreview.txid} amount={fundingPreview.amount} fee={fundingPreview.fee} busy={busy} onPublish={()=>void run('Publishing funding coin',async t=>{await publishTransaction(async(m,p)=>{live(t);const r=await rpc(m,p);live(t);return r;},{genesis:runtime.config.deployment.genesis},fundingPreview);live(t);setFundingSent(fundingPreview.txid);setFundingPreview(null);})} publishLabel="Publish funding coin" onClose={()=>setFundingPreview(null)}/>}
     </fieldset>
-      {open&&preview&&<C6TransactionReview title="Review private operation" form={preview.form} txid={preview.txid} amount={preview.amount} fee={preview.fee} busy={busy} onPublish={()=>void run('Publishing private operation',publish)} publishLabel="Publish operation" onClose={()=>setPreview(null)} closeLabel="Close preview; keep reservation"/>}
+      {open&&preview&&<C7TransactionReview title="Review private operation" form={preview.form} txid={preview.txid} amount={preview.amount} fee={preview.fee} busy={busy} onPublish={()=>void run('Publishing private operation',publish)} publishLabel="Publish operation" onClose={()=>setPreview(null)} closeLabel="Close preview; keep reservation"/>}
     <p className="neurai-hint m-0">Nothing is sent until you review and publish. A deposit needs a confirmed funding coin for the amount plus the selected fee. Private assignments use multiples of 100 XNA; change stays private.</p>
   </>;
-  return <C6WalletLayout title={"Privacy Pool · "+generation} label={generation+" XNA private wallet"}
+  return <C7WalletLayout title={"Privacy Pool · "+generation} label={generation+" XNA private wallet"}
     description="Deposit XNA, assign private notes, withdraw or join two notes. Proofs are built on this device."
     open={open} busy={busy} phase={phase} seconds={elapsed} error={error} blockedReason={blockedReason}
     action={action} onAction={setAction} actionsBlocked={!open||busy||!!preview||!!fundingPreview} onCancel={lock}

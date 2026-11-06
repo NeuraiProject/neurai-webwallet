@@ -5,7 +5,7 @@ type Options={active:boolean;paused:boolean;tip?:Tip;rpc:(method:string,params?:
  * caller shares the pending promise with foreground actions: a single worker
  * must never receive overlapping scan/prove/journal requests. No broadcasts.
  */
-export function useC6BackgroundSync(options:Options){
+export function useC7BackgroundSync(options:Options){
   const latest=React.useRef(options);latest.current=options;
   const pending=React.useRef<Promise<void>|null>(null),generation=React.useRef(0),failures=React.useRef(0),retryAt=React.useRef(0);
   const [syncing,setSyncing]=React.useState(false),[warning,setWarning]=React.useState('');

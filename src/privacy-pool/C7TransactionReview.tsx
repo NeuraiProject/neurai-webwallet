@@ -2,7 +2,7 @@ import React from 'react';
 /** Review the captured transaction, not the live form values. Publishing remains
  * an explicit action; durable private reservations are kept when closing it.
  */
-export function C6TransactionReview({title,form,txid,amount,unit='XNA',fee,busy,onPublish,onClose,publishLabel,closeLabel='Discard funding preview'}:{title:string;form?:string;txid:string;amount?:string;unit?:string;fee:string;busy:boolean;onPublish:()=>void;onClose:()=>void;publishLabel:string;closeLabel?:string}) {
+export function C7TransactionReview({title,form,txid,amount,unit='XNA',fee,busy,onPublish,onClose,publishLabel,closeLabel='Discard funding preview'}:{title:string;form?:string;txid:string;amount?:string;unit?:string;fee:string;busy:boolean;onPublish:()=>void;onClose:()=>void;publishLabel:string;closeLabel?:string}) {
   return <section className="neurai-card neurai-stack min-w-0 border border-primary/40 bg-primary/5" aria-label={title}>
     <div className="flex items-center justify-between gap-2"><h3 className="neurai-card__title m-0">{title}</h3>{form&&<span className="badge badge-outline font-mono">{form}</span>}</div>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg bg-base-200/50 p-3">

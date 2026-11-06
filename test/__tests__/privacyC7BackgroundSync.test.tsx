@@ -1,11 +1,11 @@
 /** @jest-environment jsdom */
 import React,{act} from 'react';
 import {createRoot,Root} from 'react-dom/client';
-import {useC6BackgroundSync} from '../../src/privacy-pool/useC6BackgroundSync';
+import {useC7BackgroundSync} from '../../src/privacy-pool/useC7BackgroundSync';
 function deferred(){let resolve!:(v:any)=>void;const promise=new Promise<any>(r=>{resolve=r;});return {resolve,promise};}
-describe('C6 silent confirmed-state refresh',()=>{
- let root:Root,host:HTMLDivElement,api:ReturnType<typeof useC6BackgroundSync>,hash:string,options:any;
- function Harness(){api=useC6BackgroundSync(options);return <><input aria-label="Amount"/><p>{api.syncing?'Refreshing':'Idle'}</p><span>{api.warning}</span></>;}
+describe('C7 silent confirmed-state refresh',()=>{
+ let root:Root,host:HTMLDivElement,api:ReturnType<typeof useC7BackgroundSync>,hash:string,options:any;
+ function Harness(){api=useC7BackgroundSync(options);return <><input aria-label="Amount"/><p>{api.syncing?'Refreshing':'Idle'}</p><span>{api.warning}</span></>;}
  const render=()=>act(()=>root.render(<Harness/>));
  beforeEach(()=>{jest.useFakeTimers();(globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;hash='11'.repeat(32);host=document.createElement('div');document.body.appendChild(host);root=createRoot(host);
   options={active:true,paused:false,tip:{height:100,hash},rpc:jest.fn(async()=>hash),canStart:jest.fn(()=>true),scan:jest.fn(async()=>({scan:{result:{balanceAtomic:'10000000000'}}})),apply:jest.fn()};

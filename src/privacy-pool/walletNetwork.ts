@@ -15,16 +15,9 @@ export function poolWalletNetwork(network:string) {
   return config;
 }
 
-/** Apply the same chain/family translation as jswallet's transaction engine. */
-export function signPoolTransaction(network:string,
-  raw:string, coins:Parameters<typeof Signer.sign>[2], keys:Parameters<typeof Signer.sign>[3]) {
-  const config=poolWalletNetwork(network);
-  if(!config)throw new Error('Unsupported wallet network for this privacy pool');
-  return Signer.sign(config.signer,raw,coins,keys);
-}
-
-/** C6 opt-in per-input sighash; existing C4/C5 callers keep ALL defaults. */
+/** Sign the pool transaction's funding input with the per-input sighash the
+ * pool asks for, applying the same chain/family translation as jswallet. */
 export function signPoolInputs(network:string,raw:string,coins:Parameters<typeof Signer.sign>[2],keys:Parameters<typeof Signer.sign>[3],inputHashTypes:Record<number,1|131>) {
-  const config=poolWalletNetwork(network);if(!config)throw new Error('Unsupported C6 wallet network');
+  const config=poolWalletNetwork(network);if(!config)throw new Error('Unsupported wallet network for this privacy pool');
   return Signer.sign(config.signer,raw,coins,keys,{debug:false,inputHashTypes});
 }
